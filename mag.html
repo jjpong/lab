@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>磁力線模擬器</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        input {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="magnetCanvas" width="600" height="400"></canvas><br>
+    <label for="strength1">磁鐵1強度: </label>
+    <input type="range" id="strength1" min="1" max="100" value="50"><br>
+    <label for="strength2">磁鐵2強度: </label>
+    <input type="range" id="strength2" min="1" max="100" value="50"><br>
+    <button id="toggleMagnet2">增加磁鐵</button>
+    <button id="rotateMagnet1">旋轉磁鐵1</button>
+    <button id="rotateMagnet2" style="display: none;">旋轉磁鐵2</button>
+
+    <script>
+        const canvas = document.getElementById('magnetCanvas');
+        const ctx = canvas.getContext('2d');
+        const strength1Slider = document.getElementById('strength1');
+        const strength2Slider = document.getElementById('strength2');
+        const toggleMagnet2Button = document.getElementById('toggleMagnet2');
+        const rotateMagnet1Button = document.getElementById('rotateMagnet1');
+        const rotateMagnet2Button = document.getElementById('rotateMagnet2');
+
+        let magnet1 = { x: 100, y: 200, strength: 50, angle: 0, length: 120, width: 15 };
+        let magnet2 = { x: 500, y: 200, strength: 50, angle: 0, length: 120, width: 15, active: false };
+        let draggingMagnet = null;
+
+        function drawMagnet(magnet) {
+            ctx.save();
+            ctx.translate(magnet.x, magnet.y);
+            ctx.rotate(magnet.angle);
+
+            // 繪製紅色部分 (N極)
+            ctx.fillStyle = 'red';
+            ctx.fillRect(-magnet.width/2, -magnet.length/2, magnet.width, magnet.length/2);
+            
+            // 繪製藍色部分 (S極)
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(-magnet.width/2, 0, magnet.width, magnet.length/2);
+            
+            // 添加黑色外框
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-magnet.width/2, -magnet.length/2, magnet.width, magnet.length);
+            
+            // 添加N和S標籤
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('N', 0, -magnet.length/4);
+            ctx.fillText('S', 0, magnet.length/4);
+
+            ctx.restore();
+        }
+
+        function drawArrow(fromx, fromy, tox, toy) {
+            const headlen = 5;
+            const dx = tox - fromx;
+            const dy = toy - fromy;
+            const angle = Math.atan2(dy, dx);
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+        }
+
+        function calculateMagneticField(x, y, magnet) {
+            const nPole = {
+                x: magnet.x + Math.sin(magnet.angle) * magnet.length / 2,
+                y: magnet.y - Math.cos(magnet.angle) * magnet.length / 2
+            };
+            const sPole = {
+                x: magnet.x - Math.sin(magnet.angle) * magnet.length / 2,
+                y: magnet.y + Math.cos(magnet.angle) * magnet.length / 2
+            };
+
+            function calculateForce(pole, polarity) {
+                const dx = x - pole.x;
+                const dy = y - pole.y;
+                const r2 = dx*dx + dy*dy;
+                const force = magnet.strength / (r2 * Math.sqrt(r2)) * 50000;
+                return {
+                    fx: force * dx / Math.sqrt(r2) * polarity,
+                    fy: force * dy / Math.sqrt(r2) * polarity
+                };
+            }
+
+            const nForce = calculateForce(nPole, 1);
+            const sForce = calculateForce(sPole, -1);
+
+            return {
+                fx: nForce.fx + sForce.fx,
+                fy: nForce.fy + sForce.fy
+            };
+        }
+
+        function drawFieldLines() {
+            ctx.strokeStyle = 'blue';
+            for (let y = 0; y < canvas.height; y += 15) {
+                for (let x = 0; x < canvas.width; x += 15) {
+                    let fx = 0, fy = 0;
+                    const field1 = calculateMagneticField(x, y, magnet1);
+                    fx += field1.fx;
+                    fy += field1.fy;
+                    if (magnet2.active) {
+                        const field2 = calculateMagneticField(x, y, magnet2);
+                        fx += field2.fx;
+                        fy += field2.fy;
+                    }
+                    
+                    const magnitude = Math.sqrt(fx*fx + fy*fy);
+                    if (magnitude > 0) {
+                        fx /= magnitude;
+                        fy /= magnitude;
+                    }
+                    
+                    ctx.beginPath();
+                    drawArrow(x, y, x + fx * 10, y + fy * 10);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawFieldLines();
+            drawMagnet(magnet1);
+            if (magnet2.active) {
+                drawMagnet(magnet2);
+            }
+        }
+
+        strength1Slider.addEventListener('input', (e) => {
+            magnet1.strength = parseInt(e.target.value);
+            draw();
+        });
+
+        strength2Slider.addEventListener('input', (e) => {
+            magnet2.strength = parseInt(e.target.value);
+            if (magnet2.active) draw();
+        });
+
+        toggleMagnet2Button.addEventListener('click', () => {
+            magnet2.active = !magnet2.active;
+            if (magnet2.active) {
+                toggleMagnet2Button.textContent = '減少磁鐵';
+                rotateMagnet2Button.style.display = 'inline';
+            } else {
+                toggleMagnet2Button.textContent = '增加磁鐵';
+                rotateMagnet2Button.style.display = 'none';
+            }
+            draw();
+        });
+
+        rotateMagnet1Button.addEventListener('click', () => {
+            magnet1.angle += Math.PI / 4;
+            draw();
+        });
+
+        rotateMagnet2Button.addEventListener('click', () => {
+            magnet2.angle += Math.PI / 4;
+            draw();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            if (Math.abs(mouseX - magnet1.x) < 60 && Math.abs(mouseY - magnet1.y) < 60) {
+                draggingMagnet = magnet1;
+            } else if (magnet2.active && Math.abs(mouseX - magnet2.x) < 60 && Math.abs(mouseY - magnet2.y) < 60) {
+                draggingMagnet = magnet2;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingMagnet) {
+                const rect = canvas.getBoundingClientRect();
+                draggingMagnet.x = e.clientX - rect.left;
+                draggingMagnet.y = e.clientY - rect.top;
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingMagnet = null;
+        });
+
+        draw();
+    </script>
+</body>
+</html>
