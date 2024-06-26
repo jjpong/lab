@@ -26,11 +26,11 @@
         }
         .experiment {
             width: 300px;
-            height: 500px; /* 增加高度 */
+            height: 500px;
             border: 2px solid black;
             position: relative;
             background-color: #e6f7ff;
-            overflow: visible;
+            overflow: hidden;
         }
         #object {
             width: 50px;
@@ -125,12 +125,7 @@
         const netForceArrow = document.getElementById('netForceArrow');
 
         let isDragging = false;
-let dragStartY;
-let dragStartPosition;
-        let currentY;
         let initialY;
-        let yOffset = 0;
-
         let velocity = 0;
         let position = 175; // 初始位置
         const damping = 0.95; // 調整阻尼系數
@@ -142,41 +137,40 @@ let dragStartPosition;
         document.addEventListener("mousemove", drag);
         document.addEventListener("mouseup", dragEnd);
 
- function dragStart(e) {
-    if (e.target === object) {
-        isDragging = true;
-        initialY = e.clientY - position; // 修改這裡
-        cancelAnimationFrame(animationId);
-        isPlaying = false;
-        playBtn.textContent = "PLAY";
-    }
-}
+        function dragStart(e) {
+            if (e.target === object) {
+                isDragging = true;
+                initialY = e.clientY - position;
+                cancelAnimationFrame(animationId);
+                isPlaying = false;
+                playBtn.textContent = "PLAY";
+            }
+        }
 
         function drag(e) {
-    if (isDragging) {
-        e.preventDefault();
-        const experimentRect = object.parentElement.getBoundingClientRect();
-        const objectHeight = object.offsetHeight;
-        
-        // 計算新的位置
-        let newY = e.clientY - experimentRect.top - initialY;
-        
-        // 限制物體在實驗容器內
-        newY = Math.max(0, Math.min(newY, experimentRect.height - objectHeight));
-        
-        position = newY;
-        setTranslate(0, position);
-        calculate();
-    }
-}
+            if (isDragging) {
+                e.preventDefault();
+                const experimentRect = object.parentElement.getBoundingClientRect();
+                const objectHeight = object.offsetHeight;
+                
+                let newY = e.clientY - experimentRect.top - initialY;
+                newY = Math.max(0, Math.min(newY, experimentRect.height - objectHeight));
+                
+                position = newY;
+                setTranslate(0, position);
+                calculate();
+            }
+        }
 
-function dragEnd(e) {
-    isDragging = false;
-}
-function setTranslate(xPos, yPos) {
-    object.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
-    updateArrows();
-}
+        function dragEnd(e) {
+            isDragging = false;
+        }
+
+        function setTranslate(xPos, yPos) {
+            object.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+            updateArrows();
+        }
+
         function calculate() {
             const objectDensity = parseFloat(objectDensityInput.value);
             const objectVolume = parseFloat(objectVolumeInput.value);
@@ -184,12 +178,24 @@ function setTranslate(xPos, yPos) {
             
             const objectWeight = objectDensity * objectVolume;
             const objectHeight = object.offsetHeight;
-            const liquidHeight = liquid.offsetHeight;
             const containerHeight = object.parentElement.offsetHeight;
             
             const objectBottom = position + objectHeight;
-            const submergedHeight = Math.max(0, Math.min(objectHeight, liquidHeight - (containerHeight - objectBottom)));
+            const initialLiquidHeight = 250; // 初始液體高度
+            const containerWidth = 300; // 容器寬度
+            const containerVolume = containerHeight * containerWidth;
+            const initialLiquidVolume = initialLiquidHeight * containerWidth;
+
+            // 計算浸沒部分的高度
+            const submergedHeight = Math.max(0, Math.min(objectHeight, initialLiquidHeight - (containerHeight - objectBottom)));
             const submergedVolume = (submergedHeight / objectHeight) * objectVolume;
+            
+            // 計算新的液體高度
+            const newLiquidVolume = initialLiquidVolume + submergedVolume;
+            const newLiquidHeight = newLiquidVolume / containerWidth;
+            
+            // 更新液體高度
+            liquid.style.height = `${newLiquidHeight}px`;
             
             const buoyancy = liquidDensity * submergedVolume;
             const netForce = objectWeight - buoyancy;
@@ -203,15 +209,15 @@ function setTranslate(xPos, yPos) {
 
             return netForce;
         }
-       function updateObjectSize() {
+
+        function updateObjectSize() {
             const volume = parseFloat(objectVolumeInput.value);
-            const minSize = 50; // 最小尺寸
-            const maxSize = 150; // 最大尺寸
+            const minSize = 50;
+            const maxSize = 150;
             const size = minSize + (Math.cbrt(volume) / Math.cbrt(10000)) * (maxSize - minSize);
             object.style.width = `${size}px`;
             object.style.height = `${size}px`;
-            object.style.left = `${150 - size / 2}px`; // 保持物體在中心
-
+            object.style.left = `${150 - size / 2}px`;
         }
 
         function updateArrows() {
@@ -222,11 +228,15 @@ function setTranslate(xPos, yPos) {
             updateArrow(weightArrow, objectWeight, true);
             updateArrow(buoyancyArrow, buoyancy, false);
             updateArrow(netForceArrow, Math.abs(netForce), netForce > 0);
+            
+            // 調整箭頭位置以適應新的液面高度
+            const liquidHeight = parseFloat(liquid.style.height);
+            buoyancyArrow.style.bottom = `${liquidHeight}px`;
         }
 
         function updateArrow(arrow, force, isDownward) {
-            const maxForce = 5000; // 調整此值以改變箭頭縮放
-            const maxHeight = 200; // 最大箭頭高度
+            const maxForce = 5000;
+            const maxHeight = 200;
             let height = Math.min((force / maxForce) * maxHeight, maxHeight);
             
             arrow.style.height = `${height}px`;
@@ -271,7 +281,7 @@ function setTranslate(xPos, yPos) {
             const objectHeight = object.offsetHeight;
 
             if (position < 0 || position + objectHeight > containerHeight) {
-                velocity *= -0.5; // Bounce off the top or bottom
+                velocity *= -0.5;
                 position = Math.max(0, Math.min(position, containerHeight - objectHeight));
             }
 
@@ -292,6 +302,7 @@ function setTranslate(xPos, yPos) {
             velocity = 0;
             isPlaying = false;
             playBtn.textContent = "PLAY";
+            liquid.style.height = '250px'; // 重置液體高度為初始高度
             calculate();
         });
 
