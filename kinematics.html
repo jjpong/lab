@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>物理實驗模擬器</title>
     <style>
-        body { font-family: Arial, sans-serif; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
         canvas { border: 1px solid black; }
         .slider-container { margin: 10px 0; }
         .slider-container label { display: inline-block; width: 120px; }
@@ -15,8 +15,8 @@
     <h1>物理實驗模擬器</h1>
     <div class="slider-container">
         <label for="force">外力 (N):</label>
-        <input type="range" id="force" min="0" max="100" value="50" step="0.1">
-        <span id="forceValue">50</span>
+        <input type="range" id="force" min="-100" max="100" value="0" step="1">
+        <span id="forceValue">0</span>
     </div>
     <div class="slider-container">
         <label for="mass">質量 (kg):</label>
@@ -34,41 +34,49 @@
         <span id="angleValue">0</span>
     </div>
     <div class="slider-container">
-        <label for="interval">時間間隔 (s):</label>
+        <label for="interval">紀錄時間間隔 (s):</label>
         <input type="range" id="interval" min="0.01" max="0.1" value="0.05" step="0.01">
         <span id="intervalValue">0.05</span>
     </div>
     <button id="startStop">開始/暫停</button>
     <button id="reset">重置</button>
     <br><br>
-    <canvas id="simulationCanvas" width="1200" height="800"></canvas>
+    <canvas id="simulationCanvas" width="1000" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('simulationCanvas');
         const ctx = canvas.getContext('2d');
 
         // 實驗參數
-        let force = 50;
+        let force = 0;
         let mass = 1;
         let friction_coef = 0.1;
         let angle = 0;
-        let time_interval = 0.05;
-        const track_length = 10;
-        const g = 9.8;
+        let record_interval = 0.05;
+        const track_length = 10; // 10 meters
+        const g = 9.8; // m/s^2
 
         // 物體狀態
         let position = 0;
         let velocity = 0;
         let acceleration = 0;
         let time = 0;
-        let positions = [];
+        let lastRecordTime = 0;
+        let records = [];
 
         // 模擬狀態
         let simulating = false;
 
         // 軌道繪製參數
-        const TRACK_START = { x: 100, y: 700 };
-        const TRACK_END = { x: 1100, y: 700 };
+        const TRACK_START = { x: 50, y: 500 };
+        const TRACK_END = { x: 950, y: 500 };
+
+        // 方塊大小（像素）
+        const BLOCK_SIZE = 30;
+
+        // 動畫和計算參數
+        const CALCULATION_STEP = 0.01; // 計算步長（秒）
+        const ANIMATION_SPEED_FACTOR = 0.2; // 動畫速度因子（越大越慢）
 
         // 更新滑塊值顯示
         function updateSliderValue(id) {
@@ -82,7 +90,11 @@
         ['force', 'mass', 'friction', 'angle', 'interval'].forEach(id => {
             const slider = document.getElementById(id);
             slider.addEventListener('input', () => {
-                window[id] = updateSliderValue(id);
+                if (id === 'interval') {
+                    record_interval = updateSliderValue(id);
+                } else {
+                    window[id] = updateSliderValue(id);
+                }
             });
         });
 
@@ -90,7 +102,7 @@
         document.getElementById('startStop').addEventListener('click', () => {
             simulating = !simulating;
             if (simulating) {
-                requestAnimationFrame(simulate);
+                requestAnimationFrame(animate);
             }
         });
 
@@ -98,35 +110,75 @@
         document.getElementById('reset').addEventListener('click', () => {
             position = 0;
             velocity = 0;
+            acceleration = 0;
             time = 0;
-            positions = [];
+            lastRecordTime = 0;
+            records = [];
             simulating = false;
             drawSimulation();
         });
 
-        function simulate() {
-            if (!simulating) return;
-
-            // 計算加速度
+        function calculateMotion(deltaTime) {
             const angle_rad = angle * Math.PI / 180;
-            acceleration = (force - friction_coef * mass * g * Math.cos(angle_rad) - mass * g * Math.sin(angle_rad)) / mass;
-
-            // 更新速度和位置
-            velocity += acceleration * time_interval;
-            position += velocity * time_interval + 0.5 * acceleration * time_interval ** 2;
-
-            // 記錄位置
-            time += time_interval;
-            if (position <= track_length) {
-                positions.push({ time, position });
+            
+            // 計算平行於斜面的重力分量（下滑力）
+            const gravity_parallel = mass * g * Math.sin(angle_rad);
+            
+            // 計算垂直於斜面的重力分量
+            const gravity_perpendicular = mass * g * Math.cos(angle_rad);
+            
+            // 計算摩擦力
+            const friction_force = friction_coef * gravity_perpendicular;
+            
+            // 計算合力
+            let net_force = force - gravity_parallel;
+            
+            // 考慮摩擦力的方向
+            if (velocity > 0) {
+                net_force -= friction_force;
+            } else if (velocity < 0) {
+                net_force += friction_force;
             } else {
-                simulating = false;
+                // 物體靜止時，如果合力小於最大靜摩擦力，則不動
+                if (Math.abs(net_force) <= friction_force) {
+                    net_force = 0;
+                } else {
+                    net_force -= Math.sign(net_force) * friction_force;
+                }
+            }
+            
+            // 計算加速度
+            acceleration = net_force / mass;
+            
+            // 更新速度和位置
+            velocity += acceleration * deltaTime;
+            position += velocity * deltaTime + 0.5 * acceleration * deltaTime * deltaTime;
+            
+            time += deltaTime;
+
+            if (time - lastRecordTime >= record_interval) {
+                records.push({ time, position });
+                lastRecordTime = time;
             }
 
+            if (position > track_length) {
+                position = track_length;
+                velocity = 0;
+                simulating = false;
+            } else if (position < 0) {
+                position = 0;
+                velocity = 0;
+            }
+        }
+
+        function animate(timestamp) {
+            if (!simulating) return;
+
+            calculateMotion(CALCULATION_STEP);
             drawSimulation();
 
             if (simulating) {
-                requestAnimationFrame(simulate);
+                setTimeout(() => requestAnimationFrame(animate), CALCULATION_STEP * 1000 / ANIMATION_SPEED_FACTOR);
             }
         }
 
@@ -149,24 +201,33 @@
                 ctx.fillText(i, x - 5, TRACK_START.y + 25);
             }
 
-            // 繪製物體位置
-            positions.forEach(pos => {
-                const x = TRACK_START.x + pos.position * (TRACK_END.x - TRACK_START.x) / track_length;
+            // 繪製移動的方塊
+            const blockX = TRACK_START.x + position * (TRACK_END.x - TRACK_START.x) / track_length;
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(blockX - BLOCK_SIZE/2, TRACK_START.y - BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+
+            // 繪製記錄點
+            ctx.fillStyle = 'red';
+            records.forEach(record => {
+                const x = TRACK_START.x + record.position * (TRACK_END.x - TRACK_START.x) / track_length;
                 ctx.beginPath();
-                ctx.arc(x, TRACK_START.y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = 'red';
+                ctx.arc(x, TRACK_START.y, 3, 0, 2 * Math.PI);
                 ctx.fill();
-                ctx.fillText(pos.position.toFixed(2), x + 10, TRACK_START.y - 10);
+                ctx.fillText(`${record.time.toFixed(2)}s, ${record.position.toFixed(2)}m`, x, TRACK_START.y - 10);
             });
 
-            // 顯示當前參數
+            // 顯示當前參數和位置
             ctx.fillStyle = 'black';
             ctx.font = '16px Arial';
             ctx.fillText(`外力: ${force.toFixed(2)} N`, 10, 30);
             ctx.fillText(`質量: ${mass.toFixed(2)} kg`, 10, 50);
             ctx.fillText(`摩擦係數: ${friction_coef.toFixed(2)}`, 10, 70);
             ctx.fillText(`傾斜角度: ${angle.toFixed(2)}°`, 10, 90);
-            ctx.fillText(`時間間隔: ${time_interval.toFixed(3)} s`, 10, 110);
+            ctx.fillText(`紀錄時間間隔: ${record_interval.toFixed(3)} s`, 10, 110);
+            ctx.fillText(`位置: ${position.toFixed(2)} m`, 10, 130);
+            ctx.fillText(`時間: ${time.toFixed(2)} s`, 10, 150);
+            ctx.fillText(`速度: ${velocity.toFixed(2)} m/s`, 10, 170);
+            ctx.fillText(`加速度: ${acceleration.toFixed(2)} m/s²`, 10, 190);
         }
 
         // 初始繪製
