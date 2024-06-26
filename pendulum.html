@@ -56,7 +56,7 @@
     <div class="container" id="simulationContainer">
         <h1>單擺實驗模擬</h1>
         <canvas id="pendulumCanvas" width="300" height="400"></canvas><br>
-        擺長 (m): <input type="number" id="length" value="1" min="0.5" max="3" step="0.1"><br>
+        擺長 (m): <input type="number" id="length" value="1" min="0.1" max="3" step="0.1"><br>
         擺錘重量 (kg): <input type="number" id="mass" value="1" min="0.1" max="10" step="0.1"><br>
         初始擺角 (度): <input type="number" id="angle" value="30" min="1" max="89" step="1"><br>
         重力加速度 (m/s²): <input type="number" id="gravity" value="9.8" min="1.7" max="25" step="0.1"><br>
@@ -98,10 +98,14 @@
         let time = 0;
         let isPlaying = false;
         let startTime;
+        let lastFrameTime;
         let animationId;
         let isStopwatchMode = false;
-        let lastSign = 1;
         let cycleCount = 0;
+        let initialAngle;
+        let lastAngle;
+        let cycleStartTime;
+        let lastCrossing = 0;
 
         const gravityValues = {
             earth: 9.8,
@@ -115,6 +119,9 @@
             mass = parseFloat(document.getElementById('mass').value);
             angle = parseFloat(document.getElementById('angle').value) * Math.PI / 180;
             gravity = parseFloat(gravityInput.value);
+            initialAngle = angle;
+            lastAngle = angle;
+            cycleStartTime = 0;
             updateBackgroundColor();
         }
 
@@ -168,26 +175,34 @@
             time += dt;
 
             // Check for cycle completion
-            const currentSign = Math.sign(angle);
-            if (currentSign !== lastSign && currentSign === 1) {
-                cycleCount++;
-                cycleCountSpan.textContent = cycleCount;
-                if (!isStopwatchMode) {
-                    periodSpan.textContent = time.toFixed(2);
-                    time = 0;
+            if ((lastAngle < initialAngle && angle >= initialAngle) || (lastAngle > initialAngle && angle <= initialAngle)) {
+                if (time - lastCrossing > 0.1) {  // Avoid double counting due to numerical errors
+                    cycleCount++;
+                    cycleCountSpan.textContent = cycleCount;
+                    if (!isStopwatchMode) {
+                        const period = time - cycleStartTime;
+                        periodSpan.textContent = period.toFixed(2);
+                    }
+                    cycleStartTime = time;
+                    lastCrossing = time;
                 }
             }
-            lastSign = currentSign;
+            lastAngle = angle;
 
             if (isStopwatchMode) {
                 stopwatchSpan.textContent = time.toFixed(2);
             }
+
+            // Limit angular velocity to prevent excessive rotation
+            const maxAngularVelocity = 10;
+            angularVelocity = Math.max(Math.min(angularVelocity, maxAngularVelocity), -maxAngularVelocity);
         }
 
         function animate(timestamp) {
             if (!startTime) startTime = timestamp;
-            const dt = (timestamp - startTime) / 1000;
-            startTime = timestamp;
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const dt = Math.min((timestamp - lastFrameTime) / 1000, 0.1); // Limit dt to 0.1 seconds
+            lastFrameTime = timestamp;
 
             update(dt);
             draw();
@@ -201,9 +216,11 @@
             if (!isPlaying) {
                 isPlaying = true;
                 startTime = null;
+                lastFrameTime = null;
                 if (isStopwatchMode) {
                     time = 0;
                 }
+                cycleStartTime = time;
                 animationId = requestAnimationFrame(animate);
                 playStopBtn.textContent = 'Stop';
             } else {
@@ -221,7 +238,8 @@
             time = 0;
             angularVelocity = 0;
             cycleCount = 0;
-            lastSign = 1;
+            cycleStartTime = 0;
+            lastCrossing = 0;
             periodSpan.textContent = '-';
             stopwatchSpan.textContent = '0.00';
             cycleCountSpan.textContent = '0';
@@ -234,6 +252,7 @@
             stopwatchDisplay.style.display = isStopwatchMode ? 'block' : 'none';
             toggleModeBtn.textContent = isStopwatchMode ? '顯示週期' : '顯示碼錶';
             time = 0;
+            cycleStartTime = 0;
         }
 
         playStopBtn.addEventListener('click', playStop);
@@ -252,6 +271,20 @@
             gravity = parseFloat(this.value);
             updateBackgroundColor();
             reset();
+        });
+
+        // Handle visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                if (isPlaying) {
+                    cancelAnimationFrame(animationId);
+                }
+            } else {
+                if (isPlaying) {
+                    lastFrameTime = null;
+                    animationId = requestAnimationFrame(animate);
+                }
+            }
         });
 
         init();
