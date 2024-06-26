@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浮力虛擬實驗</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-right: 20px;
+        }
+        .experiment {
+            width: 300px;
+            height: 500px; /* 增加高度 */
+            border: 2px solid black;
+            position: relative;
+            background-color: #e6f7ff;
+            overflow: visible;
+        }
+        #object {
+            width: 50px;
+            height: 50px;
+            background-color: white;
+            position: absolute;
+            left: 125px;
+            cursor: move;
+        }
+        #liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #4da6ff;
+        }
+        .result {
+            margin-top: 20px;
+        }
+        .arrow {
+            position: absolute;
+            width: 2px;
+            transform-origin: center bottom;
+        }
+        .arrow::after {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: -8px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+        }
+        .arrow.red { background-color: red; }
+        .arrow.red::after { border-bottom: 8px solid red; }
+        .arrow.blue { background-color: blue; }
+        .arrow.blue::after { border-bottom: 8px solid blue; }
+        .arrow.green { background-color: green; }
+        .arrow.green::after { border-bottom: 8px solid green; }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <h2>控制面板</h2>
+            <div>
+                <label for="objectDensity">物體密度 (g/cm³):</label>
+                <input type="number" id="objectDensity" value="0.8" min="0.1" max="10" step="0.1">
+            </div>
+            <div>
+                <label for="objectVolume">物體體積 (cm³):</label>
+                <input type="number" id="objectVolume" value="1000" min="100" max="10000" step="100">
+            </div>
+            <div>
+                <label for="liquidDensity">液體密度 (g/cm³):</label>
+                <input type="number" id="liquidDensity" value="1" min="0.5" max="2" step="0.1">
+            </div>
+            <button id="resetBtn">重置實驗</button>
+            <button id="playBtn">PLAY</button>
+            <div class="result">
+                <p>物體重量: <span id="objectWeight"></span> gw</p>
+                <p>浮力: <span id="buoyancy"></span> gw</p>
+                <p>淨力: <span id="netForce"></span> gw</p>
+            </div>
+        </div>
+        <div class="experiment">
+            <div id="liquid"></div>
+            <div id="object"></div>
+            <div id="buoyancyArrow" class="arrow blue"></div>
+            <div id="weightArrow" class="arrow red"></div>
+            <div id="netForceArrow" class="arrow green"></div>
+        </div>
+    </div>
+    <script>
+        const object = document.getElementById('object');
+        const liquid = document.getElementById('liquid');
+        const resetBtn = document.getElementById('resetBtn');
+        const playBtn = document.getElementById('playBtn');
+        const objectDensityInput = document.getElementById('objectDensity');
+        const objectVolumeInput = document.getElementById('objectVolume');
+        const liquidDensityInput = document.getElementById('liquidDensity');
+        const objectWeightSpan = document.getElementById('objectWeight');
+        const buoyancySpan = document.getElementById('buoyancy');
+        const netForceSpan = document.getElementById('netForce');
+        const buoyancyArrow = document.getElementById('buoyancyArrow');
+        const weightArrow = document.getElementById('weightArrow');
+        const netForceArrow = document.getElementById('netForceArrow');
+
+        let isDragging = false;
+let dragStartY;
+let dragStartPosition;
+        let currentY;
+        let initialY;
+        let yOffset = 0;
+
+        let velocity = 0;
+        let position = 175; // 初始位置
+        const damping = 0.95; // 調整阻尼系數
+        const timeStep = 1 / 60;
+        let animationId;
+        let isPlaying = false;
+
+        object.addEventListener("mousedown", dragStart);
+        document.addEventListener("mousemove", drag);
+        document.addEventListener("mouseup", dragEnd);
+
+ function dragStart(e) {
+    if (e.target === object) {
+        isDragging = true;
+        initialY = e.clientY - position; // 修改這裡
+        cancelAnimationFrame(animationId);
+        isPlaying = false;
+        playBtn.textContent = "PLAY";
+    }
+}
+
+        function drag(e) {
+    if (isDragging) {
+        e.preventDefault();
+        const experimentRect = object.parentElement.getBoundingClientRect();
+        const objectHeight = object.offsetHeight;
+        
+        // 計算新的位置
+        let newY = e.clientY - experimentRect.top - initialY;
+        
+        // 限制物體在實驗容器內
+        newY = Math.max(0, Math.min(newY, experimentRect.height - objectHeight));
+        
+        position = newY;
+        setTranslate(0, position);
+        calculate();
+    }
+}
+
+function dragEnd(e) {
+    isDragging = false;
+}
+function setTranslate(xPos, yPos) {
+    object.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    updateArrows();
+}
+        function calculate() {
+            const objectDensity = parseFloat(objectDensityInput.value);
+            const objectVolume = parseFloat(objectVolumeInput.value);
+            const liquidDensity = parseFloat(liquidDensityInput.value);
+            
+            const objectWeight = objectDensity * objectVolume;
+            const objectHeight = object.offsetHeight;
+            const liquidHeight = liquid.offsetHeight;
+            const containerHeight = object.parentElement.offsetHeight;
+            
+            const objectBottom = position + objectHeight;
+            const submergedHeight = Math.max(0, Math.min(objectHeight, liquidHeight - (containerHeight - objectBottom)));
+            const submergedVolume = (submergedHeight / objectHeight) * objectVolume;
+            
+            const buoyancy = liquidDensity * submergedVolume;
+            const netForce = objectWeight - buoyancy;
+            
+            objectWeightSpan.textContent = objectWeight.toFixed(2);
+            buoyancySpan.textContent = buoyancy.toFixed(2);
+            netForceSpan.textContent = netForce.toFixed(2);
+
+            updateObjectSize();
+            updateArrows();
+
+            return netForce;
+        }
+       function updateObjectSize() {
+            const volume = parseFloat(objectVolumeInput.value);
+            const minSize = 50; // 最小尺寸
+            const maxSize = 150; // 最大尺寸
+            const size = minSize + (Math.cbrt(volume) / Math.cbrt(10000)) * (maxSize - minSize);
+            object.style.width = `${size}px`;
+            object.style.height = `${size}px`;
+            object.style.left = `${150 - size / 2}px`; // 保持物體在中心
+
+        }
+
+        function updateArrows() {
+            const objectWeight = parseFloat(objectWeightSpan.textContent);
+            const buoyancy = parseFloat(buoyancySpan.textContent);
+            const netForce = parseFloat(netForceSpan.textContent);
+            
+            updateArrow(weightArrow, objectWeight, true);
+            updateArrow(buoyancyArrow, buoyancy, false);
+            updateArrow(netForceArrow, Math.abs(netForce), netForce > 0);
+        }
+
+        function updateArrow(arrow, force, isDownward) {
+            const maxForce = 5000; // 調整此值以改變箭頭縮放
+            const maxHeight = 200; // 最大箭頭高度
+            let height = Math.min((force / maxForce) * maxHeight, maxHeight);
+            
+            arrow.style.height = `${height}px`;
+            
+            const objectHeight = object.offsetHeight;
+            const objectWidth = object.offsetWidth;
+            
+            if (arrow === weightArrow) {
+                arrow.style.bottom = 'auto';
+                arrow.style.top = `${position + objectHeight/2}px`;
+                arrow.style.transform = 'rotate(180deg)';
+            } else if (arrow === buoyancyArrow) {
+                arrow.style.top = `${position}px`;
+                arrow.style.bottom = 'auto';
+                arrow.style.transform = 'rotate(0deg)';
+            } else { // netForceArrow
+                if (isDownward) {
+                    arrow.style.bottom = 'auto';
+                    arrow.style.top = `${position + objectHeight / 2}px`;
+                    arrow.style.transform = 'rotate(180deg)';
+                } else {
+                    arrow.style.top = `${position + objectHeight / 2}px`;
+                    arrow.style.bottom = 'auto';
+                    arrow.style.transform = 'rotate(0deg)';
+                }
+            }
+            
+            arrow.style.left = `${parseFloat(object.style.left) + objectWidth / 2 - 1}px`;
+        }
+
+        function animateObject() {
+            if (!isPlaying) return;
+
+            const netForce = calculate();
+            const mass = parseFloat(objectVolumeInput.value) * parseFloat(objectDensityInput.value) / 1000;
+            const acceleration = netForce / mass;
+            velocity += acceleration * timeStep;
+            velocity *= damping;
+
+            position += velocity * timeStep;
+            const containerHeight = object.parentElement.offsetHeight;
+            const objectHeight = object.offsetHeight;
+
+            if (position < 0 || position + objectHeight > containerHeight) {
+                velocity *= -0.5; // Bounce off the top or bottom
+                position = Math.max(0, Math.min(position, containerHeight - objectHeight));
+            }
+
+            setTranslate(0, position);
+
+            if (Math.abs(velocity) > 0.01 || Math.abs(acceleration) > 0.01) {
+                animationId = requestAnimationFrame(animateObject);
+            } else {
+                isPlaying = false;
+                playBtn.textContent = "PLAY";
+            }
+        }
+
+        resetBtn.addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            position = 175;
+            setTranslate(0, position);
+            velocity = 0;
+            isPlaying = false;
+            playBtn.textContent = "PLAY";
+            calculate();
+        });
+
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                isPlaying = false;
+                playBtn.textContent = "PLAY";
+                cancelAnimationFrame(animationId);
+            } else {
+                isPlaying = true;
+                playBtn.textContent = "PAUSE";
+                animateObject();
+            }
+        });
+
+        objectVolumeInput.addEventListener('input', calculate);
+        objectDensityInput.addEventListener('input', calculate);
+        liquidDensityInput.addEventListener('input', calculate);
+
+        // 初始化液體高度
+        liquid.style.height = '250px';
+        
+        // 初始化物體位置
+        setTranslate(0, position);
+        
+        // 初始計算
+        calculate();
+    </script>
+</body>
+</html>
