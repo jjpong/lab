@@ -24,11 +24,11 @@
         <input type="range" id="mass" min="0.5" max="10" value="1" step="0.1">
         <span id="massValue">1</span>
     </div>
-    <div class="slider-container">
-        <label for="staticFriction">最大靜摩擦力 (N):</label>
-        <input type="range" id="staticFriction" min="0" max="100" value="5" step="0.1">
-        <span id="staticFrictionValue">5</span>
-    </div>
+<div class="slider-container">
+    <label for="staticFriction">最大靜摩擦力 (N):</label>
+    <input type="range" id="staticFriction" min="0" max="7.84" value="5" step="0.01">
+    <span id="staticFrictionValue">5</span>
+</div>
     <div class="slider-container">
         <label for="kineticFriction">動摩擦力 (N):</label>
         <input type="range" id="kineticFriction" min="0" max="100" value="3" step="0.1">
@@ -90,30 +90,47 @@
         }
 
         // 初始化滑塊事件監聽器
-        ['force', 'mass', 'staticFriction', 'kineticFriction', 'interval'].forEach(id => {
-            const slider = document.getElementById(id);
-            slider.addEventListener('input', () => {
-                if (id === 'interval') {
-                    record_interval = updateSliderValue(id);
-                } else if (id === 'force') {
-                    force = updateSliderValue(id);
-                } else if (id === 'mass') {
-                    mass = updateSliderValue(id);
-                } else if (id === 'staticFriction') {
-                    staticFriction = updateSliderValue(id);
-                    // 確保動摩擦力不大於最大靜摩擦力
-                    if (kineticFriction > staticFriction) {
-                        kineticFriction = staticFriction;
-                        document.getElementById('kineticFriction').value = staticFriction;
-                        updateSliderValue('kineticFriction');
-                    }
-                } else if (id === 'kineticFriction') {
-                    kineticFriction = Math.min(updateSliderValue(id), staticFriction);
-                }
-                updateDebugInfo();
-                drawSimulation();
-            });
-        });
+['force', 'mass', 'staticFriction', 'kineticFriction', 'interval'].forEach(id => {
+    const slider = document.getElementById(id);
+    slider.addEventListener('input', () => {
+        if (id === 'interval') {
+            record_interval = updateSliderValue(id);
+        } else if (id === 'force') {
+            force = updateSliderValue(id);
+        } else if (id === 'mass') {
+            mass = updateSliderValue(id);
+            // 更新最大靜摩擦力的範圍
+            const maxStaticFriction = mass * 9.8 * 0.8;
+            document.getElementById('staticFriction').max = maxStaticFriction;
+            // 如果當前靜摩擦力大於新的最大值,則調整它
+            if (staticFriction > maxStaticFriction) {
+                staticFriction = maxStaticFriction;
+                document.getElementById('staticFriction').value = staticFriction;
+                updateSliderValue('staticFriction');
+            }
+            // 更新動摩擦力的上限
+            document.getElementById('kineticFriction').max = staticFriction;
+            if (kineticFriction > staticFriction) {
+                kineticFriction = staticFriction;
+                document.getElementById('kineticFriction').value = kineticFriction;
+                updateSliderValue('kineticFriction');
+            }
+        } else if (id === 'staticFriction') {
+            staticFriction = updateSliderValue(id);
+            // 更新動摩擦力的上限
+            document.getElementById('kineticFriction').max = staticFriction;
+            if (kineticFriction > staticFriction) {
+                kineticFriction = staticFriction;
+                document.getElementById('kineticFriction').value = kineticFriction;
+                updateSliderValue('kineticFriction');
+            }
+        } else if (id === 'kineticFriction') {
+            kineticFriction = Math.min(updateSliderValue(id), staticFriction);
+        }
+        updateDebugInfo();
+        drawSimulation();
+    });
+});
 
         // 開始/暫停按鈕
         document.getElementById('startStop').addEventListener('click', () => {
@@ -318,5 +335,7 @@
         drawSimulation();
         updateDebugInfo();
     </script>
+
+
 </body>
 </html>
