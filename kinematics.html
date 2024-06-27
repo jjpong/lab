@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -24,11 +25,11 @@
         <input type="range" id="mass" min="0.5" max="10" value="1" step="0.1">
         <span id="massValue">1</span>
     </div>
-<div class="slider-container">
-    <label for="staticFriction">最大靜摩擦力 (N):</label>
-    <input type="range" id="staticFriction" min="0" max="7.84" value="5" step="0.01">
-    <span id="staticFrictionValue">5</span>
-</div>
+    <div class="slider-container">
+        <label for="staticFriction">最大靜摩擦力 (N):</label>
+        <input type="range" id="staticFriction" min="0" max="7.84" value="5" step="0.01">
+        <span id="staticFrictionValue">5</span>
+    </div>
     <div class="slider-container">
         <label for="kineticFriction">動摩擦力 (N):</label>
         <input type="range" id="kineticFriction" min="0" max="100" value="3" step="0.1">
@@ -41,9 +42,10 @@
     </div>
     <button id="startStop">開始/暫停</button>
     <button id="reset">重置</button>
-    <button id="plotData">繪製數據圖</button>
+    <button id="plotPosition">繪製位置時間關係圖</button>
+    <button id="plotVelocity">繪製速度時間關係圖</button>
     <br><br>
-    <canvas id="simulationCanvas" width="1000" height="600"></canvas>
+    <canvas id="simulationCanvas" width="1200" height="800"></canvas>
     <div id="debug"></div>
 
     <script>
@@ -71,8 +73,9 @@
         let simulating = false;
 
         // 軌道繪製參數
-        const TRACK_START = { x: 50, y: 400 };
-        const TRACK_END = { x: 950, y: 400 };
+    const TRACK_START = { x: 50, y: canvas.height / 2 };
+    const TRACK_END = { x: canvas.width / 2 - 50, y: canvas.height / 2 };
+
 
         // 方塊大小（像素）
         const BLOCK_SIZE = 30;
@@ -90,47 +93,47 @@
         }
 
         // 初始化滑塊事件監聽器
-['force', 'mass', 'staticFriction', 'kineticFriction', 'interval'].forEach(id => {
-    const slider = document.getElementById(id);
-    slider.addEventListener('input', () => {
-        if (id === 'interval') {
-            record_interval = updateSliderValue(id);
-        } else if (id === 'force') {
-            force = updateSliderValue(id);
-        } else if (id === 'mass') {
-            mass = updateSliderValue(id);
-            // 更新最大靜摩擦力的範圍
-            const maxStaticFriction = mass * 9.8 * 0.8;
-            document.getElementById('staticFriction').max = maxStaticFriction;
-            // 如果當前靜摩擦力大於新的最大值,則調整它
-            if (staticFriction > maxStaticFriction) {
-                staticFriction = maxStaticFriction;
-                document.getElementById('staticFriction').value = staticFriction;
-                updateSliderValue('staticFriction');
-            }
-            // 更新動摩擦力的上限
-            document.getElementById('kineticFriction').max = staticFriction;
-            if (kineticFriction > staticFriction) {
-                kineticFriction = staticFriction;
-                document.getElementById('kineticFriction').value = kineticFriction;
-                updateSliderValue('kineticFriction');
-            }
-        } else if (id === 'staticFriction') {
-            staticFriction = updateSliderValue(id);
-            // 更新動摩擦力的上限
-            document.getElementById('kineticFriction').max = staticFriction;
-            if (kineticFriction > staticFriction) {
-                kineticFriction = staticFriction;
-                document.getElementById('kineticFriction').value = kineticFriction;
-                updateSliderValue('kineticFriction');
-            }
-        } else if (id === 'kineticFriction') {
-            kineticFriction = Math.min(updateSliderValue(id), staticFriction);
-        }
-        updateDebugInfo();
-        drawSimulation();
-    });
-});
+        ['force', 'mass', 'staticFriction', 'kineticFriction', 'interval'].forEach(id => {
+            const slider = document.getElementById(id);
+            slider.addEventListener('input', () => {
+                if (id === 'interval') {
+                    record_interval = updateSliderValue(id);
+                } else if (id === 'force') {
+                    force = updateSliderValue(id);
+                } else if (id === 'mass') {
+                    mass = updateSliderValue(id);
+                    // 更新最大靜摩擦力的範圍
+                    const maxStaticFriction = mass * 9.8 * 0.8;
+                    document.getElementById('staticFriction').max = maxStaticFriction;
+                    // 如果當前靜摩擦力大於新的最大值,則調整它
+                    if (staticFriction > maxStaticFriction) {
+                        staticFriction = maxStaticFriction;
+                        document.getElementById('staticFriction').value = staticFriction;
+                        updateSliderValue('staticFriction');
+                    }
+                    // 更新動摩擦力的上限
+                    document.getElementById('kineticFriction').max = staticFriction;
+                    if (kineticFriction > staticFriction) {
+                        kineticFriction = staticFriction;
+                        document.getElementById('kineticFriction').value = kineticFriction;
+                        updateSliderValue('kineticFriction');
+                    }
+                } else if (id === 'staticFriction') {
+                    staticFriction = updateSliderValue(id);
+                    // 更新動摩擦力的上限
+                    document.getElementById('kineticFriction').max = staticFriction;
+                    if (kineticFriction > staticFriction) {
+                        kineticFriction = staticFriction;
+                        document.getElementById('kineticFriction').value = kineticFriction;
+                        updateSliderValue('kineticFriction');
+                    }
+                } else if (id === 'kineticFriction') {
+                    kineticFriction = Math.min(updateSliderValue(id), staticFriction);
+                }
+                updateDebugInfo();
+                drawSimulation();
+            });
+        });
 
         // 開始/暫停按鈕
         document.getElementById('startStop').addEventListener('click', () => {
@@ -153,9 +156,15 @@
             updateDebugInfo();
         });
 
-        // 繪製數據圖按鈕
-        document.getElementById('plotData').addEventListener('click', plotTimePositionGraph);
+document.getElementById('plotPosition').addEventListener('click', () => {
+    clearGraphArea();
+    plotGraph('position');
+});
 
+document.getElementById('plotVelocity').addEventListener('click', () => {
+    clearGraphArea();
+    plotGraph('velocity');
+});
         function calculateMotion(deltaTime) {
             let friction;
             if (Math.abs(velocity) < 0.001) { // 靜止狀態
@@ -173,7 +182,7 @@
             time += deltaTime;
 
             if (time - lastRecordTime >= record_interval) {
-                records.push({ time, position });
+                records.push({ time, position, velocity });
                 lastRecordTime = time;
             }
 
@@ -189,6 +198,10 @@
             updateDebugInfo();
         }
 
+function clearGraphArea() {
+    ctx.clearRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
+}
+
         function animate() {
             if (!simulating) return;
 
@@ -201,121 +214,135 @@
         }
 
         function drawSimulation() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height / 2);  // 清除上半部分
 
-            // 繪製軌道
+    // 繪製軌道
+    const TRACK_START = { x: 300, y: 100 };
+    const TRACK_END = { x: 1150, y: 100 };
+    ctx.beginPath();
+    ctx.moveTo(TRACK_START.x, TRACK_START.y);
+    ctx.lineTo(TRACK_END.x, TRACK_END.y);
+    ctx.stroke();
+
+    // 繪製刻度
+    for (let i = 0; i <= 10; i++) {
+        const x = TRACK_START.x + i * (TRACK_END.x - TRACK_START.x) / 10;
+        ctx.beginPath();
+        ctx.moveTo(x, TRACK_START.y);
+        ctx.lineTo(x, TRACK_START.y + 10);
+        ctx.stroke();
+        ctx.fillText(i, x - 5, TRACK_START.y + 25);
+    }
+
+    // 繪製移動的方塊
+    const blockX = TRACK_START.x + position * (TRACK_END.x - TRACK_START.x) / track_length;
+    
+    // 根據質量設定顏色
+    const colorIntensity = Math.floor(255 - (mass - 0.5) / 9.5 * 200);
+    ctx.fillStyle = `rgb(0, 0, ${colorIntensity})`;
+    ctx.fillRect(blockX - BLOCK_SIZE/2, TRACK_START.y - BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+
+    // 繪製力的箭頭
+    const arrowLength = force * 2;
+    ctx.beginPath();
+    ctx.moveTo(blockX + BLOCK_SIZE/2, TRACK_START.y - BLOCK_SIZE/2);
+    ctx.lineTo(blockX + BLOCK_SIZE/2 + arrowLength, TRACK_START.y - BLOCK_SIZE/2);
+    ctx.stroke();
+    
+    // 箭頭頭部
+    ctx.beginPath();
+    ctx.moveTo(blockX + BLOCK_SIZE/2 + arrowLength, TRACK_START.y - BLOCK_SIZE/2);
+    ctx.lineTo(blockX + BLOCK_SIZE/2 + arrowLength - 10, TRACK_START.y - BLOCK_SIZE/2 - 5);
+    ctx.lineTo(blockX + BLOCK_SIZE/2 + arrowLength - 10, TRACK_START.y - BLOCK_SIZE/2 + 5);
+    ctx.closePath();
+    ctx.fill();
+
+    // 繪製記錄點
+    ctx.fillStyle = 'red';
+    records.forEach(record => {
+        const x = TRACK_START.x + record.position * (TRACK_END.x - TRACK_START.x) / track_length;
+        ctx.beginPath();
+        ctx.arc(x, TRACK_START.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.fillText(`${record.time.toFixed(2)}s`, x - 20, TRACK_START.y - 40);
+        ctx.fillText(`${record.position.toFixed(2)}m`, x - 20, TRACK_START.y - 20);
+    });
+
+    // 顯示當前參數
+    ctx.fillStyle = 'black';
+    ctx.font = '14px Arial';
+    let textY = 30;
+    const textX = 10;
+    const lineHeight = 20;
+
+    ctx.fillText(`外力: ${force.toFixed(2)} N`, textX, textY); textY += lineHeight;
+    ctx.fillText(`質量: ${mass.toFixed(2)} kg`, textX, textY); textY += lineHeight;
+    ctx.fillText(`最大靜摩擦力: ${staticFriction.toFixed(2)} N`, textX, textY); textY += lineHeight;
+    ctx.fillText(`動摩擦力: ${kineticFriction.toFixed(2)} N`, textX, textY); textY += lineHeight;
+    ctx.fillText(`紀錄時間間隔: ${record_interval.toFixed(3)} s`, textX, textY); textY += lineHeight;
+    ctx.fillText(`位置: ${position.toFixed(2)} m`, textX, textY); textY += lineHeight;
+    ctx.fillText(`時間: ${time.toFixed(2)} s`, textX, textY); textY += lineHeight;
+    ctx.fillText(`速度: ${velocity.toFixed(2)} m/s`, textX, textY); textY += lineHeight;
+    ctx.fillText(`加速度: ${acceleration.toFixed(2)} m/s²`, textX, textY);
+}
+
+function plotGraph(type) {
+    const graphWidth = 550;
+    const graphHeight = 300;
+    let graphX, graphY;
+
+    if (type === 'position') {
+        graphX = 50;  // 位置-時間圖的 X 座標（左下角）
+    } else {
+        graphX = canvas.width / 2 + 50;  // 速度-時間圖的 X 座標（右下角）
+    }
+    graphY = canvas.height - graphHeight - 50;  // 兩個圖的 Y 座標相同
+
+    // 清除特定圖表區域
+    ctx.clearRect(graphX - 10, graphY - 30, graphWidth + 20, graphHeight + 70);
+
+    // 繪製座標軸
+    ctx.beginPath();
+    ctx.moveTo(graphX, graphY + graphHeight);
+    ctx.lineTo(graphX, graphY);
+    ctx.moveTo(graphX, graphY + graphHeight);
+    ctx.lineTo(graphX + graphWidth, graphY + graphHeight);
+    ctx.strokeStyle = 'black';
+    ctx.stroke();
+
+    // 標註軸
+    ctx.fillStyle = 'black';
+    ctx.font = '14px Arial';
+    ctx.fillText('時間 (s)', graphX + graphWidth / 2 - 20, graphY + graphHeight + 30);
+    ctx.save();
+    ctx.translate(graphX - 30, graphY + graphHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(type === 'position' ? '位置 (m)' : '速度 (m/s)', 0, 0);
+    ctx.restore();
+
+    // 繪製數據點
+    if (records.length > 0) {
+        const maxTime = Math.max(...records.map(r => r.time));
+        const maxValue = Math.max(...records.map(r => Math.abs(r[type])));
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'blue';
+        records.forEach((record, index) => {
+            const x = graphX + (record.time / maxTime) * graphWidth;
+            const y = graphY + graphHeight - ((record[type] + maxValue) / (2 * maxValue)) * graphHeight;
             ctx.beginPath();
-            ctx.moveTo(TRACK_START.x, TRACK_START.y);
-            ctx.lineTo(TRACK_END.x, TRACK_END.y);
-            ctx.stroke();
-
-            // 繪製刻度
-            for (let i = 0; i <= 10; i++) {
-                const x = TRACK_START.x + i * (TRACK_END.x - TRACK_START.x) / 10;
-                ctx.beginPath();
-                ctx.moveTo(x, TRACK_START.y);
-                ctx.lineTo(x, TRACK_START.y + 10);
-                ctx.stroke();
-                ctx.fillText(i, x - 5, TRACK_START.y + 25);
-            }
-
-            // 繪製移動的方塊
-            const blockX = TRACK_START.x + position * (TRACK_END.x - TRACK_START.x) / track_length;
-            
-            // 根據質量設定顏色
-            const colorIntensity = Math.floor(255 - (mass - 0.5) / 9.5 * 200);
-            ctx.fillStyle = `rgb(0, 0, ${colorIntensity})`;
-            ctx.fillRect(blockX - BLOCK_SIZE/2, TRACK_START.y - BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-
-            // 繪製力的箭頭
-            const arrowLength = force * 2;
-            ctx.beginPath();
-            ctx.moveTo(blockX + BLOCK_SIZE/2, TRACK_START.y - BLOCK_SIZE/2);
-            ctx.lineTo(blockX + BLOCK_SIZE/2 + arrowLength, TRACK_START.y - BLOCK_SIZE/2);
-            ctx.stroke();
-            
-            // 箭頭頭部
-            ctx.beginPath();
-            ctx.moveTo(blockX + BLOCK_SIZE/2 + arrowLength, TRACK_START.y - BLOCK_SIZE/2);
-            ctx.lineTo(blockX + BLOCK_SIZE/2 + arrowLength - 10, TRACK_START.y - BLOCK_SIZE/2 - 5);
-            ctx.lineTo(blockX + BLOCK_SIZE/2 + arrowLength - 10, TRACK_START.y - BLOCK_SIZE/2 + 5);
-            ctx.closePath();
-            ctx.fill();
-
-            // 繪製記錄點
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
             ctx.fillStyle = 'red';
-            records.forEach(record => {
-                const x = TRACK_START.x + record.position * (TRACK_END.x - TRACK_START.x) / track_length;
-                ctx.beginPath();
-                ctx.arc(x, TRACK_START.y, 3, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                ctx.fillText(`${record.time.toFixed(2)}s`, x - 20, TRACK_START.y - 40);
-                ctx.fillText(`${record.position.toFixed(2)}m`, x - 20, TRACK_START.y - 20);
-            });
+            ctx.fill();
+        });
+    }
 
-            // 顯示當前參數和位置
-            ctx.fillStyle = 'black';
-            ctx.font = '16px Arial';
-            ctx.fillText(`外力: ${force.toFixed(2)} N`, 10, 30);
-            ctx.fillText(`質量: ${mass.toFixed(2)} kg`, 10, 50);
-            ctx.fillText(`最大靜摩擦力: ${staticFriction.toFixed(2)} N`, 10, 70);
-            ctx.fillText(`動摩擦力: ${kineticFriction.toFixed(2)} N`, 10, 90);
-            ctx.fillText(`紀錄時間間隔: ${record_interval.toFixed(3)} s`, 10, 110);
-            ctx.fillText(`位置: ${position.toFixed(2)} m`, 10, 130);
-            ctx.fillText(`時間: ${time.toFixed(2)} s`, 10, 150);
-            ctx.fillText(`速度: ${velocity.toFixed(2)} m/s`, 10, 170);
-            ctx.fillText(`加速度: ${acceleration.toFixed(2)} m/s²`, 10, 190);
-        }
-
-        function plotTimePositionGraph() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const graphWidth = 900;
-            const graphHeight = 500;
-            const graphX = 50;
-            const graphY = 550;
-
-            // 繪製座標軸
-            ctx.beginPath();
-            ctx.moveTo(graphX, graphY);
-            ctx.lineTo(graphX, graphY - graphHeight);
-            ctx.moveTo(graphX, graphY);
-            ctx.lineTo(graphX + graphWidth, graphY);
-            ctx.strokeStyle = 'black';
-            ctx.stroke();
-
-            // 標註軸
-            ctx.fillStyle = 'black';
-            ctx.font = '16px Arial';
-            ctx.fillText('時間 (s)', graphX + graphWidth / 2, graphY + 30);
-            ctx.save();
-            ctx.translate(graphX - 30, graphY - graphHeight / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillText('位置 (m)', 0, 0);
-            ctx.restore();
-
-            // 繪製數據點
-            if (records.length > 0) {
-                const maxTime = Math.max(...records.map(r => r.time));
-                const maxPosition = Math.max(...records.map(r => r.position));
-
-                records.forEach(record => {
-                    const x = graphX + (record.time / maxTime) * graphWidth;
-                    const y = graphY - (record.position / maxPosition) * graphHeight;
-                    
-                    ctx.beginPath();
-                    ctx.arc(x, y, 3, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'red';
-                    ctx.fill();
-                });
-            }
-
-            // 添加圖表標題
-            ctx.fillStyle = 'black';
-            ctx.font = '20px Arial';
-            ctx.fillText('時間-位置關係圖', graphX + graphWidth / 2 - 80, 30);
-        }
+    // 添加圖表標題
+    ctx.fillStyle = 'black';
+    ctx.font = '16px Arial';
+    ctx.fillText(type === 'position' ? '時間-位置關係圖' : '時間-速度關係圖', graphX + graphWidth / 2 - 60, graphY - 10);
+}
 
         function updateDebugInfo() {
             debugElement.innerHTML = `
