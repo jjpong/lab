@@ -29,6 +29,11 @@
         <input type="range" id="mass" min="0.5" max="10" value="1" step="0.1">
         <span id="massValue">1</span>
     </div>
+<div class="slider-container">
+    <label for="initialPosition">初始位置 (m):</label>
+    <input type="range" id="initialPosition" min="0" max="10" value="0" step="0.1">
+    <span id="initialPositionValue">0</span>
+</div>
 
 <div class="slider-container">
     <label for="initialVelocity">初速度 (m/s):</label>
@@ -49,13 +54,13 @@
     </div>
     <div class="slider-container">
         <label for="interval">紀錄時間間隔 (s):</label>
-        <input type="range" id="interval" min="0.01" max="1" value="0.05" step="0.01">
+        <input type="range" id="interval" min="0.01" max="1" value="0.1" step="0.01">
         <span id="intervalValue">0.05</span>
     </div>
 <div class="slider-container">
-    <label for="initialPosition">初始位置 (m):</label>
-    <input type="range" id="initialPosition" min="0" max="10" value="0" step="0.1">
-    <span id="initialPositionValue">0</span>
+    <label for="simulationSpeed">模擬速度:</label>
+    <input type="range" id="simulationSpeed" min="0.1" max="2" value="1" step="0.1">
+    <span id="simulationSpeedValue">1</span>
 </div>
     <button id="startStop">開始/暫停</button>
     <button id="reset">重置</button>
@@ -78,7 +83,7 @@
         let mass = 1;
         let staticFriction = 0;
         let kineticFriction = 0;
-        let record_interval = 0.05;
+        let interval = 0.05;
         const track_length = 10; // 10 meters
 
 let allExperiments = [];
@@ -125,7 +130,7 @@ function updateSliderValue(id) {
     const slider = document.getElementById(id);
     slider.addEventListener('input', () => {
         if (id === 'interval') {
-            record_interval = updateSliderValue(id);
+            interval = updateSliderValue(id);
         } else if (id === 'force') {
             force = updateSliderValue(id);
         } else if (id === 'mass') {
@@ -231,11 +236,15 @@ document.getElementById('plotVelocity').addEventListener('click', () => {
     document.getElementById(id).value = eval(id);
     updateSliderValue(id);
 });
-
+let simulationSpeed = 1;
+document.getElementById('simulationSpeed').addEventListener('input', (e) => {
+    simulationSpeed = parseFloat(e.target.value);
+    document.getElementById('simulationSpeedValue').textContent = simulationSpeed.toFixed(1);
+});
 function calculateMotion(deltaTime) {
     let friction;
     let previousVelocity = velocity;  // 記錄上一個時刻的速度
-
+deltaTime *= simulationSpeed;
     if (Math.abs(velocity) < 0.001 && Math.abs(force) <= staticFriction) {
         // 靜止狀態
         friction = -force;
@@ -253,7 +262,7 @@ function calculateMotion(deltaTime) {
     time += deltaTime;
 
     // 確保即使速度為零也記錄數據
-    if (time - lastRecordTime >= record_interval || Math.abs(velocity) < 0.001) {
+    if (time - lastRecordTime >= interval || Math.abs(velocity) < 0.001) {
         if (position <= track_length) {
             records.push({ time, position, velocity });
             lastRecordTime = time;
@@ -343,9 +352,14 @@ function drawSimulation() {
         ctx.beginPath();
         ctx.arc(x, TRACK_START.y, 3, 0, 2 * Math.PI);
         ctx.fill();
-        
-        ctx.fillText(`${record.time.toFixed(2)}s`, x - 20, TRACK_START.y - 40);
-        ctx.fillText(`${record.position.toFixed(2)}m`, x - 20, TRACK_START.y - 20);
+
+ctx.fillStyle = 'black';
+ctx.font = '12px Arial';
+ctx.fillText(`${record.position.toFixed(2)}m`, x - 20, TRACK_START.y + 75);
+ctx.fillText(`${record.velocity.toFixed(2)}m/s`, x - 20, TRACK_START.y + 90);
+
+// 顯示時間（在軌道下方）
+ctx.fillText(`${record.time.toFixed(2)}s`, x - 20, TRACK_START.y + 60);
     });
 
     // 顯示當前參數
@@ -360,7 +374,7 @@ function drawSimulation() {
     ctx.fillText(`質量: ${mass.toFixed(2)} kg`, textX, textY); textY += lineHeight;
     ctx.fillText(`最大靜摩擦力: ${staticFriction.toFixed(2)} N`, textX, textY); textY += lineHeight;
     ctx.fillText(`動摩擦力: ${kineticFriction.toFixed(2)} N`, textX, textY); textY += lineHeight;
-    ctx.fillText(`紀錄時間間隔: ${record_interval.toFixed(3)} s`, textX, textY); textY += lineHeight;
+    ctx.fillText(`紀錄時間間隔: ${interval.toFixed(3)} s`, textX, textY); textY += lineHeight;
     ctx.fillText(`位置: ${position.toFixed(2)} m`, textX, textY); textY += lineHeight;
     ctx.fillText(`時間: ${time.toFixed(2)} s`, textX, textY); textY += lineHeight;
     ctx.fillText(`速度: ${velocity.toFixed(2)} m/s`, textX, textY); textY += lineHeight;
