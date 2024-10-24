@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>連續影像擷取疊圖器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+	
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .camera-section, .photos-section, .composite-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%;
+
+        }
+
+        .controls {
+            margin-top: 10px;
+        }
+
+        .timer-controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+
+        .timer-controls input[type="number"] {
+            width: 80px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .timer-controls label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #photoList {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .photo-item {
+            position: relative;
+        }
+
+        .delete-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+
+        }
+
+        .slider-container {
+            margin: 10px 0;
+        }
+
+        #errorMessage {
+            color: red;
+            margin: 10px 0;
+        }
+
+        .measurement-info {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+
+        #compositeCanvas {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+	<iframe 
+    src="https://jjpong.github.io/virtureLab/%E5%BD%B1%E5%83%8F%E6%93%B7%E5%8F%96%E5%99%A8.html"
+    allow="camera; microphone; display-capture"
+    allowfullscreen>
+</iframe>
+<body>
+    <h1>連續影像擷取疊圖器</h1>
+
+    <div class="container">
+        <div class="camera-section">
+            <h2>攝影機預覽</h2>
+            <video id="video" autoplay style="width: 100%;"></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+            <div id="errorMessage"></div>
+            <div class="controls">
+                <button onclick="startCamera()">啟動攝影機</button>
+<select id="resolution" onchange="changeResolution()">
+    <option value="640,480">640x480</option>
+    <option value="1280,720">1280x720</option>
+    <option value="1920,1080">1920x1080</option>
+</select>
+                <button onclick="capturePhoto()">手動擷取</button>
+            </div>
+            <div class="timer-controls">
+                <label>間隔時間(毫秒)：<input type="number" id="interval" value="1000" min="100"></label>
+                <label>總時間(秒)：<input type="number" id="duration" value="5" min="1"></label>
+                <button onclick="startAutoCapture()">開始連續擷取</button>
+                <button onclick="stopAutoCapture()" id="stopButton" disabled>停止擷取</button>
+            </div>
+        </div>
+
+        <div class="photos-section">
+            <h2>擷取的影像</h2>
+            <div id="photoList"></div>
+        </div>
+
+        <div class="composite-section">
+            <h2>合成結果</h2>
+            <div style="position: relative;">
+                <canvas id="compositeCanvas"></canvas>
+                <div id="measurementInfo" class="measurement-info" style="display: none;"></div>
+            </div>
+            <div class="slider-container">
+                <label for="opacity">不透明度調整:</label>
+                <input type="range" id="opacity" min="0.1" max="2" step="0.1" value="1" oninput="createComposite()">
+            </div>
+            <div class="controls">
+                <button onclick="downloadComposite()">下載合成圖片</button>
+                <button onclick="clearMeasurements()">清除標記</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const photoList = document.getElementById('photoList');
+        const compositeCanvas = document.getElementById('compositeCanvas');
+        const compositeCtx = compositeCanvas.getContext('2d');
+        const errorMessage = document.getElementById('errorMessage');
+        let capturedPhotos = [];
+        let captureInterval;
+
+        // 測量功能相關變數
+        let isDrawing = false;
+        let startX = 0;
+        let startY = 0;
+        let measurements = [];
+        const measurementInfo = document.getElementById('measurementInfo');
+async function changeResolution() {
+    const [width, height] = document.getElementById('resolution').value.split(',');
+    const stream = video.srcObject;
+    if (stream) {
+        const track = stream.getVideoTracks()[0];
+        await track.applyConstraints({
+            width: parseInt(width),
+            height: parseInt(height)
+        });
+        // 更新 canvas 尺寸
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        compositeCanvas.width = video.videoWidth;
+        compositeCanvas.height = video.videoHeight;
+    }
+}
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true,
+                    audio: false
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    compositeCanvas.width = video.videoWidth;
+                    compositeCanvas.height = video.videoHeight;
+                    initializeCanvasEvents();
+                };
+                errorMessage.textContent = '攝影機啟動成功！';
+                errorMessage.style.color = 'green';
+            } catch (err) {
+                console.error('攝影機存取錯誤:', err);
+                errorMessage.textContent = `攝影機存取錯誤: ${err.name} - ${err.message}`;
+            }
+        }
+
+        function startAutoCapture() {
+            const interval = parseInt(document.getElementById('interval').value);
+            const duration = parseInt(document.getElementById('duration').value);
+            const totalCaptures = Math.floor((duration * 1000) / interval);
+            let captureCount = 0;
+            
+            document.getElementById('stopButton').disabled = false;
+            
+            captureInterval = setInterval(() => {
+                capturePhoto();
+                captureCount++;
+                
+                if (captureCount >= totalCaptures) {
+                    stopAutoCapture();
+                }
+            }, interval);
+        }
+
+        function stopAutoCapture() {
+            clearInterval(captureInterval);
+            document.getElementById('stopButton').disabled = true;
+        }
+
+        function capturePhoto() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+		 // 確保 canvas 尺寸與視訊源相同
+        	canvas.width = video.videoWidth;
+        	canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        	const photoData = canvas.toDataURL('image/png');
+        	capturedPhotos.push(photoData);
+        	updatePhotoList();
+        	createComposite();
+            }
+        }
+
+        function updatePhotoList() {
+            photoList.innerHTML = '';
+            capturedPhotos.forEach((photoData, index) => {
+                const photoContainer = document.createElement('div');
+                photoContainer.className = 'photo-item';
+
+                const img = document.createElement('img');
+                img.src = photoData;
+                img.width = 150;
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.textContent = 'X';
+                deleteButton.onclick = () => {
+                    capturedPhotos.splice(index, 1);
+                    updatePhotoList();
+                    createComposite();
+                };
+
+                photoContainer.appendChild(img);
+                photoContainer.appendChild(deleteButton);
+                photoList.appendChild(photoContainer);
+            });
+        }
+
+        function createComposite(clearMeasures = true) {
+            if (capturedPhotos.length === 0) return;
+
+            const opacityMultiplier = parseFloat(document.getElementById('opacity').value);
+            const baseOpacity = 1 / capturedPhotos.length;
+            
+            compositeCtx.clearRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+
+            capturedPhotos.forEach((photoData, index) => {
+                const img = new Image();
+                img.onload = () => {
+                    compositeCtx.globalAlpha = baseOpacity * opacityMultiplier;
+                    compositeCtx.drawImage(img, 0, 0);
+                    
+                    if (index === capturedPhotos.length - 1) {
+                        compositeCtx.globalAlpha = 1.0;
+                        if (!clearMeasures) {
+                            setTimeout(() => drawAllMeasurements(), 100);
+                        }
+                    }
+                };
+                img.src = photoData;
+            });
+        }
+
+        function drawAllMeasurements() {
+            measurements.forEach(measurement => {
+                drawMeasurement(measurement);
+            });
+        }
+
+        function drawMeasurement(measurement) {
+            compositeCtx.beginPath();
+            compositeCtx.arc(measurement.startX, measurement.startY, 4, 0, Math.PI * 2);
+            compositeCtx.fillStyle = 'red';
+            compositeCtx.fill();
+
+            compositeCtx.beginPath();
+            compositeCtx.arc(measurement.endX, measurement.endY, 4, 0, Math.PI * 2);
+            compositeCtx.fillStyle = 'red';
+            compositeCtx.fill();
+
+            compositeCtx.beginPath();
+            compositeCtx.moveTo(measurement.startX, measurement.startY);
+            compositeCtx.lineTo(measurement.endX, measurement.endY);
+            compositeCtx.strokeStyle = 'blue';
+            compositeCtx.lineWidth = 2;
+            compositeCtx.stroke();
+
+            const distance = Math.sqrt(
+                Math.pow(measurement.endX - measurement.startX, 2) + 
+                Math.pow(measurement.endY - measurement.startY, 2)
+            );
+            const midX = (measurement.startX + measurement.endX) / 2;
+            const midY = (measurement.startY + measurement.endY) / 2;
+            
+            compositeCtx.font = '14px Arial';
+            compositeCtx.fillStyle = 'white';
+            compositeCtx.strokeStyle = 'black';
+            compositeCtx.lineWidth = 3;
+            const text = `${Math.round(distance)}px`;
+            compositeCtx.strokeText(text, midX + 5, midY - 5);
+            compositeCtx.fillText(text, midX + 5, midY - 5);
+        }
+
+        function downloadComposite() {
+            const link = document.createElement('a');
+            link.download = 'composite.png';
+            link.href = compositeCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function initializeCanvasEvents() {
+            compositeCanvas.addEventListener('mousedown', startDrawing);
+            compositeCanvas.addEventListener('mousemove', drawing);
+            compositeCanvas.addEventListener('mouseup', endDrawing);
+            compositeCanvas.addEventListener('mouseleave', endDrawing);
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = compositeCanvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            
+            compositeCtx.beginPath();
+            compositeCtx.arc(startX, startY, 4, 0, Math.PI * 2);
+            compositeCtx.fillStyle = 'red';
+            compositeCtx.fill();
+        }
+
+        function drawing(e) {
+            if (!isDrawing) return;
+            
+            const rect = compositeCanvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+
+            createComposite(false);
+            drawAllMeasurements();
+            
+            compositeCtx.beginPath();
+            compositeCtx.moveTo(startX, startY);
+            compositeCtx.lineTo(currentX, currentY);
+            compositeCtx.strokeStyle = 'blue';
+            compositeCtx.lineWidth = 2;
+            compositeCtx.stroke();
+
+            const distance = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+            measurementInfo.style.display = 'block';
+            measurementInfo.style.left = `${e.clientX + 10}px`;
+            measurementInfo.style.top = `${e.clientY + 10}px`;
+            measurementInfo.textContent = `距離: ${Math.round(distance)} pixels`;
+        }
+
+        function endDrawing(e) {
+            if (!isDrawing) return;
+            
+            const rect = compositeCanvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+
+            measurements.push({
+                startX: startX,
+                startY: startY,
+                endX: endX,
+                endY: endY
+            });
+
+            createComposite(false);
+            drawAllMeasurements();
+
+            isDrawing = false;
+            measurementInfo.style.display = 'none';
+        }
+
+        function clearMeasurements() {
+            measurements = [];
+            createComposite(true);
+        }
+    </script>
+</body>
+</html>
