@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>頻率產生器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        input[type="range"] {
+            width: 100%;
+            max-width: 600px;
+        }
+        .frequency-display {
+            margin: 20px 0;
+            font-size: 24px;
+        }
+        input[type="number"] {
+            width: 80px;
+            margin: 0 10px;
+        }
+        .button-container {
+            margin: 10px 0;
+        }
+        button {
+            margin: 0 5px;
+            padding: 10px 15px;
+            font-size: 16px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+            height: 200px;
+        }
+        .scale-label {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .time-label {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 16px;
+        }
+        .unit-label {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .time-range {
+            display: flex;
+            justify-content: center; /* 置中 */
+            align-items: center; /* 垂直置中 */
+            width: 100%;
+            max-width: 600px;
+            margin-top: 5px;
+        }
+        .time-range > div {
+            margin-right: 10px; /* 調整「時間範圍」與按鈕之間的距離 */
+        }
+    </style>
+</head>
+<body>
+    <h1>頻率產生器</h1>
+    <div class="slider-container">
+        <input type="range" id="frequencySlider" min="10" max="20000" step="0.1" value="10">
+        <div>
+            <input type="number" id="frequencyInteger" min="10" max="20000" value="10">
+            <input type="number" id="frequencyDecimal" min="0" max="9" step="1" value="0">
+        </div>
+        <div class="frequency-display" id="frequencyDisplay">頻率: 10.0 Hz</div>
+
+        <input type="range" id="amplitudeSlider" min="0" max="100" step="1" value="50">
+        <div class="scale-label">
+            <span>振幅: 0</span>
+            <span>振幅: 100</span>
+        </div>
+
+        <div class="button-container">
+            <button class="quick-set" data-value="20">20Hz</button>
+            <button class="quick-set" data-value="30">30Hz</button>
+            <button class="quick-set" data-value="60">60Hz</button>
+            <button class="quick-set" data-value="125">125Hz</button>
+            <button class="quick-set" data-value="250">250Hz</button>
+            <button class="quick-set" data-value="500">500Hz</button>
+            <button class="quick-set" data-value="1000">1000Hz</button>
+            <button class="quick-set" data-value="2000">2000Hz</button>
+            <button class="quick-set" data-value="4000">4000Hz</button>
+            <button class="quick-set" data-value="8000">8000Hz</button>
+            <button class="quick-set" data-value="16000">16000Hz</button>
+            <button class="quick-set" data-value="18000">18000Hz</button>
+            <button class="quick-set" data-value="19000">19000Hz</button>
+            <button class="quick-set" data-value="20000">20000Hz</button>
+        </div>
+        
+        <div class="button-container">
+            <button id="decreaseStep" data-step="0.1">-0.1Hz</button>
+            <button id="increaseStep" data-step="0.1">+0.1Hz</button>
+            <button id="decreaseStep1" data-step="1">-1Hz</button>
+            <button id="increaseStep1" data-step="1">+1Hz</button>
+            <button id="decreaseStep10" data-step="10">-10Hz</button>
+            <button id="increaseStep10" data-step="10">+10Hz</button>
+            <button id="decreaseStep100" data-step="100">-100Hz</button>
+            <button id="increaseStep100" data-step="100">+100Hz</button>
+        </div>
+        
+        <button id="playButton">播放聲音</button>
+        <button id="stopButton" disabled>停止聲音</button>
+        
+        <canvas id="waveformCanvas"></canvas>
+        
+        <div class="time-label">時間(ms)</div>
+        
+        <div class="time-range">
+            <div>時間範圍</div>
+            <div>
+                <button id="scale1ms">1ms</button>
+                <button id="scale10ms">10ms</button>
+                <button id="scale100ms">100ms</button>
+                <button id="scale1000ms">1000ms</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyInteger = document.getElementById('frequencyInteger');
+        const frequencyDecimal = document.getElementById('frequencyDecimal');
+        const display = document.getElementById('frequencyDisplay');
+        const amplitudeSlider = document.getElementById('amplitudeSlider');
+        const playButton = document.getElementById('playButton');
+        const stopButton = document.getElementById('stopButton');
+        const canvas = document.getElementById('waveformCanvas');
+        const ctx = canvas.getContext('2d');
+        let audioContext;
+        let oscillator;
+        let gainNode; // 新增增益節點
+        let currentScale = 10; // 預設為 10ms
+
+        function updateFrequency() {
+            const frequencyInHz = parseFloat(frequencySlider.value);
+            frequencyInteger.value = Math.floor(frequencyInHz);
+            frequencyDecimal.value = Math.round((frequencyInHz % 1) * 10);
+            display.textContent = `頻率: ${frequencyInHz.toFixed(1)} Hz`;
+            drawWaveform(frequencyInHz);
+            if (oscillator) {
+                oscillator.frequency.setValueAtTime(frequencyInHz, audioContext.currentTime);
+            }
+        }
+
+        function drawWaveform(frequency) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const midY = height / 2;
+            const amplitude = parseFloat(amplitudeSlider.value);
+
+            ctx.clearRect(0, 0, width, height);
+            drawGrid(); // 繪製格線
+            ctx.beginPath();
+            ctx.moveTo(0, midY);
+
+            const samples = 1000; // 取樣點數
+            for (let i = 0; i < samples; i++) {
+                const x = (i / samples) * width;
+                const time = (i / samples) * currentScale; // 計算時間
+                const y = midY + (Math.sin((time * frequency * 2 * Math.PI) / 1000) * (height / 2 - 10) * (amplitude / 100));
+                ctx.lineTo(x, y);
+            }
+
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 1; // 調整線寬為 1
+            ctx.stroke();
+
+            // 繪製橫軸刻度
+            drawXAxisTicks(currentScale, samples);
+        }
+
+        function drawGrid() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const step = width / 10; // 每10個單位一條網格
+
+            ctx.strokeStyle = '#e0e0e0'; // 格線顏色
+            ctx.lineWidth = 0.5; // 格線寬度
+
+            // 繪製垂直格線
+            for (let x = step; x < width; x += step) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            // 繪製水平格線
+            const midY = height / 2;
+            const amplitudeSteps = 10; // 水平格線數量
+            for (let i = 1; i <= amplitudeSteps; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, midY - (height / 2) * (i / amplitudeSteps));
+                ctx.lineTo(width, midY - (height / 2) * (i / amplitudeSteps));
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, midY + (height / 2) * (i / amplitudeSteps));
+                ctx.lineTo(width, midY + (height / 2) * (i / amplitudeSteps));
+                ctx.stroke();
+            }
+        }
+
+        function drawXAxisTicks(scale, samples) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const tickHeight = 10;
+            const tickInterval = width / 10; // 10個刻度
+
+            ctx.fillStyle = 'black';
+            ctx.font = '10px Arial'; // 調整字體大小到 10px
+            for (let i = 0; i <= 10; i++) {
+                const x = i * tickInterval;
+                const timeValue = (i * scale) / 10; // 計算每個刻度的時間值
+                ctx.fillRect(x, height - tickHeight, 1, tickHeight); // 繪製刻度
+                
+                // 顯示時間值，保留一位小數
+                ctx.fillText(`${timeValue.toFixed(1)}`, x, height - tickHeight - 5); // 標示時間
+            }
+        }
+
+        function setScale(scale) {
+            currentScale = scale;
+            drawWaveform(parseFloat(frequencySlider.value)); // 更新波形
+        }
+
+        function setFrequency(value) {
+            frequencySlider.value = value;
+            updateFrequency();
+        }
+
+        function startSound() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            oscillator = audioContext.createOscillator();
+            gainNode = audioContext.createGain(); // 初始化增益節點
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(parseFloat(display.textContent.split(': ')[1]), audioContext.currentTime);
+            gainNode.gain.setValueAtTime(parseFloat(amplitudeSlider.value) / 100, audioContext.currentTime); // 設定音量
+            oscillator.start();
+            
+            playButton.disabled = true;
+            stopButton.disabled = false;
+
+            // 在聲音停止後重置振盪器和增益節點
+            oscillator.onended = () => {
+                oscillator = null;
+                gainNode = null;
+                playButton.disabled = false;
+                stopButton.disabled = true;
+            };
+        }
+
+        function stopSound() {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                gainNode.disconnect();
+            }
+        }
+
+        frequencyInteger.addEventListener('input', updateFrequency);
+        frequencyDecimal.addEventListener('input', updateFrequency);
+        frequencySlider.addEventListener('input', updateFrequency);
+        amplitudeSlider.addEventListener('input', () => {
+            if (gainNode) {
+                gainNode.gain.setValueAtTime(parseFloat(amplitudeSlider.value) / 100, audioContext.currentTime); // 更新音量
+            }
+            drawWaveform(parseFloat(frequencySlider.value));
+        });
+
+        // 設定時間範圍的按鈕事件
+        document.getElementById('scale1ms').addEventListener('click', () => setScale(1));
+        document.getElementById('scale10ms').addEventListener('click', () => setScale(10));
+        document.getElementById('scale100ms').addEventListener('click', () => setScale(100));
+        document.getElementById('scale1000ms').addEventListener('click', () => setScale(1000));
+
+        // 快速按鈕事件
+        document.querySelectorAll('.quick-set').forEach(button => {
+            button.addEventListener('click', () => {
+                setFrequency(parseFloat(button.getAttribute('data-value')));
+            });
+        });
+
+        // 增減按鈕事件
+        document.querySelectorAll('.button-container button[data-step]').forEach(button => {
+            button.addEventListener('click', () => {
+                const step = parseFloat(button.getAttribute('data-step'));
+                const currentFrequency = parseFloat(display.textContent.split(': ')[1]);
+                setFrequency(currentFrequency + (button.innerText.startsWith('+') ? step : -step));
+            });
+        });
+
+        playButton.addEventListener('click', startSound);
+        stopButton.addEventListener('click', () => {
+            stopSound();
+            playButton.disabled = false;
+            stopButton.disabled = true;
+        });
+
+        updateFrequency(); // 初始化顯示
+    </script>
+</body>
+</html>
