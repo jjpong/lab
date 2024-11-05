@@ -38,6 +38,16 @@
             padding: 10px 15px;
             font-size: 16px;
         }
+        .frequency-buttons {
+            display: flex;
+            flex-wrap: wrap; /* 使按鈕可以換行 */
+            justify-content: center; /* 置中 */
+            max-width: 600px; /* 限制最大寬度 */
+        }
+        .frequency-buttons button {
+            width: 90px; /* 每個按鈕的寬度 */
+            margin: 5px; /* 按鈕間距 */
+        }
         canvas {
             border: 1px solid #ccc;
             margin-top: 20px;
@@ -92,7 +102,7 @@
             <span>振幅: 100</span>
         </div>
 
-        <div class="button-container">
+        <div class="button-container frequency-buttons">
             <button class="quick-set" data-value="20">20Hz</button>
             <button class="quick-set" data-value="30">30Hz</button>
             <button class="quick-set" data-value="60">60Hz</button>
