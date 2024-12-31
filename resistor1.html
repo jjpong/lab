@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>電子流動模擬</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .graph-container {
+            width: 100%;
+            height: 200px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        label {
+            white-space: nowrap;
+            min-width: 100px;
+        }
+        select, input[type="range"] {
+            flex: 1;
+        }
+        .slider-value {
+            min-width: 30px;
+            text-align: right;
+        }
+        canvas {
+            border-radius: 4px;
+        }
+        #canvas {
+            background: white;
+        }
+        .current-value {
+            text-align: center;
+            padding: 10px;
+            font-size: 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="control-panel">
+            <div class="control-group">
+                <label>材料選擇:</label>
+                <select id="material">
+                    <option value="silver">銀 (最佳導體)</option>
+                    <option value="copper">銅 (優良導體)</option>
+                    <option value="nichrome">電阻材料</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>溫度高低 (K):</label>
+                <input type="range" id="temperature" min="0" max="1000" value="300">
+                <span id="tempValue" class="slider-value">300</span>
+            </div>
+            <div class="control-group">
+                <label>電壓大小:</label>
+                <input type="range" id="field" min="0" max="100" value="0">
+                <span id="fieldValue" class="slider-value">0</span>
+            </div>
+            <div class="control-group">
+                <label>導體粗細 (px):</label>
+                <input type="range" id="plateThickness" min="10" max="200" value="100">
+                <span id="thicknessValue" style ="display: none;"> class="slider-value">15</span>
+            </div>
+            <div class="control-group">
+                <label>導體長度 (px):</label>
+                <input type="range" id="resistorLength" min="200" max="800" value="600">
+                <span id="lengthValue" class="slider-value">600</span>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="canvas" width="600" height="400"></canvas>
+        </div>
+
+        <div class="current-value">
+            每秒通過電子數: <span id="electronCount">0</span>
+        </div>
+
+        <div class="graph-container">
+            <canvas id="graphCanvas" width="1160" height="160"></canvas>
+        </div>
+    </div>
+
+    <script src="your-javascript-file.js"></script>
+</body>
+</html>
+    <script>
+      const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const graphCanvas = document.getElementById('graphCanvas');
+const graphCtx = graphCanvas.getContext('2d');
+
+const materialProperties = {
+    silver: {
+        gridAlign: 1.0,
+        collisionLoss: 0.2,
+        tempMultiplier: 1,
+        repulsionRange: 8,
+        color: '#888',
+        repulsionStrength: 1
+    },
+    copper: {
+        gridAlign: 0.6,
+        collisionLoss: 0.2,
+        tempMultiplier: 1,
+        repulsionRange: 8,
+        color: '#666',
+        repulsionStrength: 1
+    },
+    nichrome: {
+        gridAlign: 0.5,
+        collisionLoss: 0.8,
+        tempMultiplier: 0.4,
+        repulsionRange: 12,
+        color: '#444',
+        repulsionStrength: 0.8
+    },
+   
+};
+
+const state = {
+    nuclei: [],
+    electrons: [],
+    crossedElectrons: 0,
+    lastCounterReset: Date.now(),
+    electronHistory: [],
+    maxHistoryPoints: 100
+};
+
+function updateCanvasSize() {
+    const length = parseInt(document.getElementById('resistorLength').value);
+    canvas.width = length;
+    canvas.style.width = length + 'px';
+    init();
+}
+
+function resetElectrons() {
+    state.electrons = [];
+    const plateThickness = parseInt(document.getElementById('plateThickness').value);
+    const availableHeight = canvas.height - 2 * plateThickness;
+    const electronCount =  Math.floor(availableHeight*5);
+    
+    for(let i = 0; i < electronCount; i++) {
+        state.electrons.push({
+            x: Math.random() * canvas.width,
+            y: plateThickness + Math.random() * availableHeight,
+            vx: 0,
+            vy: 0
+        });
+    }
+    state.crossedElectrons = 0;
+    state.lastCounterReset = Date.now();
+    state.electronHistory = [];
+}
+
+function init() {
+    state.nuclei = [];
+    const material = document.getElementById('material').value;
+    const props = materialProperties[material];
+    const margin = 20;
+    const gridSize = 25;
+    
+    for(let y = margin; y < canvas.height - margin; y += gridSize) {
+        for(let x = margin; x < canvas.width - margin; x += gridSize) {
+            const randomOffset = (1 - props.gridAlign) * gridSize;
+            const offsetX = (Math.random() - 0.5) * randomOffset;
+            const offsetY = (Math.random() - 0.5) * randomOffset;
+
+            if(Math.random() < props.gridAlign) {
+                state.nuclei.push({
+                    x: x + offsetX,
+                    y: y + offsetY,
+                    baseX: x + offsetX,
+                    baseY: y + offsetY
+                });
+            }
+        }
+    }
+    resetElectrons();
+}
+
+function drawGraph() {
+    const width = graphCanvas.width;
+    const height = graphCanvas.height;
+    
+    // 清空畫布
+    graphCtx.clearRect(0, 0, width, height);
+    
+    // 繪製背景網格
+    graphCtx.strokeStyle = '#eee';
+    graphCtx.lineWidth = 1;
+    const gridSize = 20;
+    for(let x = 50; x < width - 30; x += gridSize) {
+        graphCtx.beginPath();
+        graphCtx.moveTo(x, 30);
+        graphCtx.lineTo(x, height - 30);
+        graphCtx.stroke();
+    }
+    for(let y = 30; y < height - 30; y += gridSize) {
+        graphCtx.beginPath();
+        graphCtx.moveTo(50, y);
+        graphCtx.lineTo(width - 30, y);
+        graphCtx.stroke();
+    }
+    
+    // 繪製座標軸
+    graphCtx.strokeStyle = '#333';
+    graphCtx.lineWidth = 2;
+    graphCtx.beginPath();
+    graphCtx.moveTo(50, height - 30);
+    graphCtx.lineTo(width - 30, height - 30); // X軸
+    graphCtx.moveTo(50, 30);
+    graphCtx.lineTo(50, height - 30); // Y軸
+    graphCtx.stroke();
+    
+    // 繪製標籤
+    graphCtx.fillStyle = '#333';
+    graphCtx.font = '12px Arial';
+    graphCtx.fillText('時間 (秒)', width - 50, height - 10);
+    graphCtx.save();
+    graphCtx.translate(20, height / 2);
+    graphCtx.rotate(-Math.PI / 2);
+    graphCtx.fillText('電子數/秒', 0, 0);
+    graphCtx.restore();
+    
+    // 繪製數據線
+    if (state.electronHistory.length > 1) {
+        const maxValue = Math.max(...state.electronHistory) || 1;
+        const xStep = (width - 80) / (state.maxHistoryPoints - 1);
+        const yScale = (height - 60) / maxValue;
+        
+        graphCtx.beginPath();
+        graphCtx.strokeStyle = '#2196F3';
+        graphCtx.lineWidth = 2;
+        state.electronHistory.forEach((value, index) => {
+            const x = 50 + index * xStep;
+            const y = height - 30 - (value * yScale);
+            if (index === 0) {
+                graphCtx.moveTo(x, y);
+            } else {
+                graphCtx.lineTo(x, y);
+            }
+        });
+        graphCtx.stroke();
+    }
+}
+
+function update() {
+    const material = document.getElementById('material').value;
+    const props = materialProperties[material];
+    const temperature = document.getElementById('temperature').value;
+    const field = document.getElementById('field').value / 100;
+    const plateThickness = parseInt(document.getElementById('plateThickness').value);
+
+    // 更新原子核位置
+    state.nuclei.forEach(nucleus => {
+        const vibration = temperature * props.tempMultiplier / 100;
+        nucleus.x = nucleus.baseX + (Math.random() * 2 - 1) * vibration;
+        nucleus.y = nucleus.baseY + (Math.random() * 2 - 1) * vibration;
+    });
+
+    // 更新電子位置和速度
+    state.electrons.forEach(electron => {
+        electron.vx += field;
+
+        state.nuclei.forEach(nucleus => {
+            const dx = electron.x - nucleus.x;
+            const dy = electron.y - nucleus.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if(distance < props.repulsionRange) {
+                electron.vx *= (1 - props.collisionLoss);
+                electron.vy *= (1 - props.collisionLoss);
+                
+                const angle = Math.atan2(dy, dx);
+                const repulsion = props.repulsionStrength / (distance + 1);
+                electron.vx += Math.cos(angle) * repulsion;
+                electron.vy += Math.sin(angle) * repulsion;
+            }
+        });
+
+        electron.x += electron.vx*0.5;
+        electron.y += electron.vy*0.5;
+
+        // 碰撞檢測
+        if(electron.y < plateThickness) {
+            electron.y = plateThickness;
+            electron.vy = Math.abs(electron.vy) * 0.5;
+        }
+        if(electron.y > canvas.height - plateThickness) {
+            electron.y = canvas.height - plateThickness;
+            electron.vy = -Math.abs(electron.vy) * 0.5;
+        }
+
+        if(electron.x > canvas.width) {
+            electron.x = 0;
+            state.crossedElectrons++;
+        }
+        if(electron.x < 0) {
+            electron.x = canvas.width;
+        }
+
+        electron.vx *= 0.99;
+        electron.vy *= 0.99;
+    });
+
+    // 更新計數器和圖表
+    const now = Date.now();
+    if(now - state.lastCounterReset >= 1000) {
+        document.getElementById('electronCount').textContent = state.crossedElectrons;
+        
+        state.electronHistory.push(state.crossedElectrons);
+        if (state.electronHistory.length > state.maxHistoryPoints) {
+            state.electronHistory.shift();
+        }
+        
+        state.crossedElectrons = 0;
+        state.lastCounterReset = now;
+        
+        drawGraph();
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const material = document.getElementById('material').value;
+    const props = materialProperties[material];
+    const plateThickness = parseInt(document.getElementById('plateThickness').value);
+
+    // 繪製原子核
+    ctx.fillStyle = props.color;
+    state.nuclei.forEach(nucleus => {
+        ctx.beginPath();
+        ctx.arc(nucleus.x, nucleus.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // 繪製電子
+    ctx.fillStyle = '#2196F3';
+    state.electrons.forEach(electron => {
+        ctx.beginPath();
+        ctx.arc(electron.x, electron.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // 繪製檔板
+    ctx.fillStyle = '#333';
+    ctx.fillRect(0, 0, canvas.width, plateThickness);
+    ctx.fillRect(0, canvas.height - plateThickness, canvas.width, plateThickness);
+}
+
+function animate() {
+    update();
+    draw();
+    requestAnimationFrame(animate);
+}
+
+// 初始化事件監聽器
+document.getElementById('material').addEventListener('change', init);
+document.getElementById('temperature').addEventListener('input', function() {
+    document.getElementById('tempValue').textContent = this.value;
+});
+document.getElementById('field').addEventListener('input', function() {
+    document.getElementById('fieldValue').textContent = this.value;
+});
+document.getElementById('plateThickness').addEventListener('input', function() {
+    document.getElementById('thicknessValue').textContent = this.value;
+    resetElectrons();
+});
+document.getElementById('resistorLength').addEventListener('input', function() {
+    document.getElementById('lengthValue').textContent = this.value;
+    updateCanvasSize();
+});
+
+// 啟動模擬
+init();
+animate();
+    </script>
+</body>
+</html>
