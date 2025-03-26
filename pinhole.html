@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>針孔成像模擬器</title>
+    <style>
+        body {
+            background: #000;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #container {
+            position: relative;
+            width: 1000px;
+            height: 600px;
+            margin: 50px auto;
+            border: 1px solid #333;
+            overflow: hidden;
+            background: 
+                linear-gradient(to right, #333 1px, transparent 1px) 0 0 / 20px 20px,
+                linear-gradient(to bottom, #333 1px, transparent 1px) 0 0 / 20px 20px;
+            background-color: #000;
+        }
+
+        .scale {
+            position: absolute;
+            top: 310px;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #fff;
+        }
+
+        #barrier {
+            position: absolute;
+            width: 4px;
+            height: 400px;
+            background: #fff;
+            transform: translate(-50%, -50%);
+            cursor: move;
+            top: 300px;
+        }
+
+        #pinhole {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #000;
+            border: 1px solid #fff;
+            border-radius: 50%;
+            cursor: move;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        #pinhole-area {
+            position: absolute;
+            width: 40px;
+            height: 400px;
+            transform: translate(-50%, -50%);
+            cursor: move;
+            z-index: 1;
+            top: 300px;
+        }
+
+        .label {
+            position: absolute;
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            width: 60px;
+            transform: translateX(-50%);
+        }
+
+        #pinhole-label {
+            top: 80px;
+        }
+
+        #screen-label {
+            top: 80px;
+        }
+
+        #object {
+            position: absolute;
+            width: 4px;
+            height: 30px;  /* 改為30px */
+            background: #ffff00;
+            border: 2px solid #ffff00;
+            cursor: move;
+            transform: translate(-50%, -100%);
+            z-index: 2;
+        }
+
+        #object::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -8px;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #ffff00;
+        }
+
+        #screen {
+            position: absolute;
+            width: 4px;
+            height: 400px;
+            background: #fff;
+            cursor: move;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+
+        #image {
+            position: absolute;
+            width: 4px;
+            background: #ffff00;
+            border: 2px solid #ffff00;
+            transform: translate(-50%, 0%);
+            z-index: 1;
+        }
+
+        #image::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: -8px;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid #ffff00;
+        }
+
+        .distance-label {
+            position: absolute;
+            font-size: 14px;
+            top: 270px;
+            color: #fff;
+        }
+
+        .size-label {
+            position: absolute;
+            color: #fff;
+            font-size: 12px;
+            left: -40px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+
+        #object-size {
+            bottom: 100%;
+        }
+
+        #image-size {
+            top: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="pinhole-area"></div>
+        <div id="barrier"></div>
+        <div id="pinhole"></div>
+        <div class="label" id="pinhole-label">針孔</div>
+        <div id="object">
+            <div class="size-label" id="object-size">30px</div>
+        </div>
+        <div id="screen"></div>
+        <div class="label" id="screen-label">螢幕</div>
+        <div id="image">
+            <div class="size-label" id="image-size"></div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const barrier = document.getElementById('barrier');
+        const pinhole = document.getElementById('pinhole');
+        const pinholeArea = document.getElementById('pinhole-area');
+        const object = document.getElementById('object');
+        const screen = document.getElementById('screen');
+        const image = document.getElementById('image');
+        const pinholeLabel = document.getElementById('pinhole-label');
+        const screenLabel = document.getElementById('screen-label');
+
+        // 初始位置
+        let pinholeX = 500;
+        let objectX = 300;
+        let objectY = 100;
+        let screenX = 700;
+
+        // 更新元件位置
+        function updatePositions() {
+            barrier.style.left = pinholeX + 'px';
+            pinhole.style.left = pinholeX + 'px';
+            pinhole.style.top = '300px';
+            pinholeArea.style.left = pinholeX + 'px';
+            pinholeLabel.style.left = pinholeX + 'px';
+            
+            object.style.left = objectX + 'px';
+            object.style.top = (300 + objectY) + 'px';
+            
+            screen.style.left = screenX + 'px';
+            screen.style.top = '300px';
+            
+            screenLabel.style.left = screenX + 'px';
+
+            // 計算成像
+            const objectDistance = Math.abs(pinholeX - objectX);
+            const screenDistance = Math.abs(screenX - pinholeX);
+            
+            const imageHeight = -(objectY * screenDistance) / objectDistance;
+            const imageSize = (30 * screenDistance) / objectDistance;  // 改為30px
+
+            image.style.left = screenX + 'px';
+            image.style.top = (300 + imageHeight) + 'px';
+            image.style.height = imageSize + 'px';
+            
+            // 計算亮度
+            const maxDistance = 800;
+            const totalDistance = objectDistance + screenDistance;
+            const brightness = Math.max(0.3, 1 - (totalDistance / maxDistance));
+            
+            image.style.opacity = brightness;
+
+            // 更新大小標示
+            document.getElementById('object-size').textContent = '30px';
+            document.getElementById('image-size').textContent = `${imageSize.toFixed(1)}px`;
+
+            updateDistanceLabels(objectDistance, screenDistance);
+        }
+
+        function updateDistanceLabels(objectDist, screenDist) {
+            document.querySelectorAll('.distance-label').forEach(label => label.remove());
+
+            const objectLabel = document.createElement('div');
+            objectLabel.className = 'distance-label';
+            objectLabel.textContent = `物距: ${(objectDist / 25).toFixed(1)}`;
+            objectLabel.style.left = ((objectX + pinholeX) / 2) + 'px';
+            container.appendChild(objectLabel);
+
+            const screenLabel = document.createElement('div');
+            screenLabel.className = 'distance-label';
+            screenLabel.textContent = `像距: ${(screenDist / 25).toFixed(1)}`;
+            screenLabel.style.left = ((screenX + pinholeX) / 2) + 'px';
+            container.appendChild(screenLabel);
+        }
+
+        // 拖曳功能
+        let dragging = null;
+        let offset = { x: 0, y: 0 };
+
+        container.addEventListener('mousedown', (e) => {
+            const target = e.target;
+            if (target === pinhole || target === barrier || target === pinholeArea) {
+                dragging = 'pinhole';
+                const rect = target.getBoundingClientRect();
+                offset.x = e.clientX - rect.left;
+            } else if (target === object) {
+                dragging = 'object';
+                const rect = target.getBoundingClientRect();
+                offset.x = e.clientX - rect.left;
+                offset.y = e.clientY - rect.top;
+            } else if (target === screen) {
+                dragging = 'screen';
+                const rect = target.getBoundingClientRect();
+                offset.x = e.clientX - rect.left;
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+
+            let newX = e.clientX - container.getBoundingClientRect().left - offset.x;
+            let newY = e.clientY - container.getBoundingClientRect().top - offset.y;
+
+            newX = Math.max(0, Math.min(newX, container.clientWidth));
+            
+            if (dragging === 'pinhole') {
+                pinholeX = newX;
+                // 確保物體和螢幕與針孔保持最小距離
+                if (Math.abs(objectX - pinholeX) < 25) {
+                    objectX = pinholeX - 25;
+                }
+                if (Math.abs(screenX - pinholeX) < 25) {
+                    screenX = pinholeX + 25;
+                }
+            } else if (dragging === 'object') {
+                objectX = Math.min(pinholeX - 25, newX);
+                objectY = Math.max(-300, Math.min(300, newY - 300));
+            } else if (dragging === 'screen') {
+                screenX = Math.max(pinholeX + 25, newX);
+            }
+
+            updatePositions();
+        });
+
+        document.addEventListener('mouseup', () => {
+            dragging = null;
+        });
+
+        // 初始化
+        updatePositions();
+    </script>
+</body>
+</html>
