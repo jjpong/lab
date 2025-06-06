@@ -317,7 +317,6 @@
             opacity: 0.5;
         }
         
-        /* 修改：移除合力分力數值顯示的控制面板部分 */
         .resultant-components-toggle {
             margin: 6px 0;
             font-size: 10px;
@@ -397,7 +396,6 @@
             border-radius: 3px;
         }
         
-        /* 修改：分力顯示樣式 - 保留但簡化 */
         .force-components-toggle {
             margin: 6px 0;
             font-size: 10px;
@@ -666,7 +664,6 @@
                             <label><input type="checkbox" id="resultant_horizontal" disabled=""> 水平分力</label>
                             <label><input type="checkbox" id="resultant_vertical" disabled=""> 垂直分力</label>
                         </div>
-                        <!-- 新增：合力分力數值顯示在畫布上 -->
                         <div class="resultant-components-toggle">
                             <input type="checkbox" id="resultant_show_components" disabled=""> 在畫布上顯示數值
                         </div>
@@ -686,7 +683,6 @@
                             <label>角度：</label>
                             <input type="number" id="f1_angle" min="0" max="359" value="0">°
                         </div>
-                        <!-- 修改：在畫布上顯示分力數值 -->
                         <div class="force-components-toggle">
                             <input type="checkbox" id="f1_show_components" disabled=""> 在畫布上顯示數值
                         </div>
@@ -708,7 +704,6 @@
                             <label>角度：</label>
                             <input type="number" id="f2_angle" min="0" max="359" value="90">°
                         </div>
-                        <!-- 修改：在畫布上顯示分力數值 -->
                         <div class="force-components-toggle">
                             <input type="checkbox" id="f2_show_components" disabled=""> 在畫布上顯示數值
                         </div>
@@ -730,7 +725,6 @@
                             <label>角度：</label>
                             <input type="number" id="f3_angle" min="0" max="359" value="180">°
                         </div>
-                        <!-- 修改：在畫布上顯示分力數值 -->
                         <div class="force-components-toggle">
                             <input type="checkbox" id="f3_show_components" disabled=""> 在畫布上顯示數值
                         </div>
@@ -752,7 +746,6 @@
                             <label>角度：</label>
                             <input type="number" id="f4_angle" min="0" max="359" value="270">°
                         </div>
-                        <!-- 修改：在畫布上顯示分力數值 -->
                         <div class="force-components-toggle">
                             <input type="checkbox" id="f4_show_components" disabled=""> 在畫布上顯示數值
                         </div>
@@ -852,16 +845,356 @@
         let selectedShape = null;
         let isDraggingShape = false;
         
+        // 控制點編輯相關變數
+        let editingShape = null;
+        let editingControlPoint = null;
+        let isDraggingControlPoint = false;
+        
         // 工具列拖拽
         let isToolbarDragging = false;
         let toolbarOffset = { x: 0, y: 0 };
         
-        // 格子對齊函數
+        // 修改：格子對齊函數，自由繪圖不對齊
         function snapToGrid(x, y) {
+            if (currentTool === 'freehand') {
+                return { x: x, y: y }; // 自由繪圖不對齊格子
+            }
             return {
                 x: Math.round(x / GRID_SIZE) * GRID_SIZE,
                 y: Math.round(y / GRID_SIZE) * GRID_SIZE
             };
+        }
+        
+        // 獲取圖形的控制點
+        function getControlPoints(shape) {
+            const points = [];
+            
+            switch (shape.type) {
+                case 'line':
+                    points.push({
+                        type: 'endpoint',
+                        x: shape.startX,
+                        y: shape.startY,
+                        name: 'start'
+                    });
+                    points.push({
+                        type: 'endpoint',
+                        x: shape.endX,
+                        y: shape.endY,
+                        name: 'end'
+                    });
+                    break;
+                    
+                case 'rect':
+                    const left = Math.min(shape.startX, shape.endX);
+                    const right = Math.max(shape.startX, shape.endX);
+                    const top = Math.min(shape.startY, shape.endY);
+                    const bottom = Math.max(shape.startY, shape.endY);
+                    const centerX = (left + right) / 2;
+                    const centerY = (top + bottom) / 2;
+                    
+                    // 四個角點
+                    points.push({ type: 'corner', x: left, y: top, name: 'tl' });
+                    points.push({ type: 'corner', x: right, y: top, name: 'tr' });
+                    points.push({ type: 'corner', x: right, y: bottom, name: 'br' });
+                    points.push({ type: 'corner', x: left, y: bottom, name: 'bl' });
+                    
+                    // 旋轉控制點（中心上方）
+                    points.push({
+                        type: 'rotate',
+                        x: centerX,
+                        y: top - 30,
+                        name: 'rotate'
+                    });
+                    break;
+                    
+                case 'circle':
+                    const cCenterX = (shape.startX + shape.endX) / 2;
+                    const cCenterY = (shape.startY + shape.endY) / 2;
+                    const radius = Math.abs(shape.endX - shape.startX) / 2;
+                    
+                    // 上下左右四個控制點
+                    points.push({ type: 'resize', x: cCenterX, y: cCenterY - radius, name: 'top' });
+                    points.push({ type: 'resize', x: cCenterX + radius, y: cCenterY, name: 'right' });
+                    points.push({ type: 'resize', x: cCenterX, y: cCenterY + radius, name: 'bottom' });
+                    points.push({ type: 'resize', x: cCenterX - radius, y: cCenterY, name: 'left' });
+                    break;
+                    
+                case 'triangle':
+                    // 三個頂點
+                    points.push({ type: 'vertex', x: shape.startX, y: shape.startY, name: 'vertex1' });
+                    points.push({ type: 'vertex', x: shape.endX, y: shape.startY, name: 'vertex2' });
+                    points.push({ type: 'vertex', x: shape.startX, y: shape.endY, name: 'vertex3' });
+                    
+                    // 旋轉控制點（重心上方）
+                    const tCenterX = (shape.startX * 2 + shape.endX) / 3;
+                    const tCenterY = (shape.startY * 2 + shape.endY) / 3;
+                    points.push({
+                        type: 'rotate',
+                        x: tCenterX,
+                        y: tCenterY - 30,
+                        name: 'rotate'
+                    });
+                    break;
+            }
+            
+            return points;
+        }
+        
+        // 繪製控制點
+        function drawControlPoints(shape) {
+            if (selectedShape === null || drawingShapes[selectedShape] !== shape) return;
+            
+            const points = getControlPoints(shape);
+            const controlPointRadius = 4;
+            
+            points.forEach(point => {
+                ctx.save();
+                
+                // 設定控制點樣式
+                if (point.type === 'rotate') {
+                    ctx.strokeStyle = '#FF6B35';
+                    ctx.fillStyle = 'white';
+                } else {
+                    ctx.strokeStyle = '#4CAF50';
+                    ctx.fillStyle = 'white';
+                }
+                
+                ctx.lineWidth = 2;
+                
+                // 繪製空心圓圈
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, controlPointRadius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                
+                // 旋轉控制點額外顯示角度
+                if (point.type === 'rotate' && shape.rotation !== undefined) {
+                    ctx.fillStyle = '#FF6B35';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(`${Math.round(shape.rotation || 0)}°`, point.x + 8, point.y - 8);
+                }
+                
+                ctx.restore();
+            });
+        }
+        
+        // 檢查是否點擊到控制點
+        function getClickedControlPoint(x, y, shape) {
+            if (selectedShape === null || drawingShapes[selectedShape] !== shape) return null;
+            
+            const points = getControlPoints(shape);
+            const tolerance = 8;
+            
+            for (let point of points) {
+                const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+                if (distance < tolerance) {
+                    return point;
+                }
+            }
+            
+            return null;
+        }
+        
+        // 處理控制點拖拽
+        function handleControlPointDrag(shape, controlPoint, newX, newY) {
+            const snapped = snapToGrid(newX, newY);
+            
+            switch (shape.type) {
+                case 'line':
+                    if (controlPoint.name === 'start') {
+                        shape.startX = snapped.x;
+                        shape.startY = snapped.y;
+                    } else if (controlPoint.name === 'end') {
+                        shape.endX = snapped.x;
+                        shape.endY = snapped.y;
+                    }
+                    break;
+                    
+                case 'rect':
+                    if (controlPoint.type === 'corner') {
+                        handleRectCornerDrag(shape, controlPoint, snapped.x, snapped.y);
+                    } else if (controlPoint.type === 'rotate') {
+                        handleShapeRotation(shape, newX, newY);
+                    }
+                    break;
+                    
+                case 'circle':
+                    handleCircleResize(shape, controlPoint, snapped.x, snapped.y);
+                    break;
+                    
+                case 'triangle':
+                    if (controlPoint.type === 'vertex') {
+                        handleTriangleVertexDrag(shape, controlPoint, snapped.x, snapped.y);
+                    } else if (controlPoint.type === 'rotate') {
+                        handleShapeRotation(shape, newX, newY);
+                    }
+                    break;
+            }
+        }
+        
+        // 處理矩形角點拖拽
+        function handleRectCornerDrag(shape, controlPoint, newX, newY) {
+            const left = Math.min(shape.startX, shape.endX);
+            const right = Math.max(shape.startX, shape.endX);
+            const top = Math.min(shape.startY, shape.endY);
+            const bottom = Math.max(shape.startY, shape.endY);
+            
+            switch (controlPoint.name) {
+                case 'tl': // 左上角
+                    shape.startX = newX;
+                    shape.startY = newY;
+                    shape.endX = right;
+                    shape.endY = bottom;
+                    break;
+                case 'tr': // 右上角
+                    shape.startX = left;
+                    shape.startY = newY;
+                    shape.endX = newX;
+                    shape.endY = bottom;
+                    break;
+                case 'br': // 右下角
+                    shape.startX = left;
+                    shape.startY = top;
+                    shape.endX = newX;
+                    shape.endY = newY;
+                    break;
+                case 'bl': // 左下角
+                    shape.startX = newX;
+                    shape.startY = top;
+                    shape.endX = right;
+                    shape.endY = newY;
+                    break;
+            }
+        }
+        
+        // 處理圓形調整
+        function handleCircleResize(shape, controlPoint, newX, newY) {
+            const centerX = (shape.startX + shape.endX) / 2;
+            const centerY = (shape.startY + shape.endY) / 2;
+            
+            let newRadius;
+            
+            switch (controlPoint.name) {
+                case 'top':
+                case 'bottom':
+                    newRadius = Math.abs(newY - centerY);
+                    break;
+                case 'left':
+                case 'right':
+                    newRadius = Math.abs(newX - centerX);
+                    break;
+            }
+            
+            // 保持正圓
+            shape.startX = centerX - newRadius;
+            shape.startY = centerY - newRadius;
+            shape.endX = centerX + newRadius;
+            shape.endY = centerY + newRadius;
+        }
+        
+        // 處理三角形頂點拖拽
+        function handleTriangleVertexDrag(shape, controlPoint, newX, newY) {
+            switch (controlPoint.name) {
+                case 'vertex1':
+                    shape.startX = newX;
+                    shape.startY = newY;
+                    break;
+                case 'vertex2':
+                    shape.endX = newX;
+                    shape.startY = newY; // 保持水平邊
+                    break;
+                case 'vertex3':
+                    shape.startX = newX; // 保持垂直邊
+                    shape.endY = newY;
+                    break;
+            }
+        }
+        
+        // 處理形狀旋轉
+        function handleShapeRotation(shape, mouseX, mouseY) {
+            let centerX, centerY;
+            
+            if (shape.type === 'rect') {
+                centerX = (shape.startX + shape.endX) / 2;
+                centerY = (shape.startY + shape.endY) / 2;
+            } else if (shape.type === 'triangle') {
+                centerX = (shape.startX * 2 + shape.endX) / 3;
+                centerY = (shape.startY * 2 + shape.endY) / 3;
+            }
+            
+            const angle = Math.atan2(mouseY - centerY, mouseX - centerX) * 180 / Math.PI;
+            shape.rotation = ((angle + 90) % 360 + 360) % 360; // 調整角度使其從上方開始
+        }
+        
+        // 修改：繪製形狀時應用旋轉變換
+        function drawRotatedShape(shape) {
+            if (shape.rotation === undefined || shape.rotation === 0) {
+                // 沒有旋轉，直接繪製
+                drawShapeGeometry(shape);
+                return;
+            }
+            
+            ctx.save();
+            
+            // 計算旋轉中心
+            let centerX, centerY;
+            if (shape.type === 'rect') {
+                centerX = (shape.startX + shape.endX) / 2;
+                centerY = (shape.startY + shape.endY) / 2;
+            } else if (shape.type === 'triangle') {
+                centerX = (shape.startX * 2 + shape.endX) / 3;
+                centerY = (shape.startY * 2 + shape.endY) / 3;
+            }
+            
+            // 移動到旋轉中心，旋轉，然後繪製
+            ctx.translate(centerX, centerY);
+            ctx.rotate(shape.rotation * Math.PI / 180);
+            ctx.translate(-centerX, -centerY);
+            
+            drawShapeGeometry(shape);
+            
+            ctx.restore();
+        }
+        
+        // 新增：純粹的形狀幾何繪製函數
+        function drawShapeGeometry(shape) {
+            switch (shape.type) {
+                case 'line':
+                    ctx.beginPath();
+                    ctx.moveTo(shape.startX, shape.startY);
+                    ctx.lineTo(shape.endX, shape.endY);
+                    ctx.stroke();
+                    break;
+                case 'rect':
+                    const width = shape.endX - shape.startX;
+                    const height = shape.endY - shape.startY;
+                    ctx.beginPath();
+                    ctx.rect(shape.startX, shape.startY, width, height);
+                    ctx.stroke();
+                    break;
+                case 'circle':
+                    const centerX = (shape.startX + shape.endX) / 2;
+                    const centerY = (shape.startY + shape.endY) / 2;
+                    const radius = Math.abs(shape.endX - shape.startX) / 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    break;
+                case 'triangle':
+                    drawRightTriangle(shape.startX, shape.startY, shape.endX, shape.endY);
+                    break;
+                case 'freehand':
+                    if (shape.path.length > 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(shape.path[0].x, shape.path[0].y);
+                        for (let i = 1; i < shape.path.length; i++) {
+                            ctx.lineTo(shape.path[i].x, shape.path[i].y);
+                        }
+                        ctx.stroke();
+                    }
+                    break;
+            }
         }
         
         // 初始化響應式設定
@@ -1045,6 +1378,8 @@
                 isDrawingMode = true;
             }
             selectedShape = null;
+            editingShape = null;
+            editingControlPoint = null;
             updateToolButtons();
         }
         
@@ -1074,6 +1409,9 @@
             if (undoStack.length > 0) {
                 redoStack.push(JSON.parse(JSON.stringify(drawingShapes)));
                 drawingShapes = undoStack.pop();
+                selectedShape = null;
+                editingShape = null;
+                editingControlPoint = null;
                 updateDisplay();
             }
         }
@@ -1082,6 +1420,9 @@
             if (redoStack.length > 0) {
                 undoStack.push(JSON.parse(JSON.stringify(drawingShapes)));
                 drawingShapes = redoStack.pop();
+                selectedShape = null;
+                editingShape = null;
+                editingControlPoint = null;
                 updateDisplay();
             }
         }
@@ -1091,6 +1432,8 @@
                 saveDrawingState();
                 drawingShapes = [];
                 selectedShape = null;
+                editingShape = null;
+                editingControlPoint = null;
                 updateDisplay();
             }
         }
@@ -1382,7 +1725,7 @@
             };
         }
         
-        // 滑鼠按下事件
+        // 滑鼠按下事件，加入控制點檢查
         function onMouseDown(e) {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -1444,8 +1787,20 @@
             }
         }
         
-        // 處理移動模式滑鼠按下
+        // 處理移動模式滑鼠按下，加入控制點檢查
         function handleMoveMouseDown(x, y) {
+            // 首先檢查是否點擊到當前選中物件的控制點
+            if (selectedShape !== null && drawingShapes[selectedShape]) {
+                const controlPoint = getClickedControlPoint(x, y, drawingShapes[selectedShape]);
+                if (controlPoint) {
+                    isDraggingControlPoint = true;
+                    editingShape = selectedShape;
+                    editingControlPoint = controlPoint;
+                    saveDrawingState();
+                    return;
+                }
+            }
+            
             // 檢查是否點擊到繪圖物件
             for (let i = drawingShapes.length - 1; i >= 0; i--) {
                 if (isPointInShape(x, y, drawingShapes[i])) {
@@ -1476,19 +1831,21 @@
             
             // 如果沒有點擊到物件，取消選擇
             selectedShape = null;
+            editingShape = null;
+            editingControlPoint = null;
             updateDisplay();
         }
         
-        // 處理繪圖滑鼠按下
+        // 修改：處理繪圖滑鼠按下，自由繪圖不對齊格子
         function handleDrawingMouseDown(x, y) {
             isDrawing = true;
             
-            // 對齊到格子點
+            // 對齊到格子點（自由繪圖除外）
             const snapped = snapToGrid(x, y);
             startPoint = snapped;
             
             if (currentTool === 'freehand') {
-                currentPath = [snapped];
+                currentPath = [{ x: x, y: y }]; // 自由繪圖使用原始座標
             }
             
             saveDrawingState();
@@ -1502,6 +1859,8 @@
                     drawingShapes.splice(i, 1);
                     if (selectedShape === i) {
                         selectedShape = null;
+                        editingShape = null;
+                        editingControlPoint = null;
                     } else if (selectedShape > i) {
                         selectedShape--;
                     }
@@ -1585,11 +1944,18 @@
             return false;
         }
         
-        // 滑鼠移動事件
+        // 修改：滑鼠移動事件，自由繪圖不對齊格子，加入控制點拖拽處理
         function onMouseMove(e) {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
+            
+            // 處理控制點拖拽
+            if (isDraggingControlPoint && editingShape !== null && editingControlPoint) {
+                handleControlPointDrag(drawingShapes[editingShape], editingControlPoint, x, y);
+                updateDisplay();
+                return;
+            }
             
             // 處理拖拽繪圖物件
             if (isDraggingShape && selectedShape !== null) {
@@ -1613,7 +1979,7 @@
             }
             
             // 處理移動模式的高亮顯示
-            if (currentTool === 'move' && !isDraggingShape) {
+            if (currentTool === 'move' && !isDraggingShape && !isDraggingControlPoint) {
                 highlightedShape = null;
                 for (let i = drawingShapes.length - 1; i >= 0; i--) {
                     if (isPointInShape(x, y, drawingShapes[i])) {
@@ -1628,8 +1994,8 @@
             // 繪圖模式處理
             if (isDrawing && currentTool) {
                 if (currentTool === 'freehand') {
-                    const snapped = snapToGrid(x, y);
-                    currentPath.push(snapped);
+                    // 自由繪圖不對齊格子
+                    currentPath.push({ x: x, y: y });
                     updateDisplay();
                 } else {
                     updateDisplay();
@@ -1750,7 +2116,7 @@
             ctx.stroke();
         }
         
-        // 滑鼠釋放事件
+        // 滑鼠釋放事件，加入控制點拖拽處理
         function onMouseUp() {
             if (isDrawing && currentTool) {
                 finishDrawing();
@@ -1762,6 +2128,8 @@
             startPoint = null;
             currentPath = [];
             isDraggingShape = false;
+            isDraggingControlPoint = false;
+            editingControlPoint = null;
         }
         
         // 完成繪圖
@@ -1792,7 +2160,8 @@
                     endX: snappedEnd.x,
                     endY: snappedEnd.y,
                     color: currentColor,
-                    strokeWidth: currentStrokeWidth
+                    strokeWidth: currentStrokeWidth,
+                    rotation: 0 // 初始旋轉角度
                 });
             }
             
@@ -1884,7 +2253,7 @@
                 drawResultantComponents();
             }
             
-            // 繪製自由繪製的當前路徑
+            // 修改：繪製自由繪製的當前路徑，不對齊格子
             if (isDrawing && currentTool === 'freehand' && currentPath.length > 1) {
                 ctx.save();
                 ctx.strokeStyle = currentColor;
@@ -1931,7 +2300,7 @@
             }
         }
         
-        // 繪製所有繪圖元素
+        // 修改：繪製所有繪圖元素，使用旋轉功能
         function drawDrawings() {
             drawingShapes.forEach((shape, index) => {
                 ctx.save();
@@ -1948,49 +2317,15 @@
                     ctx.lineWidth = shape.strokeWidth;
                 }
                 
-                drawShape(shape);
+                // 使用旋轉功能繪製形狀
+                drawRotatedShape(shape);
                 ctx.restore();
+                
+                // 繪製控制點（只有在移動模式下選中的圖形才顯示）
+                if (currentTool === 'move' && selectedShape === index) {
+                    drawControlPoints(shape);
+                }
             });
-        }
-        
-        // 繪製單個圖形
-        function drawShape(shape) {
-            switch (shape.type) {
-                case 'line':
-                    ctx.beginPath();
-                    ctx.moveTo(shape.startX, shape.startY);
-                    ctx.lineTo(shape.endX, shape.endY);
-                    ctx.stroke();
-                    break;
-                case 'rect':
-                    const width = shape.endX - shape.startX;
-                    const height = shape.endY - shape.startY;
-                    ctx.beginPath();
-                    ctx.rect(shape.startX, shape.startY, width, height);
-                    ctx.stroke();
-                    break;
-                case 'circle':
-                    const centerX = (shape.startX + shape.endX) / 2;
-                    const centerY = (shape.startY + shape.endY) / 2;
-                    const radius = Math.abs(shape.endX - shape.startX) / 2;
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                    ctx.stroke();
-                    break;
-                case 'triangle':
-                    drawRightTriangle(shape.startX, shape.startY, shape.endX, shape.endY);
-                    break;
-                case 'freehand':
-                    if (shape.path.length > 1) {
-                        ctx.beginPath();
-                        ctx.moveTo(shape.path[0].x, shape.path[0].y);
-                        for (let i = 1; i < shape.path.length; i++) {
-                            ctx.lineTo(shape.path[i].x, shape.path[i].y);
-                        }
-                        ctx.stroke();
-                    }
-                    break;
-            }
         }
         
         function drawRightTriangle(startX, startY, endX, endY) {
@@ -2140,7 +2475,7 @@
             ctx.setLineDash([]);
         }
         
-        // 修改：繪製單個力向量，在畫布上顯示數值
+        // 繪製單個力向量，在畫布上顯示數值
         function drawForceVector(forceNum) {
             const force = forces[forceNum];
             const startX = objectPosition.x * GRID_SIZE;
@@ -2173,7 +2508,7 @@
             }
         }
         
-        // 修改：繪製基於旋轉座標軸的分力，在畫布上顯示數值
+        // 繪製基於旋轉座標軸的分力，在畫布上顯示數值
         function drawRotatedComponent(forceNum, direction) {
             const force = forces[forceNum];
             const startX = objectPosition.x * GRID_SIZE;
@@ -2213,7 +2548,7 @@
             }
         }
         
-        // 修改：繪製合力，在畫布上顯示數值
+        // 繪製合力，在畫布上顯示數值
         function drawResultant() {
             const activeForcesCount = Object.values(forces).filter(f => f.active && f.magnitude > 0).length;
             if (activeForcesCount === 0) return;
@@ -2251,7 +2586,7 @@
             }
         }
         
-        // 修改：繪製合力的分力，在畫布上顯示數值
+        // 繪製合力的分力，在畫布上顯示數值
         function drawResultantComponents() {
             const resultant = calculateResultant();
             if (resultant.magnitude === 0) return;
@@ -2437,6 +2772,10 @@
             axisRotation = 0;
             document.getElementById('axisAngle').value = 0;
             
+            selectedShape = null;
+            editingShape = null;
+            editingControlPoint = null;
+            
             updateDisplay();
         }
         
@@ -2450,5 +2789,6 @@
         // 頁面載入完成後初始化
         window.addEventListener('load', init);
     </script>
+
 
 </body></html>
