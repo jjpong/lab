@@ -1,0 +1,2454 @@
+<!DOCTYPE html><html lang="zh-TW"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>力的合成與分解</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .main-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        .canvas-section {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-right: 2px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .resizer {
+            width: 6px;
+            background: #ddd;
+            cursor: col-resize;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+        
+        .resizer:hover {
+            background: #bbb;
+        }
+        
+        .resizer::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 30px;
+            background: #999;
+            border-radius: 1px;
+        }
+        
+        .control-section {
+            width: 350px;
+            min-width: 250px;
+            max-width: 500px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .control-panel {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        #forceCanvas {
+            cursor: crosshair;
+            border: none;
+        }
+        
+        /* 繪圖工具列樣式 */
+        .drawing-toolbar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            cursor: move;
+            user-select: none;
+        }
+        
+        .toolbar-toggle {
+            padding: 8px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .toolbar-toggle:hover {
+            background: #2980b9;
+        }
+        
+        .toolbar-content {
+            display: none;
+            padding: 10px;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 200px;
+        }
+        
+        .toolbar-content.expanded {
+            display: flex;
+        }
+        
+        .tool-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .tool-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .tool-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+        
+        .tool-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+        
+        .color-btn {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .color-btn.active {
+            border-color: #333;
+            box-shadow: 0 0 0 2px #333;
+        }
+        
+        .stroke-btn {
+            width: 30px;
+            height: 20px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .stroke-btn:hover {
+            background: #f0f0f0;
+        }
+        
+        .stroke-btn.active {
+            background: #3498db;
+            border-color: #2980b9;
+        }
+        
+        .stroke-line {
+            width: 20px;
+            height: 1px;
+            background: #333;
+        }
+        
+        .stroke-line.medium {
+            height: 2px;
+        }
+        
+        .stroke-line.thick {
+            height: 3px;
+        }
+        
+        .toolbar-divider {
+            height: 1px;
+            background: #ddd;
+            margin: 5px 0;
+        }
+        
+        .unit-selector {
+            margin-bottom: 15px;
+        }
+        
+        .unit-selector label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        
+        .unit-selector select {
+            width: 100%;
+            padding: 6px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .axis-controls {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f0f8ff;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        
+        .axis-controls h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .axis-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+        
+        .axis-angle-input {
+            width: 60px;
+            padding: 4px;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        .axis-reset-btn {
+            padding: 4px 8px;
+            font-size: 10px;
+            border: none;
+            border-radius: 3px;
+            background: #4ecdc4;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .axis-reset-btn:hover {
+            background: #45b7aa;
+        }
+        
+        .global-controls {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .global-controls h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .resultant-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .resultant-main {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .resultant-main input[type="checkbox"] {
+            margin-right: 6px;
+        }
+        
+        .resultant-components {
+            display: flex;
+            gap: 12px;
+            margin-left: 20px;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+        
+        .resultant-components input[type="checkbox"]:disabled {
+            opacity: 0.5;
+        }
+        
+        /* 修改：移除合力分力數值顯示的控制面板部分 */
+        .resultant-components-toggle {
+            margin: 6px 0;
+            font-size: 10px;
+        }
+        
+        .resultant-components-toggle input[type="checkbox"] {
+            margin-right: 4px;
+        }
+        
+        .force-group {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fafafa;
+            transition: all 0.2s;
+        }
+        
+        .force-group.active {
+            background: #f0f8ff;
+            border-color: #bbb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .force-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+        
+        .force-header input[type="checkbox"] {
+            margin: 0;
+        }
+        
+        .color-indicator {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+            flex-shrink: 0;
+        }
+        
+        .force-name-input {
+            flex: 1;
+            padding: 4px 6px;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: white;
+        }
+        
+        .force-name-input:disabled {
+            background: #f5f5f5;
+            color: #999;
+        }
+        
+        .force-values {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .force-values label {
+            font-size: 11px;
+            min-width: 30px;
+            font-weight: 500;
+        }
+        
+        .force-values input {
+            width: 50px;
+            padding: 3px 4px;
+            font-size: 11px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        
+        /* 修改：分力顯示樣式 - 保留但簡化 */
+        .force-components-toggle {
+            margin: 6px 0;
+            font-size: 10px;
+        }
+        
+        .force-components-toggle input[type="checkbox"] {
+            margin-right: 4px;
+        }
+        
+        .component-controls {
+            display: flex;
+            gap: 12px;
+            font-size: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .component-controls label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .component-controls input[type="checkbox"] {
+            margin-right: 4px;
+        }
+        
+        .component-controls input[type="checkbox"]:disabled {
+            opacity: 0.5;
+        }
+        
+        .results-panel {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .results-panel h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .result-item {
+            margin-bottom: 6px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .result-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .controls-section {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: 80px;
+        }
+        
+        .btn-reset {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background: #c0392b;
+        }
+        
+        .btn-center {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-center:hover {
+            background: #2980b9;
+        }
+        
+        .object-info {
+            margin-top: 12px;
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 5px;
+            font-size: 11px;
+            border: 1px solid #d0e7ea;
+        }
+        
+        .object-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        
+        .tips {
+            font-size: 10px;
+            color: #666;
+            margin-top: 6px;
+            line-height: 1.3;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 1024px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .canvas-section {
+                height: 60vh;
+                border-right: none;
+                border-bottom: 2px solid #ddd;
+            }
+            
+            .resizer {
+                height: 6px;
+                width: 100%;
+                cursor: row-resize;
+            }
+            
+            .resizer::after {
+                width: 30px;
+                height: 2px;
+            }
+            
+            .control-section {
+                width: 100%;
+                max-width: none;
+                height: 40vh;
+            }
+            
+            .drawing-toolbar {
+                top: 5px;
+                left: 5px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .canvas-section {
+                height: 50vh;
+                padding: 5px;
+            }
+            
+            .control-section {
+                height: 50vh;
+            }
+            
+            .control-panel {
+                padding: 10px;
+            }
+            
+            .force-values {
+                justify-content: space-between;
+            }
+            
+            .component-controls {
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="canvas-section" id="canvasSection">
+            <canvas id="forceCanvas"></canvas>
+            
+            <!-- 繪圖工具列 -->
+            <div class="drawing-toolbar" id="drawingToolbar">
+                <button class="toolbar-toggle" id="toolbarToggle">
+                    🎨 繪圖工具
+                </button>
+                <div class="toolbar-content" id="toolbarContent">
+                    <!-- 繪圖工具 -->
+                    <div class="tool-row">
+                        <div class="tool-btn" id="tool-move" title="移動/選擇">🖱️</div>
+                        <div class="tool-btn" id="tool-line" title="直線">📏</div>
+                        <div class="tool-btn" id="tool-rect" title="矩形">⬜</div>
+                        <div class="tool-btn" id="tool-circle" title="圓形">⭕</div>
+                        <div class="tool-btn" id="tool-triangle" title="直角三角形">📐</div>
+                        <div class="tool-btn" id="tool-freehand" title="自由繪製">✏️</div>
+                    </div>
+                    
+                    <div class="toolbar-divider"></div>
+                    
+                    <!-- 編輯工具 -->
+                    <div class="tool-row">
+                        <div class="tool-btn" id="tool-delete" title="智能刪除">🗑️</div>
+                        <div class="tool-btn" id="tool-undo" title="撤銷">↶</div>
+                        <div class="tool-btn" id="tool-redo" title="重做">↷</div>
+                        <div class="tool-btn" id="tool-clear" title="清除全部">🧹</div>
+                    </div>
+                    
+                    <div class="toolbar-divider"></div>
+                    
+                    <!-- 顏色選擇 -->
+                    <div class="tool-row">
+                        <div class="color-btn active" data-color="#000000" style="background-color: #000000;" title="黑色"></div>
+                        <div class="color-btn" data-color="#e74c3c" style="background-color: #e74c3c;" title="紅色"></div>
+                        <div class="color-btn" data-color="#3498db" style="background-color: #3498db;" title="藍色"></div>
+                        <div class="color-btn" data-color="#2ecc71" style="background-color: #2ecc71;" title="綠色"></div>
+                        <div class="color-btn" data-color="#f39c12" style="background-color: #f39c12;" title="橙色"></div>
+                    </div>
+                    
+                    <div class="toolbar-divider"></div>
+                    
+                    <!-- 線條粗細 -->
+                    <div class="tool-row">
+                        <div class="stroke-btn active" data-width="1" title="細線">
+                            <div class="stroke-line"></div>
+                        </div>
+                        <div class="stroke-btn" data-width="3" title="中等">
+                            <div class="stroke-line medium"></div>
+                        </div>
+                        <div class="stroke-btn" data-width="5" title="粗線">
+                            <div class="stroke-line thick"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="resizer" id="resizer"></div>
+        
+        <div class="control-section" id="controlSection">
+            <div class="control-panel">
+                <div class="unit-selector">
+                    <label for="unitSelect">單位</label>
+                    <select id="unitSelect">
+                        <option value="kgw">重量 (kgw)</option>
+                        <option value="N">力 (N)</option>
+                    </select>
+                </div>
+
+                <div class="axis-controls">
+                    <h4>座標軸設定</h4>
+                    <div class="axis-info">
+                        <label>角度：</label>
+                        <input type="number" id="axisAngle" class="axis-angle-input" min="-180" max="180" value="0">°
+                        <button class="axis-reset-btn" onclick="resetAxis()">重置</button>
+                    </div>
+                    <div class="tips">
+                        提示：可拖拽座標軸端點來旋轉
+                    </div>
+                </div>
+
+                <div class="global-controls">
+                    <h4>合力顯示</h4>
+                    <div class="resultant-controls">
+                        <div class="resultant-main">
+                            <input type="checkbox" id="showResultant"> 顯示合力
+                        </div>
+                        <div class="resultant-components">
+                            <label><input type="checkbox" id="resultant_horizontal" disabled=""> 水平分力</label>
+                            <label><input type="checkbox" id="resultant_vertical" disabled=""> 垂直分力</label>
+                        </div>
+                        <!-- 新增：合力分力數值顯示在畫布上 -->
+                        <div class="resultant-components-toggle">
+                            <input type="checkbox" id="resultant_show_components" disabled=""> 在畫布上顯示數值
+                        </div>
+                    </div>
+                </div>
+
+                <div id="forceControls">
+                    <div class="force-group" data-force="1">
+                        <div class="force-header">
+                            <input type="checkbox" id="f1_active">
+                            <div class="color-indicator" style="background-color: #e74c3c;"></div>
+                            <input type="text" class="force-name-input" id="f1_name" value="F1" disabled="">
+                        </div>
+                        <div class="force-values">
+                            <label>大小：</label>
+                            <input type="number" id="f1_magnitude" min="0" value="0">
+                            <label>角度：</label>
+                            <input type="number" id="f1_angle" min="0" max="359" value="0">°
+                        </div>
+                        <!-- 修改：在畫布上顯示分力數值 -->
+                        <div class="force-components-toggle">
+                            <input type="checkbox" id="f1_show_components" disabled=""> 在畫布上顯示數值
+                        </div>
+                        <div class="component-controls">
+                            <label><input type="checkbox" id="f1_horizontal" disabled=""> 水平分力</label>
+                            <label><input type="checkbox" id="f1_vertical" disabled=""> 垂直分力</label>
+                        </div>
+                    </div>
+
+                    <div class="force-group" data-force="2">
+                        <div class="force-header">
+                            <input type="checkbox" id="f2_active">
+                            <div class="color-indicator" style="background-color: #3498db;"></div>
+                            <input type="text" class="force-name-input" id="f2_name" value="F2" disabled="">
+                        </div>
+                        <div class="force-values">
+                            <label>大小：</label>
+                            <input type="number" id="f2_magnitude" min="0" value="0">
+                            <label>角度：</label>
+                            <input type="number" id="f2_angle" min="0" max="359" value="90">°
+                        </div>
+                        <!-- 修改：在畫布上顯示分力數值 -->
+                        <div class="force-components-toggle">
+                            <input type="checkbox" id="f2_show_components" disabled=""> 在畫布上顯示數值
+                        </div>
+                        <div class="component-controls">
+                            <label><input type="checkbox" id="f2_horizontal" disabled=""> 水平分力</label>
+                            <label><input type="checkbox" id="f2_vertical" disabled=""> 垂直分力</label>
+                        </div>
+                    </div>
+
+                    <div class="force-group" data-force="3">
+                        <div class="force-header">
+                            <input type="checkbox" id="f3_active">
+                            <div class="color-indicator" style="background-color: #2ecc71;"></div>
+                            <input type="text" class="force-name-input" id="f3_name" value="F3" disabled="">
+                        </div>
+                        <div class="force-values">
+                            <label>大小：</label>
+                            <input type="number" id="f3_magnitude" min="0" value="0">
+                            <label>角度：</label>
+                            <input type="number" id="f3_angle" min="0" max="359" value="180">°
+                        </div>
+                        <!-- 修改：在畫布上顯示分力數值 -->
+                        <div class="force-components-toggle">
+                            <input type="checkbox" id="f3_show_components" disabled=""> 在畫布上顯示數值
+                        </div>
+                        <div class="component-controls">
+                            <label><input type="checkbox" id="f3_horizontal" disabled=""> 水平分力</label>
+                            <label><input type="checkbox" id="f3_vertical" disabled=""> 垂直分力</label>
+                        </div>
+                    </div>
+
+                    <div class="force-group" data-force="4">
+                        <div class="force-header">
+                            <input type="checkbox" id="f4_active">
+                            <div class="color-indicator" style="background-color: #f39c12;"></div>
+                            <input type="text" class="force-name-input" id="f4_name" value="F4" disabled="">
+                        </div>
+                        <div class="force-values">
+                            <label>大小：</label>
+                            <input type="number" id="f4_magnitude" min="0" value="0">
+                            <label>角度：</label>
+                            <input type="number" id="f4_angle" min="0" max="359" value="270">°
+                        </div>
+                        <!-- 修改：在畫布上顯示分力數值 -->
+                        <div class="force-components-toggle">
+                            <input type="checkbox" id="f4_show_components" disabled=""> 在畫布上顯示數值
+                        </div>
+                        <div class="component-controls">
+                            <label><input type="checkbox" id="f4_horizontal" disabled=""> 水平分力</label>
+                            <label><input type="checkbox" id="f4_vertical" disabled=""> 垂直分力</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="results-panel">
+                    <h3>計算結果</h3>
+                    <div class="result-item">
+                        <span>合力大小：</span>
+                        <span class="result-value"><span id="resultant_magnitude">0</span> <span id="resultant_unit">kgw</span></span>
+                    </div>
+                    <div class="result-item">
+                        <span>合力方向：</span>
+                        <span class="result-value"><span id="resultant_angle">0</span>°</span>
+                    </div>
+                    <div class="result-item">
+                        <span>水平分力總和：</span>
+                        <span class="result-value"><span id="total_horizontal">0</span> <span id="horizontal_unit">kgw</span></span>
+                    </div>
+                    <div class="result-item">
+                        <span>垂直分力總和：</span>
+                        <span class="result-value"><span id="total_vertical">0</span> <span id="vertical_unit">kgw</span></span>
+                    </div>
+                </div>
+
+                <div class="object-info">
+                    <div class="object-info-row">
+                        <span>物體位置：</span>
+                        <span class="result-value">(<span id="object_x">0</span>, <span id="object_y">0</span>)</span>
+                    </div>
+                    <div class="tips">
+                        提示：可拖拽物體和力向量箭頭調整位置
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <button class="btn btn-reset" onclick="resetAll()">清除全部</button>
+                    <button class="btn btn-center" onclick="centerObject()">物體回中心</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全域變數
+        const canvas = document.getElementById('forceCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasSection = document.getElementById('canvasSection');
+        const controlSection = document.getElementById('controlSection');
+        const resizer = document.getElementById('resizer');
+        
+        // 響應式變數
+        let GRID_SIZE, MAX_FORCE, GRID_COUNT_X, GRID_COUNT_Y;
+        let objectPosition = { x: 0, y: 0 };
+        
+        // 座標軸角度 (度)
+        let axisRotation = 0;
+        
+        // 拖拽分隔條變數
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+        
+        // 力的資料
+        const forces = {
+            1: { magnitude: 0, angle: 0, color: '#e74c3c', active: false, name: 'F1' },
+            2: { magnitude: 0, angle: 90, color: '#3498db', active: false, name: 'F2' },
+            3: { magnitude: 0, angle: 180, color: '#2ecc71', active: false, name: 'F3' },
+            4: { magnitude: 0, angle: 270, color: '#f39c12', active: false, name: 'F4' }
+        };
+        
+        // 拖拽狀態
+        let isDragging = false;
+        let dragTarget = null;
+        let dragOffset = { x: 0, y: 0 };
+        
+        // 繪圖功能變數
+        let isDrawingMode = false;
+        let currentTool = null;
+        let currentColor = '#000000';
+        let currentStrokeWidth = 1;
+        let drawingShapes = [];
+        let undoStack = [];
+        let redoStack = [];
+        const MAX_HISTORY = 10;
+        
+        // 繪圖狀態
+        let isDrawing = false;
+        let startPoint = null;
+        let currentPath = [];
+        let highlightedShape = null;
+        let selectedShape = null;
+        let isDraggingShape = false;
+        
+        // 工具列拖拽
+        let isToolbarDragging = false;
+        let toolbarOffset = { x: 0, y: 0 };
+        
+        // 格子對齊函數
+        function snapToGrid(x, y) {
+            return {
+                x: Math.round(x / GRID_SIZE) * GRID_SIZE,
+                y: Math.round(y / GRID_SIZE) * GRID_SIZE
+            };
+        }
+        
+        // 初始化響應式設定
+        function initResponsiveSettings() {
+            const canvasRect = canvasSection.getBoundingClientRect();
+            const availableWidth = canvasRect.width;
+            const availableHeight = canvasRect.height;
+            
+            // 設定畫布佔滿整個左側區域
+            canvas.width = availableWidth;
+            canvas.height = availableHeight;
+            
+            // 根據畫布大小調整格子設定
+            const minDimension = Math.min(availableWidth, availableHeight);
+            
+            if (minDimension >= 600) {
+                GRID_SIZE = 20;
+            } else if (minDimension >= 400) {
+                GRID_SIZE = 15;
+            } else if (minDimension >= 300) {
+                GRID_SIZE = 12;
+            } else {
+                GRID_SIZE = 10;
+            }
+            
+            // 計算格子數量
+            GRID_COUNT_X = Math.floor(availableWidth / GRID_SIZE);
+            GRID_COUNT_Y = Math.floor(availableHeight / GRID_SIZE);
+            
+            // 設定最大力值為較大邊的格子數，允許箭頭超出畫面
+            MAX_FORCE = Math.max(GRID_COUNT_X, GRID_COUNT_Y);
+            
+            // 重置物體位置到中心
+            objectPosition.x = Math.floor(GRID_COUNT_X / 2);
+            objectPosition.y = Math.floor(GRID_COUNT_Y / 2);
+            
+            // 更新力的最大值
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`f${i}_magnitude`).max = MAX_FORCE;
+            }
+        }
+        
+        // 初始化分隔條拖拽功能
+        function initResizer() {
+            resizer.addEventListener('mousedown', startResize);
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+        }
+        
+        function startResize(e) {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = canvasSection.offsetWidth;
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        }
+        
+        function doResize(e) {
+            if (!isResizing) return;
+            
+            const dx = e.clientX - startX;
+            const newWidth = startWidth + dx;
+            const minWidth = 300;
+            const maxWidth = window.innerWidth - 250;
+            
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                canvasSection.style.flex = 'none';
+                canvasSection.style.width = newWidth + 'px';
+                
+                // 重新計算畫布設定
+                setTimeout(() => {
+                    initResponsiveSettings();
+                    updateDisplay();
+                }, 10);
+            }
+        }
+        
+        function stopResize() {
+            isResizing = false;
+            document.body.style.cursor = '';
+        }
+        
+        // 初始化繪圖工具列
+        function initDrawingToolbar() {
+            const toolbar = document.getElementById('drawingToolbar');
+            const toggle = document.getElementById('toolbarToggle');
+            const content = document.getElementById('toolbarContent');
+            
+            // 工具列展開/收合
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isExpanded = content.classList.contains('expanded');
+                if (isExpanded) {
+                    content.classList.remove('expanded');
+                    currentTool = null;
+                    isDrawingMode = false;
+                    selectedShape = null;
+                    updateToolButtons();
+                } else {
+                    content.classList.add('expanded');
+                }
+            });
+            
+            // 工具列拖拽
+            toolbar.addEventListener('mousedown', startToolbarDrag);
+            document.addEventListener('mousemove', doToolbarDrag);
+            document.addEventListener('mouseup', stopToolbarDrag);
+            
+            // 繪圖工具按鈕
+            document.getElementById('tool-move').addEventListener('click', () => selectTool('move'));
+            document.getElementById('tool-line').addEventListener('click', () => selectTool('line'));
+            document.getElementById('tool-rect').addEventListener('click', () => selectTool('rect'));
+            document.getElementById('tool-circle').addEventListener('click', () => selectTool('circle'));
+            document.getElementById('tool-triangle').addEventListener('click', () => selectTool('triangle'));
+            document.getElementById('tool-freehand').addEventListener('click', () => selectTool('freehand'));
+            
+            // 編輯工具按鈕
+            document.getElementById('tool-delete').addEventListener('click', () => selectTool('delete'));
+            document.getElementById('tool-undo').addEventListener('click', undoDrawing);
+            document.getElementById('tool-redo').addEventListener('click', redoDrawing);
+            document.getElementById('tool-clear').addEventListener('click', clearAllDrawings);
+            
+            // 顏色選擇
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentColor = btn.dataset.color;
+                });
+            });
+            
+            // 線條粗細選擇
+            document.querySelectorAll('.stroke-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.stroke-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentStrokeWidth = parseInt(btn.dataset.width);
+                });
+            });
+        }
+        
+        function startToolbarDrag(e) {
+            if (e.target.closest('.toolbar-content')) return;
+            
+            isToolbarDragging = true;
+            const toolbar = document.getElementById('drawingToolbar');
+            const rect = toolbar.getBoundingClientRect();
+            toolbarOffset.x = e.clientX - rect.left;
+            toolbarOffset.y = e.clientY - rect.top;
+            e.preventDefault();
+        }
+        
+        function doToolbarDrag(e) {
+            if (!isToolbarDragging) return;
+            
+            const toolbar = document.getElementById('drawingToolbar');
+            const newX = e.clientX - toolbarOffset.x;
+            const newY = e.clientY - toolbarOffset.y;
+            
+            // 限制在畫布區域內
+            const maxX = canvasSection.offsetWidth - toolbar.offsetWidth;
+            const maxY = canvasSection.offsetHeight - toolbar.offsetHeight;
+            
+            toolbar.style.left = Math.max(0, Math.min(maxX, newX)) + 'px';
+            toolbar.style.top = Math.max(0, Math.min(maxY, newY)) + 'px';
+        }
+        
+        function stopToolbarDrag() {
+            isToolbarDragging = false;
+        }
+        
+        function selectTool(tool) {
+            if (tool === 'delete') {
+                currentTool = 'delete';
+                isDrawingMode = false;
+            } else if (tool === 'move') {
+                currentTool = 'move';
+                isDrawingMode = false;
+            } else {
+                currentTool = tool;
+                isDrawingMode = true;
+            }
+            selectedShape = null;
+            updateToolButtons();
+        }
+        
+        function updateToolButtons() {
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (currentTool) {
+                const toolBtn = document.getElementById(`tool-${currentTool}`);
+                if (toolBtn) {
+                    toolBtn.classList.add('active');
+                }
+            }
+        }
+        
+        // 繪圖歷史管理
+        function saveDrawingState() {
+            undoStack.push(JSON.parse(JSON.stringify(drawingShapes)));
+            if (undoStack.length > MAX_HISTORY) {
+                undoStack.shift();
+            }
+            redoStack = []; // 清空重做堆疊
+        }
+        
+        function undoDrawing() {
+            if (undoStack.length > 0) {
+                redoStack.push(JSON.parse(JSON.stringify(drawingShapes)));
+                drawingShapes = undoStack.pop();
+                updateDisplay();
+            }
+        }
+        
+        function redoDrawing() {
+            if (redoStack.length > 0) {
+                undoStack.push(JSON.parse(JSON.stringify(drawingShapes)));
+                drawingShapes = redoStack.pop();
+                updateDisplay();
+            }
+        }
+        
+        function clearAllDrawings() {
+            if (drawingShapes.length > 0) {
+                saveDrawingState();
+                drawingShapes = [];
+                selectedShape = null;
+                updateDisplay();
+            }
+        }
+        
+        // 初始化
+        function init() {
+            initResponsiveSettings();
+            initResizer();
+            initDrawingToolbar();
+            setupEventListeners();
+            updateDisplay();
+        }
+        
+        // 視窗大小改變時重新初始化
+        window.addEventListener('resize', function() {
+            if (!isResizing) {
+                // 重置flex設定
+                canvasSection.style.flex = '1';
+                canvasSection.style.width = '';
+                
+                setTimeout(() => {
+                    initResponsiveSettings();
+                    updateDisplay();
+                }, 100);
+            }
+        });
+        
+        // 設定事件監聽器
+        function setupEventListeners() {
+            // Canvas 滑鼠事件
+            canvas.addEventListener('mousedown', onMouseDown);
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('mouseup', onMouseUp);
+            
+            // 觸控事件支援
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', handleTouch);
+            
+            // 座標軸角度輸入
+            document.getElementById('axisAngle').addEventListener('input', () => {
+                axisRotation = parseFloat(document.getElementById('axisAngle').value) || 0;
+                updateDisplay();
+            });
+            
+            // 合力顯示控制
+            document.getElementById('showResultant').addEventListener('change', () => {
+                updateResultantControlsState();
+                updateDisplay();
+            });
+            
+            document.getElementById('resultant_horizontal').addEventListener('change', updateDisplay);
+            document.getElementById('resultant_vertical').addEventListener('change', updateDisplay);
+            
+            // 合力分力數值顯示控制
+            document.getElementById('resultant_show_components').addEventListener('change', updateDisplay);
+            
+            // 控制面板事件
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`f${i}_active`).addEventListener('change', () => {
+                    const isChecked = document.getElementById(`f${i}_active`).checked;
+                    forces[i].active = isChecked;
+                    
+                    // 如果新勾選且大小為0，設定預設值
+                    if (isChecked && forces[i].magnitude === 0) {
+                        forces[i].magnitude = Math.min(5, Math.floor(MAX_FORCE / 4));
+                        document.getElementById(`f${i}_magnitude`).value = forces[i].magnitude;
+                    }
+                    
+                    updateForceGroupState(i);
+                    updateDisplay();
+                });
+                
+                document.getElementById(`f${i}_magnitude`).addEventListener('input', () => {
+                    forces[i].magnitude = parseInt(document.getElementById(`f${i}_magnitude`).value) || 0;
+                    updateDisplay();
+                });
+                
+                document.getElementById(`f${i}_angle`).addEventListener('input', () => {
+                    forces[i].angle = parseInt(document.getElementById(`f${i}_angle`).value) || 0;
+                    updateDisplay();
+                });
+                
+                // 力名稱輸入事件
+                document.getElementById(`f${i}_name`).addEventListener('input', () => {
+                    const newName = document.getElementById(`f${i}_name`).value.trim();
+                    forces[i].name = newName || `F${i}`;
+                    updateDisplay();
+                });
+                
+                // 分力數值顯示控制
+                document.getElementById(`f${i}_show_components`).addEventListener('change', updateDisplay);
+                
+                document.getElementById(`f${i}_horizontal`).addEventListener('change', updateDisplay);
+                document.getElementById(`f${i}_vertical`).addEventListener('change', updateDisplay);
+            }
+            
+            // 單位選擇器
+            document.getElementById('unitSelect').addEventListener('change', updateDisplay);
+        }
+        
+        // 觸控事件處理
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0] || e.changedTouches[0];
+            const rect = canvas.getBoundingClientRect();
+            const mouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+            
+            switch(e.type) {
+                case 'touchstart':
+                    onMouseDown(mouseEvent);
+                    break;
+                case 'touchmove':
+                    onMouseMove(mouseEvent);
+                    break;
+                case 'touchend':
+                    onMouseUp();
+                    break;
+            }
+        }
+        
+        // 重置座標軸
+        function resetAxis() {
+            axisRotation = 0;
+            document.getElementById('axisAngle').value = 0;
+            updateDisplay();
+        }
+        
+        // 更新合力控制狀態
+        function updateResultantControlsState() {
+            const showResultant = document.getElementById('showResultant').checked;
+            const horizontalCheckbox = document.getElementById('resultant_horizontal');
+            const verticalCheckbox = document.getElementById('resultant_vertical');
+            const showComponentsCheckbox = document.getElementById('resultant_show_components');
+            
+            if (showResultant) {
+                horizontalCheckbox.disabled = false;
+                verticalCheckbox.disabled = false;
+                showComponentsCheckbox.disabled = false;
+            } else {
+                horizontalCheckbox.disabled = true;
+                verticalCheckbox.disabled = true;
+                horizontalCheckbox.checked = false;
+                verticalCheckbox.checked = false;
+                showComponentsCheckbox.disabled = true;
+                showComponentsCheckbox.checked = false;
+            }
+        }
+        
+        // 更新力群組狀態
+        function updateForceGroupState(forceNum) {
+            const group = document.querySelector(`[data-force="${forceNum}"]`);
+            const horizontal = document.getElementById(`f${forceNum}_horizontal`);
+            const vertical = document.getElementById(`f${forceNum}_vertical`);
+            const nameInput = document.getElementById(`f${forceNum}_name`);
+            const showComponentsCheckbox = document.getElementById(`f${forceNum}_show_components`);
+            
+            if (forces[forceNum].active) {
+                group.classList.add('active');
+                horizontal.disabled = false;
+                vertical.disabled = false;
+                nameInput.disabled = false;
+                showComponentsCheckbox.disabled = false;
+            } else {
+                group.classList.remove('active');
+                horizontal.disabled = true;
+                vertical.disabled = true;
+                horizontal.checked = false;
+                vertical.checked = false;
+                nameInput.disabled = true;
+                showComponentsCheckbox.disabled = true;
+                showComponentsCheckbox.checked = false;
+            }
+        }
+        
+        // 獲取座標軸端點位置
+        function getAxisEndPoints() {
+            const centerX = objectPosition.x * GRID_SIZE;
+            const centerY = objectPosition.y * GRID_SIZE;
+            
+            const radian = axisRotation * Math.PI / 180;
+            const cosAngle = Math.cos(radian);
+            const sinAngle = Math.sin(radian);
+            
+            let xAxisPoints = [];
+            
+            if (Math.abs(cosAngle) > 0.001) {
+                const tLeft = -centerX / cosAngle;
+                const yLeft = centerY - tLeft * sinAngle;
+                if (yLeft >= 0 && yLeft <= canvas.height) {
+                    xAxisPoints.push({x: 0, y: yLeft});
+                }
+                
+                const tRight = (canvas.width - centerX) / cosAngle;
+                const yRight = centerY - tRight * sinAngle;
+                if (yRight >= 0 && yRight <= canvas.height) {
+                    xAxisPoints.push({x: canvas.width, y: yRight});
+                }
+            }
+            
+            if (Math.abs(sinAngle) > 0.001) {
+                const tTop = centerY / sinAngle;
+                const xTop = centerX + tTop * cosAngle;
+                if (xTop >= 0 && xTop <= canvas.width) {
+                    xAxisPoints.push({x: xTop, y: 0});
+                }
+                
+                const tBottom = (centerY - canvas.height) / sinAngle;
+                const xBottom = centerX + tBottom * cosAngle;
+                if (xBottom >= 0 && xBottom <= canvas.width) {
+                    xAxisPoints.push({x: xBottom, y: canvas.height});
+                }
+            }
+            
+            const yRadian = radian + Math.PI / 2;
+            const yCosAngle = Math.cos(yRadian);
+            const ySinAngle = Math.sin(yRadian);
+            
+            let yAxisPoints = [];
+            
+            if (Math.abs(yCosAngle) > 0.001) {
+                const tLeft = -centerX / yCosAngle;
+                const yLeft = centerY - tLeft * ySinAngle;
+                if (yLeft >= 0 && yLeft <= canvas.height) {
+                    yAxisPoints.push({x: 0, y: yLeft});
+                }
+                
+                const tRight = (canvas.width - centerX) / yCosAngle;
+                const yRight = centerY - tRight * ySinAngle;
+                if (yRight >= 0 && yRight <= canvas.height) {
+                    yAxisPoints.push({x: canvas.width, y: yRight});
+                }
+            }
+            
+            if (Math.abs(ySinAngle) > 0.001) {
+                const tTop = centerY / ySinAngle;
+                const xTop = centerX + tTop * yCosAngle;
+                if (xTop >= 0 && xTop <= canvas.width) {
+                    yAxisPoints.push({x: xTop, y: 0});
+                }
+                
+                const tBottom = (centerY - canvas.height) / ySinAngle;
+                const xBottom = centerX + tBottom * yCosAngle;
+                if (xBottom >= 0 && xBottom <= canvas.width) {
+                    yAxisPoints.push({x: xBottom, y: canvas.height});
+                }
+            }
+            
+            let xEnd = null, yEnd = null;
+            
+            if (xAxisPoints.length >= 2) {
+                const positiveX = centerX + 200 * cosAngle;
+                const positiveY = centerY - 200 * sinAngle;
+                
+                let minDist = Infinity;
+                for (let point of xAxisPoints) {
+                    const dist = Math.sqrt((point.x - positiveX) ** 2 + (point.y - positiveY) ** 2);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        xEnd = point;
+                    }
+                }
+            }
+            
+            if (yAxisPoints.length >= 2) {
+                const positiveX = centerX + 200 * yCosAngle;
+                const positiveY = centerY - 200 * ySinAngle;
+                
+                let minDist = Infinity;
+                for (let point of yAxisPoints) {
+                    const dist = Math.sqrt((point.x - positiveX) ** 2 + (point.y - positiveY) ** 2);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        yEnd = point;
+                    }
+                }
+            }
+            
+            return {
+                xStart: xAxisPoints[0] || {x: centerX, y: centerY},
+                xEnd: xEnd || {x: centerX + 200 * cosAngle, y: centerY - 200 * sinAngle},
+                xAxisPoints: xAxisPoints,
+                yStart: yAxisPoints[0] || {x: centerX, y: centerY},
+                yEnd: yEnd || {x: centerX + 200 * yCosAngle, y: centerY - 200 * ySinAngle},
+                yAxisPoints: yAxisPoints
+            };
+        }
+        
+        // 滑鼠按下事件
+        function onMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 移動模式處理
+            if (currentTool === 'move') {
+                handleMoveMouseDown(x, y);
+                return;
+            }
+            
+            // 繪圖模式處理
+            if (isDrawingMode && currentTool) {
+                handleDrawingMouseDown(x, y);
+                return;
+            }
+            
+            // 智能刪除模式
+            if (currentTool === 'delete') {
+                handleDeleteClick(x, y);
+                return;
+            }
+            
+            // 力學模式處理
+            const axisPoints = getAxisEndPoints();
+            const touchRadius = Math.max(8, GRID_SIZE / 2);
+            
+            if (axisPoints.xEnd && Math.abs(x - axisPoints.xEnd.x) < touchRadius && Math.abs(y - axisPoints.xEnd.y) < touchRadius) {
+                isDragging = true;
+                dragTarget = 'xAxis';
+                return;
+            }
+            
+            if (axisPoints.yEnd && Math.abs(x - axisPoints.yEnd.x) < touchRadius && Math.abs(y - axisPoints.yEnd.y) < touchRadius) {
+                isDragging = true;
+                dragTarget = 'yAxis';
+                return;
+            }
+            
+            const objPixelX = objectPosition.x * GRID_SIZE;
+            const objPixelY = objectPosition.y * GRID_SIZE;
+            
+            if (Math.abs(x - objPixelX) < touchRadius && Math.abs(y - objPixelY) < touchRadius) {
+                isDragging = true;
+                dragTarget = 'object';
+                dragOffset = { x: x - objPixelX, y: y - objPixelY };
+                return;
+            }
+            
+            for (let i = 1; i <= 4; i++) {
+                if (forces[i].active && forces[i].magnitude > 0) {
+                    const arrowEnd = getArrowEndPoint(i);
+                    if (Math.abs(x - arrowEnd.x) < touchRadius && Math.abs(y - arrowEnd.y) < touchRadius) {
+                        isDragging = true;
+                        dragTarget = `force${i}`;
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // 處理移動模式滑鼠按下
+        function handleMoveMouseDown(x, y) {
+            // 檢查是否點擊到繪圖物件
+            for (let i = drawingShapes.length - 1; i >= 0; i--) {
+                if (isPointInShape(x, y, drawingShapes[i])) {
+                    selectedShape = i;
+                    isDraggingShape = true;
+                    const shape = drawingShapes[i];
+                    
+                    // 計算拖拽偏移
+                    if (shape.type === 'freehand') {
+                        // 對於自由繪製，計算相對於第一個點的偏移
+                        dragOffset = {
+                            x: x - shape.path[0].x,
+                            y: y - shape.path[0].y
+                        };
+                    } else {
+                        // 對於幾何圖形，計算相對於起點的偏移
+                        dragOffset = {
+                            x: x - shape.startX,
+                            y: y - shape.startY
+                        };
+                    }
+                    
+                    saveDrawingState();
+                    updateDisplay();
+                    return;
+                }
+            }
+            
+            // 如果沒有點擊到物件，取消選擇
+            selectedShape = null;
+            updateDisplay();
+        }
+        
+        // 處理繪圖滑鼠按下
+        function handleDrawingMouseDown(x, y) {
+            isDrawing = true;
+            
+            // 對齊到格子點
+            const snapped = snapToGrid(x, y);
+            startPoint = snapped;
+            
+            if (currentTool === 'freehand') {
+                currentPath = [snapped];
+            }
+            
+            saveDrawingState();
+        }
+        
+        // 處理智能刪除點擊
+        function handleDeleteClick(x, y) {
+            for (let i = drawingShapes.length - 1; i >= 0; i--) {
+                if (isPointInShape(x, y, drawingShapes[i])) {
+                    saveDrawingState();
+                    drawingShapes.splice(i, 1);
+                    if (selectedShape === i) {
+                        selectedShape = null;
+                    } else if (selectedShape > i) {
+                        selectedShape--;
+                    }
+                    updateDisplay();
+                    break;
+                }
+            }
+        }
+        
+        // 檢查點是否在圖形內
+        function isPointInShape(x, y, shape) {
+            const tolerance = Math.max(5, shape.strokeWidth * 2);
+            
+            switch (shape.type) {
+                case 'line':
+                    return distanceToLine(x, y, shape.startX, shape.startY, shape.endX, shape.endY) < tolerance;
+                case 'rect':
+                    return isPointNearRect(x, y, shape, tolerance);
+                case 'circle':
+                    return isPointNearCircle(x, y, shape, tolerance);
+                case 'triangle':
+                    return isPointNearTriangle(x, y, shape, tolerance);
+                case 'freehand':
+                    return isPointNearPath(x, y, shape.path, tolerance);
+                default:
+                    return false;
+            }
+        }
+        
+        function distanceToLine(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            if (length === 0) return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+            
+            const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (length * length)));
+            const projection = { x: x1 + t * dx, y: y1 + t * dy };
+            return Math.sqrt((px - projection.x) ** 2 + (py - projection.y) ** 2);
+        }
+        
+        function isPointNearRect(x, y, shape, tolerance) {
+            const left = Math.min(shape.startX, shape.endX);
+            const right = Math.max(shape.startX, shape.endX);
+            const top = Math.min(shape.startY, shape.endY);
+            const bottom = Math.max(shape.startY, shape.endY);
+            
+            return (distanceToLine(x, y, left, top, right, top) < tolerance ||
+                    distanceToLine(x, y, right, top, right, bottom) < tolerance ||
+                    distanceToLine(x, y, right, bottom, left, bottom) < tolerance ||
+                    distanceToLine(x, y, left, bottom, left, top) < tolerance);
+        }
+        
+        function isPointNearCircle(x, y, shape, tolerance) {
+            const centerX = (shape.startX + shape.endX) / 2;
+            const centerY = (shape.startY + shape.endY) / 2;
+            const radius = Math.abs(shape.endX - shape.startX) / 2;
+            const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+            return Math.abs(distance - radius) < tolerance;
+        }
+        
+        function isPointNearTriangle(x, y, shape, tolerance) {
+            // 直角三角形的三個頂點
+            const x1 = shape.startX;
+            const y1 = shape.startY;
+            const x2 = shape.endX;
+            const y2 = shape.startY;
+            const x3 = shape.startX;
+            const y3 = shape.endY;
+            
+            return (distanceToLine(x, y, x1, y1, x2, y2) < tolerance ||
+                    distanceToLine(x, y, x2, y2, x3, y3) < tolerance ||
+                    distanceToLine(x, y, x3, y3, x1, y1) < tolerance);
+        }
+        
+        function isPointNearPath(x, y, path, tolerance) {
+            for (let i = 1; i < path.length; i++) {
+                if (distanceToLine(x, y, path[i-1].x, path[i-1].y, path[i].x, path[i].y) < tolerance) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // 滑鼠移動事件
+        function onMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 處理拖拽繪圖物件
+            if (isDraggingShape && selectedShape !== null) {
+                const snapped = snapToGrid(x - dragOffset.x, y - dragOffset.y);
+                moveShape(selectedShape, snapped.x, snapped.y);
+                updateDisplay();
+                return;
+            }
+            
+            // 處理智能刪除的高亮顯示
+            if (currentTool === 'delete') {
+                highlightedShape = null;
+                for (let i = drawingShapes.length - 1; i >= 0; i--) {
+                    if (isPointInShape(x, y, drawingShapes[i])) {
+                        highlightedShape = i;
+                        break;
+                    }
+                }
+                updateDisplay();
+                return;
+            }
+            
+            // 處理移動模式的高亮顯示
+            if (currentTool === 'move' && !isDraggingShape) {
+                highlightedShape = null;
+                for (let i = drawingShapes.length - 1; i >= 0; i--) {
+                    if (isPointInShape(x, y, drawingShapes[i])) {
+                        highlightedShape = i;
+                        break;
+                    }
+                }
+                updateDisplay();
+                return;
+            }
+            
+            // 繪圖模式處理
+            if (isDrawing && currentTool) {
+                if (currentTool === 'freehand') {
+                    const snapped = snapToGrid(x, y);
+                    currentPath.push(snapped);
+                    updateDisplay();
+                } else {
+                    updateDisplay();
+                    const snapped = snapToGrid(x, y);
+                    drawPreviewShape(snapped.x, snapped.y);
+                }
+                return;
+            }
+            
+            // 力學模式拖拽處理
+            if (!isDragging) return;
+            
+            if (dragTarget === 'xAxis' || dragTarget === 'yAxis') {
+                const centerX = objectPosition.x * GRID_SIZE;
+                const centerY = objectPosition.y * GRID_SIZE;
+                
+                const dx = x - centerX;
+                const dy = y - centerY;
+                
+                let newAngle;
+                if (dragTarget === 'xAxis') {
+                    newAngle = Math.atan2(-dy, dx) * 180 / Math.PI;
+                } else {
+                    newAngle = Math.atan2(-dy, dx) * 180 / Math.PI - 90;
+                }
+                
+                while (newAngle > 180) newAngle -= 360;
+                while (newAngle < -180) newAngle += 360;
+                
+                axisRotation = newAngle;
+                document.getElementById('axisAngle').value = Math.round(newAngle);
+                updateDisplay();
+                
+            } else if (dragTarget === 'object') {
+                const newX = Math.round((x - dragOffset.x) / GRID_SIZE);
+                const newY = Math.round((y - dragOffset.y) / GRID_SIZE);
+                
+                objectPosition.x = Math.max(0, Math.min(GRID_COUNT_X - 1, newX));
+                objectPosition.y = Math.max(0, Math.min(GRID_COUNT_Y - 1, newY));
+                
+                updateObjectPosition();
+                updateDisplay();
+            } else if (dragTarget.startsWith('force')) {
+                const forceNum = parseInt(dragTarget.replace('force', ''));
+                updateForceFromMouse(forceNum, x, y);
+            }
+        }
+        
+        // 移動繪圖圖形
+        function moveShape(shapeIndex, newX, newY) {
+            const shape = drawingShapes[shapeIndex];
+            
+            if (shape.type === 'freehand') {
+                const deltaX = newX - shape.path[0].x;
+                const deltaY = newY - shape.path[0].y;
+                
+                shape.path = shape.path.map(point => ({
+                    x: point.x + deltaX,
+                    y: point.y + deltaY
+                }));
+            } else {
+                const deltaX = newX - shape.startX;
+                const deltaY = newY - shape.startY;
+                
+                shape.startX = newX;
+                shape.startY = newY;
+                shape.endX += deltaX;
+                shape.endY += deltaY;
+            }
+        }
+        
+        // 繪製預覽圖形
+        function drawPreviewShape(currentX, currentY) {
+            if (!startPoint) return;
+            
+            ctx.save();
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = currentStrokeWidth;
+            ctx.globalAlpha = 0.7;
+            
+            switch (currentTool) {
+                case 'line':
+                    ctx.beginPath();
+                    ctx.moveTo(startPoint.x, startPoint.y);
+                    ctx.lineTo(currentX, currentY);
+                    ctx.stroke();
+                    break;
+                case 'rect':
+                    const width = currentX - startPoint.x;
+                    const height = currentY - startPoint.y;
+                    ctx.beginPath();
+                    ctx.rect(startPoint.x, startPoint.y, width, height);
+                    ctx.stroke();
+                    break;
+                case 'circle':
+                    const centerX = (startPoint.x + currentX) / 2;
+                    const centerY = (startPoint.y + currentY) / 2;
+                    const radius = Math.abs(currentX - startPoint.x) / 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    break;
+                case 'triangle':
+                    drawRightTrianglePreview(startPoint.x, startPoint.y, currentX, currentY);
+                    break;
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawRightTrianglePreview(startX, startY, endX, endY) {
+            // 直角三角形：直角在起點，一邊水平，一邊垂直
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);      // 起點（直角頂點）
+            ctx.lineTo(endX, startY);        // 水平邊
+            ctx.lineTo(startX, endY);        // 垂直邊
+            ctx.closePath();
+            ctx.stroke();
+        }
+        
+        // 滑鼠釋放事件
+        function onMouseUp() {
+            if (isDrawing && currentTool) {
+                finishDrawing();
+            }
+            
+            isDragging = false;
+            dragTarget = null;
+            isDrawing = false;
+            startPoint = null;
+            currentPath = [];
+            isDraggingShape = false;
+        }
+        
+        // 完成繪圖
+        function finishDrawing() {
+            if (!startPoint) return;
+            
+            const lastMouseEvent = window.lastMouseEvent;
+            if (!lastMouseEvent) return;
+            
+            const canvasRect = canvas.getBoundingClientRect();
+            const finalX = lastMouseEvent.clientX - canvasRect.left;
+            const finalY = lastMouseEvent.clientY - canvasRect.top;
+            const snappedEnd = snapToGrid(finalX, finalY);
+            
+            // 對於自由繪製，使用當前路徑
+            if (currentTool === 'freehand' && currentPath.length > 1) {
+                drawingShapes.push({
+                    type: 'freehand',
+                    path: [...currentPath],
+                    color: currentColor,
+                    strokeWidth: currentStrokeWidth
+                });
+            } else if (currentTool !== 'freehand') {
+                drawingShapes.push({
+                    type: currentTool,
+                    startX: startPoint.x,
+                    startY: startPoint.y,
+                    endX: snappedEnd.x,
+                    endY: snappedEnd.y,
+                    color: currentColor,
+                    strokeWidth: currentStrokeWidth
+                });
+            }
+            
+            updateDisplay();
+        }
+        
+        // 更新最後的滑鼠事件（用於獲取最終位置）
+        document.addEventListener('mousemove', (e) => {
+            window.lastMouseEvent = e;
+        });
+        
+        // 從滑鼠位置更新力
+        function updateForceFromMouse(forceNum, mouseX, mouseY) {
+            const objPixelX = objectPosition.x * GRID_SIZE;
+            const objPixelY = objectPosition.y * GRID_SIZE;
+            
+            const dx = mouseX - objPixelX;
+            const dy = mouseY - objPixelY;
+            
+            const gridX = Math.round(dx / GRID_SIZE);
+            const gridY = Math.round(dy / GRID_SIZE);
+            
+            const actualDx = gridX * GRID_SIZE;
+            const actualDy = gridY * GRID_SIZE;
+            
+            const distance = Math.sqrt(actualDx * actualDx + actualDy * actualDy);
+            const gridDistance = Math.round(distance / GRID_SIZE);
+            const magnitude = Math.min(MAX_FORCE, Math.max(0, gridDistance));
+            
+            let angle = Math.atan2(-actualDy, actualDx) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+            
+            forces[forceNum].magnitude = magnitude;
+            forces[forceNum].angle = Math.round(angle);
+            
+            document.getElementById(`f${forceNum}_magnitude`).value = magnitude;
+            document.getElementById(`f${forceNum}_angle`).value = Math.round(angle);
+            
+            updateDisplay();
+        }
+        
+        // 獲取箭頭終點
+        function getArrowEndPoint(forceNum) {
+            const force = forces[forceNum];
+            const objPixelX = objectPosition.x * GRID_SIZE;
+            const objPixelY = objectPosition.y * GRID_SIZE;
+            
+            const length = force.magnitude * GRID_SIZE;
+            const radian = force.angle * Math.PI / 180;
+            
+            return {
+                x: objPixelX + length * Math.cos(radian),
+                y: objPixelY - length * Math.sin(radian)
+            };
+        }
+        
+        // 將力投影到旋轉座標軸
+        function projectForceToRotatedAxis(force) {
+            const radian = force.angle * Math.PI / 180;
+            const axisRadian = axisRotation * Math.PI / 180;
+            
+            const forceX = force.magnitude * Math.cos(radian);
+            const forceY = force.magnitude * Math.sin(radian);
+            
+            const rotatedX = forceX * Math.cos(axisRadian) + forceY * Math.sin(axisRadian);
+            const rotatedY = -forceX * Math.sin(axisRadian) + forceY * Math.cos(axisRadian);
+            
+            return { x: rotatedX, y: rotatedY };
+        }
+        
+        // 更新物體位置顯示
+        function updateObjectPosition() {
+            document.getElementById('object_x').textContent = objectPosition.x;
+            document.getElementById('object_y').textContent = objectPosition.y;
+        }
+        
+        // 繪製函數
+        function updateDisplay() {
+            clearCanvas();
+            drawGrid();
+            drawDrawings(); // 繪圖在背景層
+            drawAxes();
+            drawObject();
+            drawForces();
+            
+            if (document.getElementById('showResultant').checked) {
+                drawParallelogram();
+                drawResultant();
+                drawResultantComponents();
+            }
+            
+            // 繪製自由繪製的當前路徑
+            if (isDrawing && currentTool === 'freehand' && currentPath.length > 1) {
+                ctx.save();
+                ctx.strokeStyle = currentColor;
+                ctx.lineWidth = currentStrokeWidth;
+                ctx.globalAlpha = 0.7;
+                
+                ctx.beginPath();
+                ctx.moveTo(currentPath[0].x, currentPath[0].y);
+                for (let i = 1; i < currentPath.length; i++) {
+                    ctx.lineTo(currentPath[i].x, currentPath[i].y);
+                }
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            
+            updateResults();
+        }
+        
+        // 清除畫布
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // 繪製格子
+        function drawGrid() {
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 0.5;
+            
+            for (let i = 0; i <= GRID_COUNT_X; i++) {
+                const x = i * GRID_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let i = 0; i <= GRID_COUNT_Y; i++) {
+                const y = i * GRID_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        // 繪製所有繪圖元素
+        function drawDrawings() {
+            drawingShapes.forEach((shape, index) => {
+                ctx.save();
+                
+                // 如果是高亮的圖形，使用特殊顏色
+                if (highlightedShape === index) {
+                    ctx.strokeStyle = '#ff6b35';
+                    ctx.lineWidth = shape.strokeWidth + 2;
+                } else if (selectedShape === index) {
+                    ctx.strokeStyle = '#4CAF50';
+                    ctx.lineWidth = shape.strokeWidth + 1;
+                } else {
+                    ctx.strokeStyle = shape.color;
+                    ctx.lineWidth = shape.strokeWidth;
+                }
+                
+                drawShape(shape);
+                ctx.restore();
+            });
+        }
+        
+        // 繪製單個圖形
+        function drawShape(shape) {
+            switch (shape.type) {
+                case 'line':
+                    ctx.beginPath();
+                    ctx.moveTo(shape.startX, shape.startY);
+                    ctx.lineTo(shape.endX, shape.endY);
+                    ctx.stroke();
+                    break;
+                case 'rect':
+                    const width = shape.endX - shape.startX;
+                    const height = shape.endY - shape.startY;
+                    ctx.beginPath();
+                    ctx.rect(shape.startX, shape.startY, width, height);
+                    ctx.stroke();
+                    break;
+                case 'circle':
+                    const centerX = (shape.startX + shape.endX) / 2;
+                    const centerY = (shape.startY + shape.endY) / 2;
+                    const radius = Math.abs(shape.endX - shape.startX) / 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    break;
+                case 'triangle':
+                    drawRightTriangle(shape.startX, shape.startY, shape.endX, shape.endY);
+                    break;
+                case 'freehand':
+                    if (shape.path.length > 1) {
+                        ctx.beginPath();
+                        ctx.moveTo(shape.path[0].x, shape.path[0].y);
+                        for (let i = 1; i < shape.path.length; i++) {
+                            ctx.lineTo(shape.path[i].x, shape.path[i].y);
+                        }
+                        ctx.stroke();
+                    }
+                    break;
+            }
+        }
+        
+        function drawRightTriangle(startX, startY, endX, endY) {
+            // 直角三角形：直角在起點，一邊水平，一邊垂直
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);      // 起點（直角頂點）
+            ctx.lineTo(endX, startY);        // 水平邊
+            ctx.lineTo(startX, endY);        // 垂直邊
+            ctx.closePath();
+            ctx.stroke();
+        }
+        
+        // 繪製座標軸（改為灰色，比網格深一點，稍粗一些）
+        function drawAxes() {
+            const axisPoints = getAxisEndPoints();
+            
+            // 座標軸使用灰色，比網格深，稍粗一些
+            ctx.strokeStyle = '#999999';
+            ctx.lineWidth = 1.5;
+            
+            if (axisPoints.xAxisPoints.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(axisPoints.xAxisPoints[0].x, axisPoints.xAxisPoints[0].y);
+                ctx.lineTo(axisPoints.xAxisPoints[1].x, axisPoints.xAxisPoints[1].y);
+                ctx.stroke();
+            }
+            
+            if (axisPoints.yAxisPoints.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(axisPoints.yAxisPoints[0].x, axisPoints.yAxisPoints[0].y);
+                ctx.lineTo(axisPoints.yAxisPoints[1].x, axisPoints.yAxisPoints[1].y);
+                ctx.stroke();
+            }
+            
+            const circleRadius = Math.max(4, GRID_SIZE / 3);
+            // 端點圓圈也使用灰色系
+            ctx.fillStyle = '#999999';
+            ctx.strokeStyle = '#777777';
+            ctx.lineWidth = Math.max(1, GRID_SIZE / 12);
+            
+            if (axisPoints.xEnd) {
+                ctx.beginPath();
+                ctx.arc(axisPoints.xEnd.x, axisPoints.xEnd.y, circleRadius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#555555';
+                ctx.font = `bold ${Math.max(10, GRID_SIZE * 0.8)}px Arial`;
+                ctx.fillText('X', axisPoints.xEnd.x + circleRadius + 2, axisPoints.xEnd.y + 3);
+            }
+            
+            if (axisPoints.yEnd) {
+                ctx.beginPath();
+                ctx.arc(axisPoints.yEnd.x, axisPoints.yEnd.y, circleRadius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#555555';
+                ctx.font = `bold ${Math.max(10, GRID_SIZE * 0.8)}px Arial`;
+                ctx.fillText('Y', axisPoints.yEnd.x + circleRadius + 2, axisPoints.yEnd.y + 3);
+            }
+        }
+        
+        // 繪製物體
+        function drawObject() {
+            const x = objectPosition.x * GRID_SIZE;
+            const y = objectPosition.y * GRID_SIZE;
+            const radius = Math.max(6, GRID_SIZE / 2);
+            
+            ctx.fillStyle = '#ccc';
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = Math.max(1, GRID_SIZE / 10);
+            ctx.stroke();
+            
+            const crossSize = radius * 0.7;
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x - crossSize, y);
+            ctx.lineTo(x + crossSize, y);
+            ctx.moveTo(x, y - crossSize);
+            ctx.lineTo(x, y + crossSize);
+            ctx.stroke();
+        }
+        
+        // 繪製力向量
+        function drawForces() {
+            for (let i = 1; i <= 4; i++) {
+                if (forces[i].active && forces[i].magnitude > 0) {
+                    drawForceVector(i);
+                    
+                    if (document.getElementById(`f${i}_horizontal`).checked) {
+                        drawRotatedComponent(i, 'horizontal');
+                    }
+                    if (document.getElementById(`f${i}_vertical`).checked) {
+                        drawRotatedComponent(i, 'vertical');
+                    }
+                }
+            }
+        }
+        
+        // 繪製平行四邊形
+        function drawParallelogram() {
+            const activeForcesArray = [];
+            for (let i = 1; i <= 4; i++) {
+                if (forces[i].active && forces[i].magnitude > 0) {
+                    activeForcesArray.push(i);
+                }
+            }
+            
+            if (activeForcesArray.length !== 2) return;
+            
+            const force1 = activeForcesArray[0];
+            const force2 = activeForcesArray[1];
+            
+            const startX = objectPosition.x * GRID_SIZE;
+            const startY = objectPosition.y * GRID_SIZE;
+            
+            const length1 = forces[force1].magnitude * GRID_SIZE;
+            const radian1 = forces[force1].angle * Math.PI / 180;
+            const end1X = startX + length1 * Math.cos(radian1);
+            const end1Y = startY - length1 * Math.sin(radian1);
+            
+            const length2 = forces[force2].magnitude * GRID_SIZE;
+            const radian2 = forces[force2].angle * Math.PI / 180;
+            const end2X = startX + length2 * Math.cos(radian2);
+            const end2Y = startY - length2 * Math.sin(radian2);
+            
+            const end3X = end1X + length2 * Math.cos(radian2);
+            const end3Y = end1Y - length2 * Math.sin(radian2);
+            
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([Math.max(4, GRID_SIZE / 3), Math.max(4, GRID_SIZE / 3)]);
+            
+            ctx.beginPath();
+            ctx.moveTo(end1X, end1Y);
+            ctx.lineTo(end3X, end3Y);
+            ctx.moveTo(end2X, end2Y);
+            ctx.lineTo(end3X, end3Y);
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+        }
+        
+        // 修改：繪製單個力向量，在畫布上顯示數值
+        function drawForceVector(forceNum) {
+            const force = forces[forceNum];
+            const startX = objectPosition.x * GRID_SIZE;
+            const startY = objectPosition.y * GRID_SIZE;
+            
+            const length = force.magnitude * GRID_SIZE;
+            const radian = force.angle * Math.PI / 180;
+            
+            const endX = startX + length * Math.cos(radian);
+            const endY = startY - length * Math.sin(radian);
+            
+            // 使用中等粗細 (3)
+            drawArrow(startX, startY, endX, endY, force.color, 3);
+            
+            const labelX = startX + (length * 0.6) * Math.cos(radian);
+            const labelY = startY - (length * 0.6) * Math.sin(radian);
+            
+            ctx.fillStyle = force.color;
+            ctx.font = `bold ${Math.max(12, GRID_SIZE * 0.8)}px Arial`;
+            
+            // 根據設定顯示數值
+            const showValue = document.getElementById(`f${forceNum}_show_components`).checked;
+            if (showValue) {
+                const unit = document.getElementById('unitSelect').value;
+                const multiplier = unit === 'N' ? 10 : 1;
+                const value = (force.magnitude * multiplier).toFixed(1);
+                ctx.fillText(`${force.name} = ${value} ${unit}`, labelX + 3, labelY - 3);
+            } else {
+                ctx.fillText(force.name, labelX + 3, labelY - 3);
+            }
+        }
+        
+        // 修改：繪製基於旋轉座標軸的分力，在畫布上顯示數值
+        function drawRotatedComponent(forceNum, direction) {
+            const force = forces[forceNum];
+            const startX = objectPosition.x * GRID_SIZE;
+            const startY = objectPosition.y * GRID_SIZE;
+            
+            const projected = projectForceToRotatedAxis(force);
+            const axisRadian = axisRotation * Math.PI / 180;
+            
+            let endX, endY;
+            
+            if (direction === 'horizontal') {
+                const componentLength = projected.x * GRID_SIZE;
+                endX = startX + componentLength * Math.cos(axisRadian);
+                endY = startY - componentLength * Math.sin(axisRadian);
+            } else {
+                const componentLength = projected.y * GRID_SIZE;
+                endX = startX - componentLength * Math.sin(axisRadian);
+                endY = startY - componentLength * Math.cos(axisRadian);
+            }
+            
+            // 使用稍細的線條 (2)
+            drawDashedArrow(startX, startY, endX, endY, force.color, 2);
+            
+            const suffix = direction === 'horizontal' ? 'x' : 'y';
+            ctx.fillStyle = force.color;
+            ctx.font = `${Math.max(10, GRID_SIZE * 0.6)}px Arial`;
+            
+            // 根據設定顯示數值
+            const showValue = document.getElementById(`f${forceNum}_show_components`).checked;
+            if (showValue) {
+                const unit = document.getElementById('unitSelect').value;
+                const multiplier = unit === 'N' ? 10 : 1;
+                const value = (projected[direction === 'horizontal' ? 'x' : 'y'] * multiplier).toFixed(1);
+                ctx.fillText(`${force.name}${suffix} = ${value} ${unit}`, endX + 2, endY - 2);
+            } else {
+                ctx.fillText(`${force.name}${suffix}`, endX + 2, endY - 2);
+            }
+        }
+        
+        // 修改：繪製合力，在畫布上顯示數值
+        function drawResultant() {
+            const activeForcesCount = Object.values(forces).filter(f => f.active && f.magnitude > 0).length;
+            if (activeForcesCount === 0) return;
+            
+            const resultant = calculateResultant();
+            if (resultant.magnitude === 0) return;
+            
+            const startX = objectPosition.x * GRID_SIZE;
+            const startY = objectPosition.y * GRID_SIZE;
+            
+            const length = resultant.magnitude * GRID_SIZE;
+            const radian = resultant.angle * Math.PI / 180;
+            
+            const endX = startX + length * Math.cos(radian);
+            const endY = startY - length * Math.sin(radian);
+            
+            // 使用較粗的線條 (4)
+            drawArrow(startX, startY, endX, endY, '#000', 4);
+            
+            const labelX = startX + (length * 0.7) * Math.cos(radian);
+            const labelY = startY - (length * 0.7) * Math.sin(radian);
+            
+            ctx.fillStyle = '#000';
+            ctx.font = `bold ${Math.max(14, GRID_SIZE * 1.0)}px Arial`;
+            
+            // 根據設定顯示數值
+            const showValue = document.getElementById('resultant_show_components').checked;
+            if (showValue) {
+                const unit = document.getElementById('unitSelect').value;
+                const multiplier = unit === 'N' ? 10 : 1;
+                const value = (resultant.magnitude * multiplier).toFixed(1);
+                ctx.fillText(`合力 = ${value} ${unit}`, labelX + 3, labelY - 3);
+            } else {
+                ctx.fillText('合力', labelX + 3, labelY - 3);
+            }
+        }
+        
+        // 修改：繪製合力的分力，在畫布上顯示數值
+        function drawResultantComponents() {
+            const resultant = calculateResultant();
+            if (resultant.magnitude === 0) return;
+            
+            const startX = objectPosition.x * GRID_SIZE;
+            const startY = objectPosition.y * GRID_SIZE;
+            
+            const projectedResultant = {
+                magnitude: resultant.magnitude,
+                angle: resultant.angle
+            };
+            const projected = projectForceToRotatedAxis(projectedResultant);
+            const axisRadian = axisRotation * Math.PI / 180;
+            
+            const showValue = document.getElementById('resultant_show_components').checked;
+            const unit = document.getElementById('unitSelect').value;
+            const multiplier = unit === 'N' ? 10 : 1;
+            
+            if (document.getElementById('resultant_horizontal').checked) {
+                const componentLength = projected.x * GRID_SIZE;
+                const endX = startX + componentLength * Math.cos(axisRadian);
+                const endY = startY - componentLength * Math.sin(axisRadian);
+                
+                // 使用中等粗細 (3)
+                drawDashedArrow(startX, startY, endX, endY, '#000', 3);
+                
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${Math.max(12, GRID_SIZE * 0.7)}px Arial`;
+                
+                if (showValue) {
+                    const value = (projected.x * multiplier).toFixed(1);
+                    ctx.fillText(`合力x = ${value} ${unit}`, endX + 2, endY - 2);
+                } else {
+                    ctx.fillText('合力x', endX + 2, endY - 2);
+                }
+            }
+            
+            if (document.getElementById('resultant_vertical').checked) {
+                const componentLength = projected.y * GRID_SIZE;
+                const endX = startX - componentLength * Math.sin(axisRadian);
+                const endY = startY - componentLength * Math.cos(axisRadian);
+                
+                // 使用中等粗細 (3)
+                drawDashedArrow(startX, startY, endX, endY, '#000', 3);
+                
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${Math.max(12, GRID_SIZE * 0.7)}px Arial`;
+                
+                if (showValue) {
+                    const value = (projected.y * multiplier).toFixed(1);
+                    ctx.fillText(`合力y = ${value} ${unit}`, endX + 2, endY - 2);
+                } else {
+                    ctx.fillText('合力y', endX + 2, endY - 2);
+                }
+            }
+        }
+        
+        // 繪製箭頭
+        function drawArrow(startX, startY, endX, endY, color, lineWidth) {
+            const headSize = Math.max(4, GRID_SIZE / 2);
+            const angle = Math.atan2(endY - startY, endX - startX);
+            
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = lineWidth;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headSize * Math.cos(angle - Math.PI / 6), 
+                      endY - headSize * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(endX - headSize * Math.cos(angle + Math.PI / 6), 
+                      endY - headSize * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        // 繪製虛線箭頭
+        function drawDashedArrow(startX, startY, endX, endY, color, lineWidth) {
+            const headSize = Math.max(3, GRID_SIZE / 3);
+            const angle = Math.atan2(endY - startY, endX - startX);
+            
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash([Math.max(3, GRID_SIZE / 4), Math.max(3, GRID_SIZE / 4)]);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+            
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headSize * Math.cos(angle - Math.PI / 6), 
+                      endY - headSize * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(endX - headSize * Math.cos(angle + Math.PI / 6), 
+                      endY - headSize * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        // 計算合力
+        function calculateResultant() {
+            let totalX = 0;
+            let totalY = 0;
+            
+            for (let i = 1; i <= 4; i++) {
+                if (forces[i].active && forces[i].magnitude > 0) {
+                    const radian = forces[i].angle * Math.PI / 180;
+                    totalX += forces[i].magnitude * Math.cos(radian);
+                    totalY += forces[i].magnitude * Math.sin(radian);
+                }
+            }
+            
+            const magnitude = Math.sqrt(totalX * totalX + totalY * totalY);
+            let angle = Math.atan2(totalY, totalX) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+            
+            return {
+                magnitude: magnitude,
+                angle: angle,
+                x: totalX,
+                y: totalY
+            };
+        }
+        
+        // 更新結果顯示
+        function updateResults() {
+            const resultant = calculateResultant();
+            const unit = document.getElementById('unitSelect').value;
+            const multiplier = unit === 'N' ? 10 : 1;
+            
+            document.getElementById('resultant_magnitude').textContent = 
+                (resultant.magnitude * multiplier).toFixed(1);
+            document.getElementById('resultant_angle').textContent = 
+                resultant.angle.toFixed(1);
+            
+            const projectedResultant = projectForceToRotatedAxis({
+                magnitude: resultant.magnitude,
+                angle: resultant.angle
+            });
+            
+            document.getElementById('total_horizontal').textContent = 
+                (projectedResultant.x * multiplier).toFixed(1);
+            document.getElementById('total_vertical').textContent = 
+                (projectedResultant.y * multiplier).toFixed(1);
+            
+            document.getElementById('resultant_unit').textContent = unit;
+            document.getElementById('horizontal_unit').textContent = unit;
+            document.getElementById('vertical_unit').textContent = unit;
+        }
+        
+        // 重置所有設定
+        function resetAll() {
+            for (let i = 1; i <= 4; i++) {
+                forces[i].magnitude = 0;
+                forces[i].active = false;
+                forces[i].name = `F${i}`;
+                
+                document.getElementById(`f${i}_active`).checked = false;
+                document.getElementById(`f${i}_magnitude`).value = 0;
+                document.getElementById(`f${i}_name`).value = `F${i}`;
+                document.getElementById(`f${i}_horizontal`).checked = false;
+                document.getElementById(`f${i}_vertical`).checked = false;
+                document.getElementById(`f${i}_show_components`).checked = false;
+                
+                updateForceGroupState(i);
+            }
+            
+            document.getElementById('showResultant').checked = false;
+            document.getElementById('resultant_horizontal').checked = false;
+            document.getElementById('resultant_vertical').checked = false;
+            document.getElementById('resultant_show_components').checked = false;
+            updateResultantControlsState();
+            
+            axisRotation = 0;
+            document.getElementById('axisAngle').value = 0;
+            
+            updateDisplay();
+        }
+        
+        // 物體回到中心
+        function centerObject() {
+            objectPosition = { x: Math.floor(GRID_COUNT_X / 2), y: Math.floor(GRID_COUNT_Y / 2) };
+            updateObjectPosition();
+            updateDisplay();
+        }
+        
+        // 頁面載入完成後初始化
+        window.addEventListener('load', init);
+    </script>
+
+</body></html>
