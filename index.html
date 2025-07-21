@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>程式列表</title>
+<style>
+  body { font-family: sans-serif; margin: 20px; }
+  ul { list-style-type: none; padding: 0; }
+  li { margin-bottom: 10px; }
+  a { text-decoration: none; color: #007bff; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>我的程式列表</h1>
+
+<ul id="file-list">
+  </ul>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const fileList = document.getElementById('file-list');
+
+  // 注意：在 GitHub Pages 或本地伺服器上，這個方法可以直接列出檔案。
+  // 但如果你只是在瀏覽器中直接開啟本地檔案，則會有跨域安全限制。
+  // 最好的方式是使用 GitHub Pages 或其他簡單的 HTTP 伺服器來預覽。
+  fetch('.')
+    .then(response => response.text())
+    .then(text => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      const links = doc.querySelectorAll('a'); // 抓取所有連結
+
+      links.forEach(link => {
+        const fileName = link.getAttribute('href');
+        // 過濾掉 index.html 自己，以及任何非 .html 結尾的檔案
+        if (fileName.endsWith('.html') && fileName !== 'index.html') {
+          const listItem = document.createElement('li');
+          const anchor = document.createElement('a');
+          anchor.href = fileName;
+          anchor.textContent = fileName;
+          listItem.appendChild(anchor);
+          fileList.appendChild(listItem);
+        }
+      });
+    })
+    .catch(error => {
+      console.error('Error fetching file list:', error);
+      // 提供備用提示，尤其是當直接在瀏覽器開啟本地檔案時
+      fileList.innerHTML = '<li>無法自動載入檔案列表。請確認您正在使用 GitHub Pages 或本地伺服器瀏覽此頁面。</li>';
+    });
+});
+</script>
+
+</body>
+</html>
