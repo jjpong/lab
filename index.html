@@ -21,15 +21,15 @@
 document.addEventListener('DOMContentLoaded', function() {
   const fileList = document.getElementById('file-list');
 
-  // 注意：在 GitHub Pages 或本地伺服器上，這個方法可以直接列出檔案。
-  // 但如果你只是在瀏覽器中直接開啟本地檔案，則會有跨域安全限制。
-  // 最好的方式是使用 GitHub Pages 或其他簡單的 HTTP 伺服器來預覽。
+  // 這行是關鍵，它嘗試獲取當前目錄的內容
   fetch('.')
     .then(response => response.text())
     .then(text => {
       const parser = new DOMParser();
       const doc = parser.parseFromString(text, 'text/html');
       const links = doc.querySelectorAll('a'); // 抓取所有連結
+
+      let foundHtmlFiles = false; // 新增一個標誌來判斷是否有找到檔案
 
       links.forEach(link => {
         const fileName = link.getAttribute('href');
@@ -41,13 +41,19 @@ document.addEventListener('DOMContentLoaded', function() {
           anchor.textContent = fileName;
           listItem.appendChild(anchor);
           fileList.appendChild(listItem);
+          foundHtmlFiles = true; // 找到檔案，設定標誌為 true
         }
       });
+
+      // 如果沒有找到任何 HTML 檔案，則顯示提示訊息
+      if (!foundHtmlFiles) {
+          fileList.innerHTML = '<li>在當前目錄中沒有找到其他 HTML 檔案。請確認您的其他 HTML 檔案與 index.html 位於相同目錄。</li>';
+      }
     })
     .catch(error => {
       console.error('Error fetching file list:', error);
       // 提供備用提示，尤其是當直接在瀏覽器開啟本地檔案時
-      fileList.innerHTML = '<li>無法自動載入檔案列表。請確認您正在使用 GitHub Pages 或本地伺服器瀏覽此頁面。</li>';
+      fileList.innerHTML = '<li>無法自動載入檔案列表。請確認您正在使用 GitHub Pages 或本地伺服器瀏覽此頁面，並檢查瀏覽器控制台是否有錯誤訊息。</li>';
     });
 });
 </script>
