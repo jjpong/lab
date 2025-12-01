@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB 三原色光混合模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #000;
+            overflow: hidden; /* 防止拖曳時出現滾動條 */
+            touch-action: none; /* 防止手機上拖曳時觸發頁面滾動 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* 光源圓圈的基礎樣式 */
+        .light-circle {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            cursor: move;
+            /* 關鍵：使用 screen 濾色模式來模擬光的加法混合 */
+            mix-blend-mode: screen;
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.2); /* 增加一點發光感 */
+            transition: opacity 0.1s;
+        }
+
+        /* 響應式調整：在手機上圓圈小一點 */
+        @media (max-width: 600px) {
+            .light-circle {
+                width: 140px;
+                height: 140px;
+            }
+        }
+
+        .light-red {
+            background-color: #ff0000;
+        }
+        
+        .light-green {
+            background-color: #00ff00;
+        }
+        
+        .light-blue {
+            background-color: #0000ff;
+        }
+
+        /* 控制面板樣式 */
+        .controls {
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #333;
+        }
+        
+        /* 自定義滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        /* 不同顏色的滑桿軌道 */
+        #range-red::-webkit-slider-runnable-track { background: #500; }
+        #range-green::-webkit-slider-runnable-track { background: #050; }
+        #range-blue::-webkit-slider-runnable-track { background: #005; }
+
+        .select-none {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <!-- 畫布區域 -->
+    <div id="canvas-area" class="relative flex-grow w-full h-full">
+        <div class="absolute top-4 left-0 w-full text-center text-gray-500 pointer-events-none select-none z-0">
+            <h1 class="text-2xl font-bold mb-1">RGB 三原色光混合</h1>
+            <p class="text-sm">拖曳圓圈移動 · 調整下方滑桿改變亮度</p>
+        </div>
+
+        <!-- RGB 圓圈 -->
+        <!-- 初始位置會由 JS 設定 -->
+        <div id="circle-red" class="light-circle light-red" style="opacity: 1;"></div>
+        <div id="circle-green" class="light-circle light-green" style="opacity: 1;"></div>
+        <div id="circle-blue" class="light-circle light-blue" style="opacity: 1;"></div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="controls w-full p-6 text-white z-50">
+        <div class="max-w-md mx-auto space-y-4">
+            
+            <!-- 紅色控制 -->
+            <div class="flex items-center space-x-4">
+                <span class="w-8 font-bold text-red-500">R</span>
+                <input type="range" id="range-red" min="0" max="1" step="0.01" value="1" class="flex-grow">
+                <span id="val-red" class="w-10 text-right text-xs text-gray-400">100%</span>
+            </div>
+
+            <!-- 綠色控制 -->
+            <div class="flex items-center space-x-4">
+                <span class="w-8 font-bold text-green-500">G</span>
+                <input type="range" id="range-green" min="0" max="1" step="0.01" value="1" class="flex-grow">
+                <span id="val-green" class="w-10 text-right text-xs text-gray-400">100%</span>
+            </div>
+
+            <!-- 藍色控制 -->
+            <div class="flex items-center space-x-4">
+                <span class="w-8 font-bold text-blue-500">B</span>
+                <input type="range" id="range-blue" min="0" max="1" step="0.01" value="1" class="flex-grow">
+                <span id="val-blue" class="w-10 text-right text-xs text-gray-400">100%</span>
+            </div>
+
+            <div class="pt-2 text-center">
+                <button onclick="resetPositions()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                    重置位置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const circles = {
+            red: document.getElementById('circle-red'),
+            green: document.getElementById('circle-green'),
+            blue: document.getElementById('circle-blue')
+        };
+
+        const canvas = document.getElementById('canvas-area');
+
+        // 初始化位置 (類似三角形排列)
+        function initPositions() {
+            const centerX = canvas.clientWidth / 2;
+            const centerY = canvas.clientHeight / 2;
+            const offset = canvas.clientWidth < 600 ? 50 : 80; // 根據螢幕大小調整間距
+            const circleRadius = canvas.clientWidth < 600 ? 70 : 100;
+
+            // 紅色在上方
+            setPos(circles.red, centerX - circleRadius, centerY - circleRadius - offset);
+            // 綠色在左下
+            setPos(circles.green, centerX - circleRadius - offset, centerY - circleRadius + offset);
+            // 藍色在右下
+            setPos(circles.blue, centerX - circleRadius + offset, centerY - circleRadius + offset);
+        }
+
+        function setPos(el, x, y) {
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+        }
+
+        function resetPositions() {
+            initPositions();
+            // 也重置亮度
+            ['red', 'green', 'blue'].forEach(color => {
+                document.getElementById(`range-${color}`).value = 1;
+                updateIntensity(color, 1);
+            });
+        }
+
+        // 拖曳邏輯
+        let activeCircle = null;
+        let startX = 0;
+        let startY = 0;
+        let initialLeft = 0;
+        let initialTop = 0;
+
+        function handleStart(e, circle) {
+            e.preventDefault();
+            activeCircle = circle;
+            
+            // 獲取觸控或滑鼠座標
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            startX = clientX;
+            startY = clientY;
+            
+            const rect = circle.getBoundingClientRect();
+            // 這裡需要計算相對於 canvas 的位置，因為 circle 是 absolute
+            // 直接讀取 style.left/top 比較準確，如果已設定
+            initialLeft = parseInt(circle.style.left || rect.left);
+            initialTop = parseInt(circle.style.top || rect.top);
+
+            // 提升 z-index 讓被拖曳的在最上面 (雖然 mix-blend-mode 讓層級沒那麼明顯，但操作手感較好)
+            circle.style.zIndex = 10;
+        }
+
+        function handleMove(e) {
+            if (!activeCircle) return;
+            e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+
+            activeCircle.style.left = `${initialLeft + deltaX}px`;
+            activeCircle.style.top = `${initialTop + deltaY}px`;
+        }
+
+        function handleEnd() {
+            if (activeCircle) {
+                activeCircle.style.zIndex = '';
+                activeCircle = null;
+            }
+        }
+
+        // 為每個圓圈綁定拖曳事件
+        Object.values(circles).forEach(circle => {
+            // 滑鼠
+            circle.addEventListener('mousedown', (e) => handleStart(e, circle));
+            // 觸控
+            circle.addEventListener('touchstart', (e) => handleStart(e, circle), { passive: false });
+        });
+
+        // 全局移動和結束監聽
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+
+        // 強度控制邏輯
+        function updateIntensity(color, value) {
+            circles[color].style.opacity = value;
+            document.getElementById(`val-${color}`).innerText = Math.round(value * 100) + '%';
+        }
+
+        ['red', 'green', 'blue'].forEach(color => {
+            const range = document.getElementById(`range-${color}`);
+            range.addEventListener('input', (e) => {
+                updateIntensity(color, e.target.value);
+            });
+        });
+
+        // 視窗大小改變時，如果不希望圓圈跑出界外，可以不做處理，或重置位置
+        // 這裡我們初始化一次即可
+        window.onload = initPositions;
+        
+        // 簡單的響應式調整，切換橫豎屏時重置，避免找不到圓圈
+        window.addEventListener('resize', () => {
+             // 選擇性功能：如果希望 resize 後保持相對位置比較複雜，這裡簡單重置確保體驗
+             // initPositions(); 
+        });
+
+    </script>
+</body>
+</html>
