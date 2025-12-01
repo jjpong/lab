@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB 光源模擬器</title>
+    <style>
+        /* CSS (style.css) 樣式表內容開始 */
+        body {
+            font-family: 'Inter', sans-serif; /* 使用 Inter 字體 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+            margin: 0;
+            color: #333;
+            padding: 20px; /* 增加 body 邊距 */
+            box-sizing: border-box; /* 邊框盒模型 */
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 15px; /* 圓角 */
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); /* 更明顯的陰影 */
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            color: #007bff;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 15px; /* 調整底部間距 */
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .slider-group, .color-picker-group, .background-color-picker-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 8px 0;
+            justify-content: center; /* 使內容居中 */
+        }
+
+        .slider-group label, .color-picker-group label, .background-color-picker-group label {
+            flex-basis: 150px; /* 調整標籤寬度 */
+            text-align: right;
+            font-weight: bold;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .slider-group input[type="range"] {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            height: 10px; /* 增加滑塊高度 */
+            background: linear-gradient(to right, #ddd, #bbb); /* 漸變背景 */
+            border-radius: 8px;
+            outline: none;
+            opacity: 0.85;
+            transition: opacity .2s, box-shadow 0.2s;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .slider-group input[type="range"]:hover {
+            opacity: 1;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px; /* 增加滑塊圓點大小 */
+            height: 24px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 3px solid #fff; /* 白色邊框 */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        .slider-group input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.1); /* 按下時放大 */
+            background: #0056b3;
+        }
+
+        .slider-group input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 3px solid #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        .slider-group input[type="range"]::-moz-range-thumb:active {
+            transform: scale(1.1);
+            background: #0056b3;
+        }
+
+        .slider-group span {
+            width: 40px; /* 調整數值顯示寬度 */
+            text-align: left;
+            font-weight: bold;
+            color: #007bff;
+            font-size: 1.1em;
+        }
+
+        .upload-section {
+            margin-top: 20px;
+        }
+
+        .button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 25px; /* 增加按鈕填充 */
+            border: none;
+            border-radius: 8px; /* 圓角 */
+            cursor: pointer;
+            font-size: 17px;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+            display: inline-block;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); /* 藍色陰影 */
+        }
+
+        .button:hover {
+            background-color: #218838;
+            transform: translateY(-2px); /* 輕微上浮效果 */
+            box-shadow: 0 6px 15px rgba(0, 123, 255, 0.4);
+        }
+
+        .button:active {
+            transform: translateY(0); /* 按下時恢復 */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .image-display {
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* 可調整圖片顯示的最大寬度 */
+            aspect-ratio: 16 / 9; /* 預設圖片顯示區的長寬比 */
+            margin: 0 auto;
+            border: 2px dashed #ccc; /* 虛線邊框 */
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        #imageCanvas {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px; /* Canvas 圓角 */
+        }
+
+        #uploadedImage {
+            /* 這是一個隱藏的 <img> 標籤，用於載入圖片以便繪製到 canvas */
+            max-width: 100%;
+            height: auto;
+            display: block;
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* LLM 輸出容器樣式 */
+        #llmOutputContainer {
+            margin-top: 20px;
+            text-align: left;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        #llmOutputText {
+            margin: 0;
+            white-space: pre-wrap; /* 保持換行符 */
+            word-wrap: break-word; /* 長單詞換行 */
+        }
+
+        /* 加載中 spinner 樣式 */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #007bff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                width: 95%;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .slider-group, .color-picker-group, .background-color-picker-group {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .slider-group label, .color-picker-group label, .background-color-picker-group label {
+                text-align: left;
+                flex-basis: auto;
+                width: 100%;
+            }
+
+            .slider-group span {
+                text-align: right;
+                width: 100%;
+                margin-top: -10px; /* 調整間距 */
+            }
+
+            .button {
+                width: 100%;
+                padding: 10px;
+                font-size: 15px;
+            }
+
+            .image-display {
+                min-height: 250px;
+            }
+        }
+        /* CSS (style.css) 樣式表內容結束 */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RGB 光源模擬器</h1>
+
+        <div class="controls">
+            <div class="slider-group">
+                <label for="red">紅色光強度 (0-255):</label>
+                <input type="range" id="red" min="0" max="255" value="128">
+                <span id="redValue">128</span>
+            </div>
+            <div class="slider-group">
+                <label for="green">綠色光強度 (0-255):</label>
+                <input type="range" id="green" min="0" max="255" value="128">
+                <span id="greenValue">128</span>
+            </div>
+            <div class="slider-group">
+                <label for="blue">藍色光強度 (0-255):</label>
+                <input type="range" id="blue" min="0" max="255" value="128">
+                <span id="blueValue">128</span>
+            </div>
+
+            <!-- 形狀顏色選擇器，預設隱藏 -->
+            <div class="color-picker-group" id="colorPickerGroup" style="display: none;">
+                <label for="shapeColor">選擇形狀顏色:</label>
+                <input type="color" id="shapeColor" value="#000000">
+            </div>
+
+            <!-- 背景顏色選擇器，預設隱藏 -->
+            <div class="background-color-picker-group" id="backgroundColorPickerGroup" style="display: none;">
+                <label for="backgroundColor">選擇背景顏色:</label>
+                <input type="color" id="backgroundColor" value="#f0f0f0">
+            </div>
+        </div>
+
+        <div class="image-display">
+            <img id="uploadedImage" src="#" alt="上傳的圖片" style="display: none;">
+            <canvas id="imageCanvas"></canvas>
+            <!-- 移除原有的 placeholderText 元素，現在沒有預設提示文字 -->
+        </div>
+
+        <!-- 上傳圖片按鈕和新的分析按鈕移動到畫面下方 -->
+        <div class="upload-section">
+            <label for="imageUpload" class="button">上傳圖片</label>
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+            <button id="analyzeImageBtn" class="button" style="display: none; margin-top: 10px;">✨ 分析圖片光照效果 ✨</button>
+        </div>
+
+        <!-- LLM 輸出容器 -->
+        <div id="llmOutputContainer" style="margin-top: 20px; text-align: left; padding: 15px; background-color: #e9ecef; border-radius: 8px; border: 1px solid #dee2e6; display: none;">
+            <p id="llmOutputText" style="margin: 0; font-size: 0.95em; color: #495057;"></p>
+            <div id="llmLoadingSpinner" style="display: none; text-align: center; margin-top: 10px;">
+                <div class="spinner"></div> 載入中...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* JavaScript (script.js) 程式碼內容開始 */
+        document.addEventListener('DOMContentLoaded', () => {
+            // 獲取 DOM 元素
+            const redSlider = document.getElementById('red');
+            const greenSlider = document.getElementById('green');
+            const blueSlider = document.getElementById('blue');
+            const redValueSpan = document.getElementById('redValue');
+            const greenValueSpan = document.getElementById('greenValue');
+            const blueValueSpan = document.getElementById('blueValue');
+            const imageUpload = document.getElementById('imageUpload');
+            const uploadedImage = document.getElementById('uploadedImage');
+            const imageCanvas = document.getElementById('imageCanvas');
+            const ctx = imageCanvas.getContext('2d', { willReadFrequently: true });
+            const colorPickerGroup = document.getElementById('colorPickerGroup');
+            const shapeColorInput = document.getElementById('shapeColor');
+            const backgroundColorPickerGroup = document.getElementById('backgroundColorPickerGroup');
+            const backgroundColorInput = document.getElementById('backgroundColor');
+            const imageDisplayElement = document.querySelector('.image-display');
+
+            // 新增的 LLM 相關元素
+            const analyzeImageBtn = document.getElementById('analyzeImageBtn');
+            const llmOutputContainer = document.getElementById('llmOutputContainer');
+            const llmOutputText = document.getElementById('llmOutputText');
+            const llmLoadingSpinner = document.getElementById('llmLoadingSpinner');
+
+            let originalImageData = null; // 儲存原始圖片資料 (ImageData 物件)
+            let shapes = []; // 儲存幾何圖形物件的陣列
+            let selectedShape = null; // 當前選中的圖形
+            let isDragging = false; // 是否正在拖曳
+            let dragOffsetX, dragOffsetY; // 拖曳時的滑鼠偏移量
+
+            // 將 Hex 顏色轉換為 RGB 物件 {r, g, b}
+            function hexToRgb(hex) {
+                const bigint = parseInt(hex.slice(1), 16);
+                const r = (bigint >> 16) & 255;
+                const g = (bigint >> 8) & 255;
+                const b = bigint & 255;
+                return { r, g, b };
+            }
+
+            // 將 RGB 數值轉換為 CSS rgb() 字串
+            function rgbToCss(r, g, b) {
+                return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+            }
+
+            // 生成隨機 Hex 顏色
+            function getRandomHexColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
+
+            // --- 幾何圖形相關函數 ---
+
+            // 初始化預設幾何圖形
+            function initShapes() {
+                shapes = []; // 清除現有圖形
+                // 設定 Canvas 的預設尺寸，用於顯示圖形
+                imageCanvas.width = 600;
+                imageCanvas.height = 400;
+
+                // 新增五種不同的幾何圖形，前三個為指定顏色，後兩個為隨機顏色
+                shapes.push({
+                    id: 'rect1', type: 'rect', x: 50, y: 50, width: 100, height: 70, originalColor: '#FF0000', // 紅色 (255,0,0)
+                    isPointIn: function(p) { return p.x > this.x && p.x < this.x + this.width && p.y > this.y && p.y < this.y + this.height; }
+                });
+                shapes.push({
+                    id: 'circle1', type: 'circle', x: 200, y: 150, radius: 50, originalColor: '#00FF00', // 綠色 (0,255,0)
+                    isPointIn: function(p) { return Math.sqrt( (p.x - this.x)*(p.x - this.x) + (p.y - this.y)*(p.y - this.y) ) < this.radius; }
+                });
+                shapes.push({
+                    id: 'triangle1', type: 'triangle', x: 350, y: 60, size: 90, originalColor: '#0000FF', // 藍色 (0,0,255)
+                    isPointIn: function(p) {
+                        // 簡單的三角形邊界框檢測
+                        return p.x > this.x && p.x < this.x + this.size && p.y > this.y && p.y < this.y + this.size * Math.sqrt(3)/2;
+                    }
+                });
+                shapes.push({
+                    id: 'pentagon1', type: 'polygon', x: 150, y: 300, radius: 60, sides: 5, originalColor: getRandomHexColor(), // 隨機顏色
+                    isPointIn: function(p) { return Math.sqrt( (p.x - this.x)*(p.x - this.x) + (p.y - this.y)*(p.y - this.y) ) < this.radius; }
+                });
+                shapes.push({
+                    id: 'star1', type: 'star', x: 450, y: 300, outerRadius: 60, innerRadius: 25, points: 5, originalColor: getRandomHexColor(), // 隨機顏色
+                    isPointIn: function(p) { return Math.sqrt( (p.x - this.x)*(p.x - this.x) + (p.y - this.y)*(p.y - this.y) ) < this.outerRadius; }
+                });
+            }
+
+            // 繪製單個幾何圖形，並應用光源效果
+            function drawShape(ctx, shape, redMultiplier, greenMultiplier, blueMultiplier) {
+                const originalRgb = hexToRgb(shape.originalColor);
+
+                // 應用光源影響：將原始顏色值乘以光源強度
+                const newR = Math.min(255, originalRgb.r * redMultiplier);
+                const newG = Math.min(255, originalRgb.g * greenMultiplier);
+                const newB = Math.min(255, originalRgb.b * blueMultiplier);
+
+                ctx.fillStyle = rgbToCss(newR, newG, newB); // 使用應用光源後的顏色
+                ctx.beginPath();
+
+                switch (shape.type) {
+                    case 'rect':
+                        ctx.rect(shape.x, shape.y, shape.width, shape.height);
+                        break;
+                    case 'circle':
+                        ctx.arc(shape.x, shape.y, shape.radius, 0, Math.PI * 2);
+                        break;
+                    case 'triangle':
+                        const h = shape.size * Math.sqrt(3) / 2;
+                        ctx.moveTo(shape.x + shape.size / 2, shape.y); // 頂點
+                        ctx.lineTo(shape.x + shape.size, shape.y + h); // 右下角
+                        ctx.lineTo(shape.x, shape.y + h); // 左下角
+                        ctx.closePath();
+                        break;
+                    case 'polygon':
+                        let angle = Math.PI / 2;
+                        for (let i = 0; i < shape.sides; i++) {
+                            const px = shape.x + shape.radius * Math.cos(angle);
+                            const py = shape.y + shape.radius * Math.sin(angle);
+                            if (i === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                            angle += (Math.PI * 2) / shape.sides;
+                        }
+                        ctx.closePath();
+                        break;
+                    case 'star':
+                        const numPoints = shape.points * 2;
+                        let rot = Math.PI / 2 * 3;
+                        let step = Math.PI / shape.points;
+
+                        ctx.moveTo(shape.x + Math.cos(rot) * shape.outerRadius, shape.y + Math.sin(rot) * shape.outerRadius);
+
+                        for (let i = 0; i < numPoints; i++) {
+                            let r = (i % 2 == 0) ? shape.outerRadius : shape.innerRadius;
+                            ctx.lineTo(shape.x + Math.cos(rot) * r, shape.y + Math.sin(rot) * r);
+                            rot += step;
+                        }
+                        ctx.closePath();
+                        break;
+                }
+                ctx.fill();
+
+                // 如果圖形被選中，繪製虛線邊框
+                if (selectedShape && selectedShape.id === shape.id) {
+                    ctx.strokeStyle = '#FFD700'; // 金色
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([8, 8]); // 虛線模式
+                    ctx.stroke();
+                    ctx.setLineDash([]); // 重置線條模式
+                }
+            }
+
+            // --- 核心繪製邏輯 ---
+            // 負責在 canvas 上繪製內容（圖片或圖形），並調整顯示區塊的樣式
+            function drawCanvasContent() {
+                // 每次繪製前清空 canvas
+                ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+
+                if (originalImageData) {
+                    // 如果有圖片，則繪製圖片並應用光源效果
+                    const currentRed = parseInt(redSlider.value);
+                    const currentGreen = parseInt(greenSlider.value);
+                    const currentBlue = parseInt(blueSlider.value);
+
+                    // 複製原始圖片資料以進行像素操作，避免修改原始數據
+                    const imageData = new ImageData(
+                        new Uint8ClampedArray(originalImageData.data),
+                        originalImageData.width,
+                        originalImageData.height
+                    );
+                    const data = imageData.data; // 圖片的像素數據 (RGBA)
+
+                    // 注意：現在除以 255，因為滑塊範圍是 0-255
+                    const redMultiplier = currentRed / 255;
+                    const greenMultiplier = currentGreen / 255;
+                    const blueMultiplier = currentBlue / 255;
+
+                    // 遍歷每個像素並應用光源效果
+                    for (let i = 0; i < data.length; i += 4) {
+                        const originalR = originalImageData.data[i];
+                        const originalG = originalImageData.data[i + 1];
+                        const originalB = originalImageData.data[i + 2];
+
+                        data[i] = Math.min(255, originalR * redMultiplier);
+                        data[i + 1] = Math.min(255, originalG * greenMultiplier);
+                        data[i + 2] = Math.min(255, originalB * blueMultiplier);
+                    }
+                    ctx.putImageData(imageData, 0, 0); // 將修改後的數據放回 canvas
+
+                    // 調整 image-display 容器的樣式以適應圖片
+                    imageDisplayElement.style.height = `${imageCanvas.clientHeight}px`;
+                    imageDisplayElement.style.aspectRatio = 'auto'; // 關閉固定長寬比
+                    imageDisplayElement.style.border = 'none'; // 移除虛線框
+                    imageDisplayElement.style.backgroundColor = 'transparent'; // 移除背景色
+                    colorPickerGroup.style.display = 'none'; // 隱藏形狀顏色選擇器
+                    backgroundColorPickerGroup.style.display = 'none'; // 隱藏背景顏色選擇器
+                    analyzeImageBtn.style.display = 'inline-block'; // 顯示分析圖片按鈕
+                } else {
+                    // 如果沒有圖片，則繪製幾何圖形
+                    const currentRed = parseInt(redSlider.value);
+                    const currentGreen = parseInt(greenSlider.value);
+                    const currentBlue = parseInt(blueSlider.value);
+
+                    // 注意：現在除以 255，因為滑塊範圍是 0-255
+                    const redMultiplier = currentRed / 255;
+                    const greenMultiplier = currentGreen / 255;
+                    const blueMultiplier = currentBlue / 255;
+
+                    // 填充背景顏色，應用光源影響
+                    const originalBgRgb = hexToRgb(backgroundColorInput.value);
+                    const newBgR = Math.min(255, originalBgRgb.r * redMultiplier);
+                    const newBgG = Math.min(255, originalBgRgb.g * greenMultiplier);
+                    const newBgB = Math.min(255, originalBgRgb.b * blueMultiplier);
+                    ctx.fillStyle = rgbToCss(newBgR, newBgG, newBgB);
+                    ctx.fillRect(0, 0, imageCanvas.width, imageCanvas.height);
+
+                    shapes.forEach(shape => drawShape(ctx, shape, redMultiplier, greenMultiplier, blueMultiplier));
+
+                    // 恢復 image-display 容器的預設樣式
+                    imageDisplayElement.style.height = 'auto';
+                    imageDisplayElement.style.minHeight = '300px';
+                    imageDisplayElement.style.aspectRatio = '16 / 9';
+                    imageDisplayElement.style.border = '2px dashed #ccc';
+                    imageDisplayElement.style.backgroundColor = '#f0f0f0'; // 視覺上保持一致
+
+                    // 顏色選擇器組件的顯示狀態
+                    if (selectedShape) {
+                        colorPickerGroup.style.display = 'flex'; // 顯示形狀顏色選擇器
+                    } else {
+                        colorPickerGroup.style.display = 'none'; // 隱藏形狀顏色選擇器
+                    }
+                    backgroundColorPickerGroup.style.display = 'flex'; // 始終顯示背景顏色選擇器 (當顯示圖形時)
+                    analyzeImageBtn.style.display = 'none'; // 隱藏分析圖片按鈕
+                    llmOutputContainer.style.display = 'none'; // 隱藏 LLM 輸出
+                    llmOutputText.textContent = ''; // 清空 LLM 輸出文字
+                }
+            }
+
+            // --- 事件監聽器 ---
+
+            // 滑塊事件：更新數值並重新繪製 canvas 內容
+            redSlider.addEventListener('input', () => {
+                redValueSpan.textContent = redSlider.value;
+                drawCanvasContent();
+            });
+            greenSlider.addEventListener('input', () => {
+                greenValueSpan.textContent = greenSlider.value;
+                drawCanvasContent();
+            });
+            blueSlider.addEventListener('input', () => {
+                blueValueSpan.textContent = blueSlider.value;
+                drawCanvasContent();
+            });
+
+            // 圖片上傳事件
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        uploadedImage.src = e.target.result;
+                        uploadedImage.onload = () => {
+                            imageCanvas.width = uploadedImage.naturalWidth;
+                            imageCanvas.height = uploadedImage.naturalHeight;
+                            ctx.drawImage(uploadedImage, 0, 0);
+                            originalImageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                            selectedShape = null; // 上傳圖片後清除選中圖形
+                            drawCanvasContent(); // 繪製圖片
+                        };
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    // 如果取消選擇檔案或清除輸入，則恢復到顯示圖形的狀態
+                    originalImageData = null;
+                    initShapes(); // 重新初始化圖形
+                    drawCanvasContent(); // 繪製圖形
+                }
+            });
+
+            // Canvas 滑鼠按下事件：處理圖形選取和拖曳開始
+            imageCanvas.addEventListener('mousedown', (e) => {
+                if (originalImageData) return; // 如果有圖片則不處理圖形互動
+
+                const rect = imageCanvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // 從最後一個圖形開始向前遍歷，以便選中堆疊在上面的圖形
+                let foundShape = false;
+                for (let i = shapes.length - 1; i >= 0; i--) {
+                    const shape = shapes[i];
+                    if (shape.isPointIn({ x: mouseX, y: mouseY })) {
+                        selectedShape = shape;
+                        isDragging = true;
+                        dragOffsetX = mouseX - shape.x;
+                        dragOffsetY = mouseY - shape.y;
+                        shapeColorInput.value = shape.originalColor; // 更新顏色選擇器為圖形的原始顏色
+                        foundShape = true;
+                        break; // 找到後立即退出
+                    }
+                }
+                if (!foundShape) {
+                    selectedShape = null; // 如果沒有點擊任何圖形，則清除選中
+                }
+                drawCanvasContent(); // 重新繪製以顯示選中狀態或清除選中狀態
+            });
+
+            // Canvas 滑鼠移動事件：處理圖形拖曳
+            imageCanvas.addEventListener('mousemove', (e) => {
+                if (originalImageData || !isDragging || !selectedShape) return;
+
+                const rect = imageCanvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // 更新選中圖形的位置
+                selectedShape.x = mouseX - dragOffsetX;
+                selectedShape.y = mouseY - dragOffsetY;
+
+                drawCanvasContent(); // 重新繪製
+            });
+
+            // Canvas 滑鼠鬆開事件：結束拖曳
+            imageCanvas.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            // Canvas 滑鼠離開事件：結束拖曳 (防止滑鼠拖出 canvas 區域後仍處於拖曳狀態)
+            imageCanvas.addEventListener('mouseleave', () => {
+                isDragging = false;
+            });
+
+            // 形狀顏色選擇器事件：改變選中圖形的原始顏色
+            shapeColorInput.addEventListener('input', () => {
+                if (selectedShape) {
+                    selectedShape.originalColor = shapeColorInput.value; // 更新圖形的原始顏色
+                    drawCanvasContent(); // 重新繪製以應用新顏色和光照
+                }
+            });
+
+            // 背景顏色選擇器事件：改變 Canvas 背景顏色
+            backgroundColorInput.addEventListener('input', () => {
+                // 背景顏色直接應用於 drawCanvasContent 中的 ctx.fillRect
+                drawCanvasContent();
+            });
+
+            // --- LLM 相關功能 ---
+            analyzeImageBtn.addEventListener('click', async () => {
+                if (!originalImageData) {
+                    llmOutputText.textContent = "請先上傳圖片！";
+                    llmOutputContainer.style.display = 'block';
+                    return;
+                }
+
+                llmOutputContainer.style.display = 'block';
+                llmOutputText.textContent = '';
+                llmLoadingSpinner.style.display = 'block'; // 顯示加載動畫
+
+                try {
+                    // 獲取當前 canvas 的圖片數據 (已應用光照效果)
+                    const base64ImageData = imageCanvas.toDataURL('image/png').split(',')[1];
+                    const currentRed = parseInt(redSlider.value);
+                    const currentGreen = parseInt(greenSlider.value);
+                    const currentBlue = parseInt(blueSlider.value);
+
+                    // 構建給 LLM 的提示
+                    const prompt = `這是一張在模擬RGB光源下顯示的圖片。紅色光強度為 ${currentRed}/255，綠色光強度為 ${currentGreen}/255，藍色光強度為 ${currentBlue}/255。請描述這張圖片的視覺特徵、顏色分佈、整體氛圍以及光源對其的影響。`;
+
+                    let chatHistory = [];
+                    chatHistory.push({
+                        role: "user",
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: "image/png", // 確保 MIME 類型正確
+                                    data: base64ImageData
+                                }
+                            }
+                        ]
+                    });
+
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; // Canvas 將在運行時自動提供此 API key
+
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        llmOutputText.textContent = text;
+                    } else {
+                        llmOutputText.textContent = "無法獲取圖片分析結果。請稍後再試。";
+                        console.error("Gemini API response structure unexpected:", result);
+                    }
+
+                } catch (error) {
+                    llmOutputText.textContent = "分析圖片時發生錯誤：" + error.message;
+                    console.error("Error analyzing image with Gemini API:", error);
+                } finally {
+                    llmLoadingSpinner.style.display = 'none'; // 隱藏加載動畫
+                }
+            });
+
+
+            // --- 初始化 ---
+            initShapes(); // 頁面載入時初始化幾何圖形
+            // 設定背景顏色選擇器的預設值為 image-display 的背景色
+            backgroundColorInput.value = '#f0f0f0';
+            
+            drawCanvasContent(); // 首次繪製 canvas 內容 (顯示圖形)
+        });
+        /* JavaScript (script.js) 程式碼內容結束 */
+    </script>
+</body>
+</html>
