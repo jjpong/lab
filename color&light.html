@@ -1,0 +1,510 @@
+import React, { useState, useMemo } from 'react';
+import { Eye, Lightbulb, ArrowRight, Brain, Info, RefreshCw, Activity, Zap, Plus, X, Sliders } from 'lucide-react';
+
+const LightColorLab = () => {
+  // --- 狀態管理 ---
+  
+  // 三顆獨立光源的設定
+  const [lights, setLights] = useState([
+    { id: 1, name: '光源 A', wavelength: 650, width: 20, intensity: 1.0, active: true }, // 預設紅
+    { id: 2, name: '光源 B', wavelength: 530, width: 20, intensity: 1.0, active: true }, // 預設綠
+    { id: 3, name: '光源 C', wavelength: 460, width: 20, intensity: 1.0, active: true }, // 預設藍
+  ]);
+  
+  // 濾鏡設定
+  const [activeFilter, setActiveFilter] = useState('none');
+
+  // --- 物理常數與輔助函式 ---
+
+  // 將單一波長轉換為 RGB (近似演算法)
+  const wavelengthToRGB = (wavelength) => {
+    let R, G, B;
+    let alpha = 1;
+
+    if (wavelength >= 380 && wavelength < 440) {
+      R = -1 * (wavelength - 440) / (440 - 380); G = 0; B = 1;
+    } else if (wavelength >= 440 && wavelength < 490) {
+      R = 0; G = (wavelength - 440) / (490 - 440); B = 1;
+    } else if (wavelength >= 490 && wavelength < 510) {
+      R = 0; G = 1; B = -1 * (wavelength - 510) / (510 - 490);
+    } else if (wavelength >= 510 && wavelength < 580) {
+      R = (wavelength - 510) / (580 - 510); G = 1; B = 0;
+    } else if (wavelength >= 580 && wavelength < 645) {
+      R = 1; G = -1 * (wavelength - 645) / (645 - 580); B = 0;
+    } else if (wavelength >= 645 && wavelength <= 780) {
+      R = 1; G = 0; B = 0;
+    } else {
+      R = 0; G = 0; B = 0;
+    }
+
+    // 邊緣波長的亮度衰減
+    if (wavelength > 700) alpha = 0.3 + 0.7 * (780 - wavelength) / (780 - 700);
+    else if (wavelength < 420) alpha = 0.3 + 0.7 * (wavelength - 380) / (420 - 380);
+
+    return {
+      r: R * alpha,
+      g: G * alpha,
+      b: B * alpha
+    };
+  };
+
+  // 定義濾鏡的透光率函數 T(lambda) -> 0~1
+  const getFilterTransmittance = (filterType, lambda) => {
+    switch (filterType) {
+      case 'none': return 1.0;
+      case 'red': return lambda > 600 ? 0.95 : 0.05; // 允許長波
+      case 'green': return lambda > 500 && lambda < 570 ? 0.95 : 0.05; // 允許中波
+      case 'blue': return lambda < 500 ? 0.95 : 0.05; // 允許短波
+      case 'yellow': return lambda > 530 ? 0.95 : 0.05; // 紅+綠波段
+      case 'cyan': return lambda < 560 ? 0.95 : 0.05; // 藍+綠波段
+      case 'magenta': return lambda < 460 || lambda > 620 ? 0.95 : 0.05; // 藍+紅
+      case 'sunglass': return 0.2; // 全波段減光
+      default: return 1.0;
+    }
+  };
+
+  // 濾鏡列表
+  const filters = {
+    none: { name: '無濾鏡 (空氣)', color: 'rgba(255, 255, 255, 0.1)' },
+    red: { name: '紅色濾鏡', color: 'rgba(255, 0, 0, 0.6)' },
+    green: { name: '綠色濾鏡', color: 'rgba(0, 255, 0, 0.6)' },
+    blue: { name: '藍色濾鏡', color: 'rgba(0, 0, 255, 0.6)' },
+    yellow: { name: '黃色濾鏡', color: 'rgba(255, 255, 0, 0.6)' },
+    cyan: { name: '青色濾鏡', color: 'rgba(0, 255, 255, 0.6)' },
+    magenta: { name: '洋紅濾鏡', color: 'rgba(255, 0, 255, 0.6)' },
+    sunglass: { name: '墨鏡', color: 'rgba(0, 0, 0, 0.6)' },
+  };
+
+  // --- 核心物理運算 ---
+  const updateLight = (id, field, value) => {
+    setLights(prev => prev.map(light => 
+      light.id === id ? { ...light, [field]: value } : light
+    ));
+  };
+
+  const toggleLight = (id) => {
+    setLights(prev => prev.map(light => 
+      light.id === id ? { ...light, active: !light.active } : light
+    ));
+  };
+
+  // 計算整體光譜與混合色 (給大腦和圖表用)
+  const spectrumData = useMemo(() => {
+    const startWavelength = 380;
+    const endWavelength = 780;
+    const step = 5;
+    
+    let totalSourceR = 0, totalSourceG = 0, totalSourceB = 0;
+    let totalFilteredR = 0, totalFilteredG = 0, totalFilteredB = 0;
+
+    const distribution = [];
+
+    for (let lambda = startWavelength; lambda <= endWavelength; lambda += step) {
+      let intensity = 0;
+      lights.forEach(light => {
+        if (light.active) {
+            const sigma = light.width / 2.355; 
+            const safeSigma = Math.max(0.1, sigma);
+            intensity += light.intensity * Math.exp(-0.5 * Math.pow((lambda - light.wavelength) / safeSigma, 2));
+        }
+      });
+      
+      const baseColor = wavelengthToRGB(lambda);
+      
+      totalSourceR += baseColor.r * intensity;
+      totalSourceG += baseColor.g * intensity;
+      totalSourceB += baseColor.b * intensity;
+
+      const transmittance = getFilterTransmittance(activeFilter, lambda);
+      const filteredIntensity = intensity * transmittance;
+
+      totalFilteredR += baseColor.r * filteredIntensity;
+      totalFilteredG += baseColor.g * filteredIntensity;
+      totalFilteredB += baseColor.b * filteredIntensity;
+      
+      distribution.push({ lambda, intensity, filteredIntensity, baseColor });
+    }
+
+    const maxSourceChannel = Math.max(totalSourceR, totalSourceG, totalSourceB, 0.001);
+    const scaleFactor = 255 / (maxSourceChannel > 0 ? maxSourceChannel : 1);
+    const fixedReference = 3.0; 
+    
+    const sourceRGB = {
+      r: Math.min(255, totalSourceR * scaleFactor),
+      g: Math.min(255, totalSourceG * scaleFactor),
+      b: Math.min(255, totalSourceB * scaleFactor)
+    };
+
+    const filteredRGB = {
+      r: Math.min(255, totalFilteredR * scaleFactor),
+      g: Math.min(255, totalFilteredG * scaleFactor),
+      b: Math.min(255, totalFilteredB * scaleFactor)
+    };
+
+    return { sourceRGB, filteredRGB, distribution };
+  }, [lights, activeFilter]);
+
+  const { filteredRGB, distribution } = spectrumData;
+
+  const rgbString = (c) => `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+  
+  // 計算單一光束的顏色 (用於 SVG 繪圖)
+  // 1. 光源端的顏色 (未過濾)
+  const getBeamSourceColor = (light) => {
+      const c = wavelengthToRGB(light.wavelength);
+      // 強度影響透明度，但不影響顏色本身
+      return `rgba(${c.r * 255}, ${c.g * 255}, ${c.b * 255}, ${light.intensity})`;
+  };
+
+  // 2. 濾鏡後的顏色 (單一光束)
+  const getBeamFilteredColor = (light) => {
+      const c = wavelengthToRGB(light.wavelength);
+      // 簡單估算：取中心波長的透光率
+      const transmittance = getFilterTransmittance(activeFilter, light.wavelength);
+      const finalIntensity = light.intensity * transmittance;
+      return `rgba(${c.r * 255}, ${c.g * 255}, ${c.b * 255}, ${finalIntensity})`;
+  };
+
+  // 取得單一燈泡的預覽顏色 (UI用)
+  const getLightPreviewColor = (light) => {
+     if (!light.active) return 'rgb(200,200,200)';
+     const c = wavelengthToRGB(light.wavelength);
+     const i = 0.5 + 0.5 * light.intensity; 
+     return `rgb(${c.r * 255 * i}, ${c.g * 255 * i}, ${c.b * 255 * i})`;
+  };
+
+  // 燈泡垂直位置 (百分比) - 用於 SVG 和 實體燈泡對齊
+  const lightYPositions = [38, 50, 62];
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col h-screen overflow-hidden">
+      
+      {/* Header */}
+      <header className="bg-white px-6 py-3 shadow-sm border-b border-slate-200 flex flex-shrink-0 justify-between items-center z-10">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 flex items-center">
+            <Zap className="mr-2 text-indigo-600 w-5 h-5" />
+            多光源光譜實驗室
+          </h1>
+        </div>
+        <div className="flex items-center space-x-2 bg-indigo-50 px-3 py-1 rounded-full text-indigo-700">
+          <Activity size={16} />
+          <span className="text-xs font-medium">進階物理模式</span>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
+          
+          {/* 左欄：光源控制 */}
+          <div className="lg:col-span-3 flex flex-col space-y-4 overflow-y-auto pr-1 min-h-0">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-sm font-bold mb-3 flex items-center text-slate-700">
+                <Sliders className="mr-2 w-4 h-4" /> 光源參數
+              </h2>
+              <div className="space-y-3">
+                {lights.map((light) => (
+                  <div key={light.id} className={`p-2 rounded-lg border transition-all ${light.active ? 'border-indigo-100 bg-indigo-50/20' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                       <div className="flex items-center space-x-2">
+                          <button 
+                            onClick={() => toggleLight(light.id)}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${light.active ? 'ring-2 ring-offset-1' : ''}`}
+                            style={{ 
+                              backgroundColor: getLightPreviewColor(light),
+                              boxShadow: light.active ? `0 0 8px ${getLightPreviewColor(light)}` : 'none'
+                            }}
+                          >
+                            <Lightbulb size={12} className={light.active ? 'text-white' : 'text-slate-500'} />
+                          </button>
+                          <span className="font-bold text-xs">{light.name}</span>
+                       </div>
+                       <div className="text-[10px] font-mono text-slate-500">{light.wavelength}nm</div>
+                    </div>
+                    
+                    <div className={`space-y-2 ${light.active ? '' : 'pointer-events-none opacity-50'}`}>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-[10px] w-6 text-slate-500">波長</span>
+                            <input 
+                              type="range" min="380" max="750" step="1"
+                              value={light.wavelength}
+                              onChange={(e) => updateLight(light.id, 'wavelength', Number(e.target.value))}
+                              className="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
+                              style={{background: 'linear-gradient(to right, #4b0082, #0000ff, #00ff00, #ffff00, #ff7f00, #ff0000)'}}
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-[10px] w-6 text-slate-500">寬度</span>
+                            <input 
+                              type="range" min="1" max="150" step="1"
+                              value={light.width}
+                              onChange={(e) => updateLight(light.id, 'width', Number(e.target.value))}
+                              className="flex-1 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-[10px] w-6 text-slate-500">強度</span>
+                            <input 
+                              type="range" min="0" max="1" step="0.05"
+                              value={light.intensity}
+                              onChange={(e) => updateLight(light.id, 'intensity', Number(e.target.value))}
+                              className="flex-1 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                            />
+                        </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* 小光譜圖 */}
+              <div className="mt-3">
+                 <div className="text-[10px] text-slate-400 mb-1">輸入光譜總和</div>
+                 <div className="bg-slate-900 rounded-md p-2 relative h-24 w-full flex items-end space-x-[1px]">
+                   {distribution.map((d, i) => (
+                     <div 
+                       key={i}
+                       className="flex-1 opacity-90"
+                       style={{
+                         height: `${d.intensity * 40}%`, 
+                         backgroundColor: `rgb(${d.baseColor.r * 255}, ${d.baseColor.g * 255}, ${d.baseColor.b * 255})`,
+                         minWidth: '1px'
+                       }}
+                     ></div>
+                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 中欄：模擬視覺區 (Canvas) */}
+          <div className="lg:col-span-6 flex flex-col space-y-4 min-h-0 overflow-y-auto lg:overflow-visible">
+            
+            <div className="flex-1 bg-slate-900 rounded-xl overflow-hidden shadow-inner relative min-h-[400px]">
+              {/* 背景格線 */}
+              <div className="absolute inset-0 opacity-20" 
+                   style={{backgroundImage: 'radial-gradient(circle, #555 1px, transparent 1px)', backgroundSize: '20px 20px'}}>
+              </div>
+
+              {/* 繪圖區域 (SVG Layer) */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+                  <defs>
+                      <filter id="glow">
+                          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+                          <feMerge>
+                              <feMergeNode in="coloredBlur"/>
+                              <feMergeNode in="SourceGraphic"/>
+                          </feMerge>
+                      </filter>
+                  </defs>
+                  {/* 光束繪製 */}
+                  {lights.map((light, index) => {
+                      if (!light.active || light.intensity <= 0.01) return null;
+                      
+                      const startYPct = lightYPositions[index]; 
+                      // 修正光線終點：縮短到 78% (配合眼睛位置)
+                      const eyeXEndPct = 78; 
+                      
+                      return (
+                        <g key={light.id} style={{filter: 'url(#glow)'}}>
+                            {/* 第一段：光源 -> 濾鏡 */}
+                            <line 
+                                x1="12%" y1={`${startYPct}%`} // 從燈泡位置開始
+                                x2="50%" y2={`${(startYPct + 50)/2}%`} 
+                                stroke={getBeamSourceColor(light)} 
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                            />
+                            
+                            {/* 第二段：濾鏡 -> 眼睛表面 */}
+                            <line 
+                                x1="50%" y1={`${(startYPct + 50)/2}%`} 
+                                x2={`${eyeXEndPct}%`} y2="50%"
+                                stroke={getBeamFilteredColor(light)} 
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                            />
+                            
+                            {/* 箭頭指示 (可選) */}
+                            <polygon 
+                                points="0,0 -4,8 4,8"
+                                fill={getBeamSourceColor(light)}
+                                transform={`translate(30% ${startYPct * 0.66 + 50 * 0.33}%) rotate(90)`}
+                                opacity="0.6"
+                            />
+                        </g>
+                      );
+                  })}
+              </svg>
+
+              {/* 實體元件層 (HTML Elements on top of SVG) */}
+              <div className="absolute inset-0 w-full h-full z-20 pointer-events-none">
+                
+                {/* 1. 左側：燈泡實體 */}
+                <div className="absolute left-4 top-0 h-full w-16">
+                   {lights.map((light, index) => (
+                     <div 
+                        key={light.id} 
+                        className="absolute left-0 w-full flex items-center justify-center pointer-events-auto"
+                        style={{ 
+                            top: `${lightYPositions[index]}%`, 
+                            transform: 'translateY(-50%)' // 垂直置中
+                        }}
+                     >
+                        <div 
+                            className="absolute right-0 w-4 h-4 bg-white rounded-full blur-md opacity-20"
+                            style={{ backgroundColor: light.active ? getLightPreviewColor(light) : 'transparent' }}
+                        ></div>
+                        <Lightbulb 
+                          size={32} 
+                          color={getLightPreviewColor(light)}
+                          fill={light.active ? getLightPreviewColor(light) : '#333'}
+                          className="transition-colors duration-300"
+                        />
+                     </div>
+                   ))}
+                </div>
+
+                {/* 2. 中間：濾鏡實體 (絕對置中) */}
+                <div 
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-4/5 w-8 flex items-center justify-center pointer-events-auto"
+                >
+                  <div 
+                    className="w-4 h-full border border-slate-500 rounded backdrop-blur-sm transition-colors duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                    style={{ 
+                      backgroundColor: filters[activeFilter].color,
+                      borderColor: 'rgba(255,255,255,0.3)'
+                    }}
+                  ></div>
+                  <div className="absolute -bottom-6 text-slate-500 text-xs">濾鏡</div>
+                </div>
+
+                {/* 3. 右側：眼睛與大腦 (絕對定位) */}
+                {/* 使用 right-16 (約 10-15%) 定位，確保光線 78% 剛好碰到 */}
+                <div className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center space-x-4 pointer-events-auto">
+                    {/* 眼睛 (接收器) */}
+                    <div className="flex flex-col items-center relative">
+                        {/* 視神經連接線 */}
+                        <div className="absolute top-1/2 left-full w-8 h-1 bg-slate-700 -z-10"></div>
+                        
+                        <div className="relative bg-white rounded-full p-1 shadow-lg">
+                            <Eye size={64} className="text-slate-800" />
+                            {/* 瞳孔 - 保持黑色 */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-slate-900 rounded-full"></div>
+                        </div>
+                        <span className="text-slate-500 text-xs mt-2">眼睛 (接收)</span>
+                    </div>
+
+                    {/* 大腦 (感知器) */}
+                    <div className="flex flex-col items-center relative">
+                        <div className="relative">
+                            <Brain size={72} className="text-slate-300" />
+                            {/* 感知光暈 */}
+                            <div 
+                                className="absolute inset-0 rounded-full blur-lg opacity-60 transition-colors duration-200"
+                                style={{ backgroundColor: rgbString(filteredRGB) }}
+                            ></div>
+                            {/* 大腦內部亮點 */}
+                            <div 
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-8 rounded-full blur-sm transition-colors duration-200 opacity-90 mix-blend-screen"
+                                style={{ backgroundColor: rgbString(filteredRGB) }}
+                            ></div>
+                        </div>
+                        <span className="text-slate-300 text-xs mt-2 font-bold">大腦 (感知顏色)</span>
+                    </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* 濾鏡選擇器 */}
+            <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-xs font-bold mb-2 flex items-center text-slate-700">
+                <RefreshCw className="mr-2 w-4 h-4 text-blue-500" /> 選擇濾鏡
+              </h2>
+              <div className="flex space-x-2 overflow-x-auto pb-1">
+                {Object.entries(filters).map(([key, filter]) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveFilter(key)}
+                    className={`flex-shrink-0 px-3 py-1.5 text-xs rounded-full border transition-all flex items-center space-x-1 ${
+                      activeFilter === key 
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-200' 
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                     <div className="w-2 h-2 rounded-full border border-slate-300" style={{ backgroundColor: filter.color }}></div>
+                     <span>{filter.name.split(' ')[0]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* 右欄：數據分析 */}
+          <div className="lg:col-span-3 flex flex-col space-y-4 overflow-y-auto min-h-0">
+            {/* 眼睛接收光譜圖 */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+              <h3 className="text-xs font-bold text-slate-700 mb-2 flex items-center">
+                 <Activity className="w-3 h-3 mr-2 text-green-600" /> 進入眼睛的光譜
+              </h3>
+              <div className="bg-slate-100 rounded-lg p-2 flex-1 flex items-end relative min-h-[120px]">
+                 <div className="absolute inset-0 p-2 flex items-end opacity-20 pointer-events-none">
+                    {distribution.map((d, i) => (
+                      <div key={`bg-${i}`} className="flex-1 bg-slate-500" style={{height: `${d.intensity * 40}%`}}></div>
+                    ))}
+                 </div>
+                 <div className="w-full h-full flex items-end space-x-[1px] z-10">
+                    {distribution.map((d, i) => (
+                     <div 
+                       key={i}
+                       className="flex-1 transition-all duration-300"
+                       style={{
+                         height: `${d.filteredIntensity * 40}%`,
+                         backgroundColor: `rgb(${d.baseColor.r * 255}, ${d.baseColor.g * 255}, ${d.baseColor.b * 255})`,
+                         minWidth: '1px'
+                       }}
+                     ></div>
+                   ))}
+                 </div>
+              </div>
+            </div>
+
+            {/* 錐狀細胞訊號 */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1">
+              <h2 className="text-xs font-bold mb-3 flex items-center text-slate-800">
+                <Brain className="mr-2 w-3 h-3 text-pink-500" /> 大腦訊號解讀
+              </h2>
+              <div className="space-y-3">
+                {['r', 'g', 'b'].map((channel, idx) => {
+                  const val = filteredRGB[channel];
+                  const labels = ['L (紅)', 'M (綠)', 'S (藍)'];
+                  const colors = ['bg-red-500', 'bg-green-500', 'bg-blue-500'];
+                  return (
+                    <div key={channel}>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span className="font-bold text-slate-600">{labels[idx]}</span>
+                        <span className="text-slate-400">{Math.round(val)}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                        <div className={`h-full ${colors[idx]} transition-all duration-300`} style={{ width: `${(val / 255) * 100}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-3 p-2 bg-yellow-50/50 rounded text-[10px] text-yellow-800 leading-relaxed border border-yellow-100">
+                 <strong>觀念澄清：</strong>
+                 光線進入眼睛前是分開的波，直到視網膜接收訊號並傳給大腦，我們才「感覺」到混合後的顏色。
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LightColorLab;
