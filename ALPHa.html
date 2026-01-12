@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha 粒子散射實驗模擬 (探究模式)</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.95);
+            --text-color: #f1f5f9;
+            --accent-color: #fbbf24;
+            --secondary-color: #38bdf8;
+            --detector-color: #4ade80;
+            --thomson-color: rgba(251, 191, 36, 0.15);
+            --experiment-color: rgba(148, 163, 184, 0.15);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #canvas-container {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        canvas#simCanvas {
+            display: block;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        #detector-view {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 180px;
+            height: 180px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #334155;
+            border-radius: 50%;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            z-index: 20;
+        }
+        
+        #detector-view canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+
+        #detector-label {
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--detector-color);
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--panel-bg);
+            backdrop-filter: blur(8px);
+            padding: 15px 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            width: 95%;
+            max-width: 900px;
+            box-sizing: border-box;
+            z-index: 10;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 220px;
+            flex: 1;
+        }
+
+        .mode-switch {
+            display: flex;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 4px;
+            gap: 4px;
+            width: 100%;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 8px 4px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .mode-btn.active {
+            background: var(--secondary-color);
+            color: #0f172a;
+            font-weight: bold;
+        }
+
+        #btn-experiment.active {
+            background: #94a3b8;
+            color: #0f172a;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        span.value {
+            color: var(--secondary-color);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #475569;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--text-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding-bottom: 2px;
+        }
+
+        button.action-btn {
+            background-color: #334155;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        button.primary {
+            background-color: var(--accent-color);
+            color: #1e293b;
+        }
+
+        #info-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.75);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-color);
+            pointer-events: none;
+            max-width: 300px;
+            z-index: 5;
+        }
+
+        h1 { margin: 0 0 5px 0; font-size: 1.1rem; color: var(--accent-color); }
+        p { margin: 0; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4; }
+        
+        #model-description {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            background: rgba(255,255,255,0.05);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        #stats { margin-top: 10px; font-family: monospace; font-size: 0.8rem; color: #94a3b8; }
+
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 0.8rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        
+        @media (max-width: 800px) {
+            #controls {
+                flex-direction: column;
+                align-items: stretch;
+                bottom: 0;
+                width: 100%;
+                border-radius: 16px 16px 0 0;
+                padding: 15px;
+                max-height: 45vh;
+                overflow-y: auto;
+            }
+            .control-group { min-width: 100%; }
+            #info-overlay { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+    
+    <div id="detector-view">
+        <canvas id="detectorBg" width="200" height="200"></canvas>
+        <canvas id="detectorHits" width="200" height="200"></canvas>
+        <div id="detector-label">360° 散射粒子偵測器</div>
+    </div>
+
+    <div id="info-overlay">
+        <h1 id="title-text">Alpha 粒子散射</h1>
+        <p>觀測高能 Alpha 粒子撞擊原子的微觀現象。</p>
+        <div id="model-description">
+            <strong>目前：拉塞福模型</strong><br>
+            正電荷集中在極小的核心。<br>預期結果：絕大部分穿透，極少數大角度偏折。
+        </div>
+        <div id="stats">
+            粒子總數: <span id="particle-count">0</span><br>
+            大角度偏折 (>90°): <span id="scatter-count">0</span>
+        </div>
+        <div class="legend-item" style="margin-top: 10px;">
+            <div class="dot" style="background: #fbbf24; box-shadow: 0 0 8px #fbbf24;"></div>
+            <span id="legend-nucleus">原子核 (Au Core)</span>
+        </div>
+        <div class="legend-item">
+            <div class="dot" style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.5);"></div>
+            <span>原子空間 (Electron Cloud)</span>
+        </div>
+        <div class="legend-item">
+            <div class="dot" style="background: #38bdf8;"></div>
+            <span>Alpha 粒子 (He²⁺)</span>
+        </div>
+        <div class="legend-item" id="legend-experiment" style="display:none;">
+            <div class="dot" style="background: #94a3b8;"></div>
+            <span>黑盒子區域</span>
+        </div>
+    </div>
+</div>
+
+<div id="controls">
+    <div class="control-group">
+        <label>模型模式</label>
+        <div class="mode-switch">
+            <button class="mode-btn" id="btn-thomson">湯姆森模型</button>
+            <button class="mode-btn active" id="btn-rutherford">拉塞福模型</button>
+            <button class="mode-btn" id="btn-experiment">實驗模式</button>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label>粒子能量 (速度) <span class="value" id="val-vel">40.0</span></label>
+        <input type="range" id="velocity" min="5" max="40" step="0.5" value="40">
+    </div>
+
+    <div class="control-group">
+        <label>原子序 (Z) <span class="value" id="val-charge">79</span></label>
+        <input type="range" id="charge" min="20" max="150" step="1" value="79">
+    </div>
+
+    <div class="btn-group">
+        <button id="btn-toggle" class="action-btn primary">開始</button>
+        <button id="btn-clear" class="action-btn">清除數據</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const detBgCanvas = document.getElementById('detectorBg');
+    const detBgCtx = detBgCanvas.getContext('2d');
+    const detHitsCanvas = document.getElementById('detectorHits');
+    const detHitsCtx = detHitsCanvas.getContext('2d');
+
+    const sliderVel = document.getElementById('velocity');
+    const sliderCharge = document.getElementById('charge');
+    const btnToggle = document.getElementById('btn-toggle');
+    const btnClear = document.getElementById('btn-clear');
+    const btnThomson = document.getElementById('btn-thomson');
+    const btnRutherford = document.getElementById('btn-rutherford');
+    const btnExperiment = document.getElementById('btn-experiment');
+    const modelDesc = document.getElementById('model-description');
+    const legendNucleus = document.getElementById('legend-nucleus');
+    const legendExperiment = document.getElementById('legend-experiment');
+    
+    const valVel = document.getElementById('val-vel');
+    const valCharge = document.getElementById('val-charge');
+    const countDisplay = document.getElementById('particle-count');
+    const scatterDisplay = document.getElementById('scatter-count');
+
+    // 物理與模擬參數
+    let width, height;
+    let particles = [];
+    let electrons = []; 
+    let isRunning = false; 
+    let hasStarted = false; 
+    let mode = 'rutherford'; 
+    let nucleus = { x: 0, y: 0, charge: 79 };
+    let totalParticles = 0;
+    let scatteredParticles = 0;
+    
+    let emissionTimer = 0;
+    const EMISSION_INTERVAL_FRAMES = 12; 
+
+    const PARTICLE_POOL_SIZE = 40; 
+    const ZOOM = 0.15; 
+    const COULOMB_K = 60; 
+    const ALPHA_CHARGE = 2;
+    const ATOM_RADIUS = 180; 
+    
+    const BASE_DT = 0.8;
+    const SUB_STEPS = 6;
+    const STEP_DT = BASE_DT / SUB_STEPS;
+    
+    function resize() {
+        width = canvas.parentElement.clientWidth;
+        height = canvas.parentElement.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+        nucleus.x = width * 0.6;
+        nucleus.y = height / 2;
+        drawDetectorBackground();
+        initElectrons(parseInt(sliderCharge.value));
+        
+        if (particles.length === 0) {
+            for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+                particles.push(new Particle(true));
+            }
+        }
+    }
+    
+    window.addEventListener('resize', resize);
+    
+    /**
+     * 初始化電子位置
+     * @param {number} count 電子數量，理論上等於原子序 Z
+     */
+    function initElectrons(count) {
+        electrons = [];
+        for (let i = 0; i < count; i++) {
+            // 在圓形範圍內均勻分佈
+            const r = Math.sqrt(Math.random()) * (ATOM_RADIUS * 0.9);
+            const theta = Math.random() * Math.PI * 2;
+            electrons.push({ x: r * Math.cos(theta), y: r * Math.sin(theta) });
+        }
+    }
+
+    function drawDetectorBackground() {
+        const cx = detBgCanvas.width / 2;
+        const cy = detBgCanvas.height / 2;
+        const radius = cx - 12;
+        detBgCtx.clearRect(0, 0, detBgCanvas.width, detBgCanvas.height);
+        
+        detBgCtx.beginPath();
+        detBgCtx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+        detBgCtx.lineWidth = 2;
+        detBgCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+        detBgCtx.stroke();
+        
+        detBgCtx.beginPath();
+        detBgCtx.strokeStyle = 'rgba(74, 222, 128, 0.1)';
+        detBgCtx.lineWidth = 1;
+        detBgCtx.moveTo(cx - radius, cy);
+        detBgCtx.lineTo(cx + radius, cy);
+        detBgCtx.moveTo(cx, cy - radius);
+        detBgCtx.lineTo(cx, cy + radius);
+        detBgCtx.stroke();
+
+        detBgCtx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+        detBgCtx.font = "bold 10px Arial";
+        detBgCtx.textAlign = "right";
+        detBgCtx.fillText("射源", cx - 15, cy + 4);
+    }
+
+    class Particle {
+        constructor(isDormant = false) {
+            this.reset(isDormant);
+        }
+
+        reset(isDormant = false) {
+            this.isDormant = isDormant; 
+            this.x = isDormant ? -5000 : -20;
+            this.y = Math.random() * height;
+            
+            const v = parseFloat(sliderVel.value);
+            this.vx = v;
+            this.vy = 0;
+            this.history = [];
+            this.scatters = false;
+            this.color = `hsl(${180 + Math.random()*40}, 80%, 70%)`;
+            
+            if (!this.isDormant && hasStarted && this.x > -100) {
+                totalParticles++;
+                updateStats();
+            }
+        }
+
+        emit() {
+            this.isDormant = false;
+            this.x = -20;
+            this.y = Math.random() * height;
+            const v = parseFloat(sliderVel.value);
+            this.vx = v;
+            this.vy = 0;
+            this.history = [];
+            this.scatters = false;
+            totalParticles++;
+            updateStats();
+        }
+
+        updatePhysics(dt) {
+            if (this.isDormant || !isRunning) return;
+
+            const dx = this.x - nucleus.x;
+            const dy = this.y - nucleus.y;
+            const rSq = dx*dx + dy*dy;
+            const r = Math.sqrt(rSq);
+            let ax = 0, ay = 0;
+
+            if (mode === 'rutherford' || mode === 'experiment') {
+                const f = (COULOMB_K * ZOOM * ALPHA_CHARGE * nucleus.charge) / (rSq + 1.2);
+                ax = (dx / r) * f;
+                ay = (dy / r) * f;
+            } else if (mode === 'thomson') {
+                const R = ATOM_RADIUS;
+                if (r < R) {
+                    const fAtSurface = (COULOMB_K * ZOOM * ALPHA_CHARGE * nucleus.charge) / (R * R);
+                    const f = fAtSurface * (r / R);
+                    ax = (dx / (r + 0.1)) * f;
+                    ay = (dy / (r + 0.1)) * f;
+                } else {
+                    const f = (COULOMB_K * ZOOM * ALPHA_CHARGE * nucleus.charge) / rSq;
+                    ax = (dx / r) * f;
+                    ay = (dy / r) * f;
+                }
+            }
+
+            this.vx += ax * dt;
+            this.vy += ay * dt;
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+
+            if (!this.scatters && this.vx < 0 && this.x < nucleus.x + 5) {
+                this.scatters = true;
+                scatteredParticles++;
+                updateStats();
+                this.color = '#f43f5e';
+            }
+
+            if (this.x < -width || this.x > width + 200 || this.y < -height || this.y > height + 200) {
+                if (this.x > nucleus.x - ATOM_RADIUS || this.vx < 0) {
+                    const angle = Math.atan2(this.y - nucleus.y, this.x - nucleus.x);
+                    addHitToDetector(angle, this.vx);
+                }
+                this.reset(false); 
+            }
+        }
+
+        update() {
+            if (this.isDormant || !isRunning) return;
+            for(let i=0; i<SUB_STEPS; i++) {
+                this.updatePhysics(STEP_DT);
+                if (i % 2 === 0 && this.x > -100) {
+                    this.history.push({x: this.x, y: this.y});
+                    if (this.history.length > 120) this.history.shift();
+                }
+            }
+        }
+
+        draw() {
+            if (this.isDormant || this.history.length < 2 || this.x < -100) return;
+
+            ctx.beginPath();
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.scatters ? 2 : 1.2;
+            
+            let moved = false;
+            for (let i = 0; i < this.history.length; i++) {
+                const p = this.history[i];
+                if (mode === 'experiment') {
+                    const d = Math.sqrt((p.x - nucleus.x)**2 + (p.y - nucleus.y)**2);
+                    if (d < ATOM_RADIUS) {
+                        moved = false;
+                        continue;
+                    }
+                }
+                if (!moved) {
+                    ctx.moveTo(p.x, p.y);
+                    moved = true;
+                } else {
+                    ctx.lineTo(p.x, p.y);
+                }
+            }
+            ctx.stroke();
+
+            const dist = Math.sqrt((this.x - nucleus.x)**2 + (this.y - nucleus.y)**2);
+            if (mode !== 'experiment' || dist > ATOM_RADIUS) {
+                ctx.beginPath();
+                ctx.fillStyle = this.scatters ? '#f43f5e' : '#fff';
+                ctx.arc(this.x, this.y, this.scatters ? 3 : 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    function addHitToDetector(angle, vx) {
+        if (!hasStarted) return;
+        const isRight = Math.cos(angle) > 0;
+        if (!isRight && vx > 0) return; 
+
+        const cx = detHitsCanvas.width / 2;
+        const cy = detHitsCanvas.height / 2;
+        const radius = cx - 12;
+        const fx = cx + Math.cos(angle) * radius;
+        const fy = cy + Math.sin(angle) * radius;
+
+        detHitsCtx.beginPath();
+        const isBack = !isRight;
+        detHitsCtx.fillStyle = isBack ? 'rgba(244, 63, 94, 0.7)' : 'rgba(74, 222, 128, 0.3)';
+        detHitsCtx.arc(fx, fy, isBack ? 3 : 2, 0, Math.PI * 2);
+        detHitsCtx.fill();
+    }
+
+    function updateStats() {
+        if (countDisplay) countDisplay.textContent = totalParticles;
+        if (scatterDisplay) scatterDisplay.textContent = scatteredParticles;
+    }
+
+    function setMode(m) {
+        mode = m;
+        [btnRutherford, btnThomson, btnExperiment].forEach(b => b.classList.remove('active'));
+        
+        if (mode === 'rutherford') {
+            btnRutherford.classList.add('active');
+            modelDesc.innerHTML = `<strong>目前：拉塞福模型</strong><br>電荷極端集中於核心。<br>特徵：原子內部空曠，絕大部分粒子不偏折穿透。`;
+            legendNucleus.textContent = "原子核 (Au Core)";
+            legendExperiment.style.display = 'none';
+        } else if (mode === 'thomson') {
+            btnThomson.classList.add('active');
+            modelDesc.innerHTML = `<strong>目前：湯姆森模型</strong><br>電荷均勻散布。電子數量 ($Z$) 嵌入其中。<br>特徵：粒子束通過時幾乎不產生偏折。`;
+            legendNucleus.textContent = "帶正電原子球 (布丁)";
+            legendExperiment.style.display = 'none';
+            // 切換到湯姆森模型時確保電子數量正確
+            initElectrons(parseInt(sliderCharge.value));
+        } else {
+            btnExperiment.classList.add('active');
+            modelDesc.innerHTML = `<strong>目前：實驗模式</strong><br>無法觀測內部結構。<br>請根據射出粒子的統計落點判斷模型。`;
+            legendExperiment.style.display = 'flex';
+        }
+        clearHandler(); 
+    }
+
+    btnRutherford.onclick = () => setMode('rutherford');
+    btnThomson.onclick = () => setMode('thomson');
+    btnExperiment.onclick = () => setMode('experiment');
+
+    function updateLabels() {
+        valVel.textContent = parseFloat(sliderVel.value).toFixed(1);
+        valCharge.textContent = sliderCharge.value;
+        const zValue = parseInt(sliderCharge.value);
+        nucleus.charge = zValue;
+        
+        // 如果目前是湯姆森模型，更新電子數量
+        if (mode === 'thomson') {
+            initElectrons(zValue);
+        }
+    }
+
+    sliderVel.oninput = updateLabels;
+    sliderCharge.oninput = updateLabels;
+    
+    btnToggle.onclick = () => {
+        isRunning = !isRunning;
+        if (isRunning) {
+            hasStarted = true;
+            btnToggle.textContent = "暫停";
+            btnToggle.classList.remove('primary');
+        } else {
+            btnToggle.textContent = "開始";
+            btnToggle.classList.add('primary');
+        }
+    };
+    
+    function clearHandler() {
+        hasStarted = false;
+        isRunning = false;
+        emissionTimer = 0;
+        btnToggle.textContent = "開始";
+        btnToggle.classList.add('primary');
+        
+        particles.forEach(p => p.reset(true));
+        ctx.clearRect(0, 0, width, height);
+        detHitsCtx.clearRect(0, 0, detHitsCanvas.width, detHitsCanvas.height);
+        totalParticles = 0;
+        scatteredParticles = 0;
+        updateStats();
+    }
+
+    btnClear.onclick = clearHandler;
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        const R = ATOM_RADIUS;
+
+        if (mode === 'rutherford') {
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.05)'; 
+            ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.08)';
+            ctx.setLineDash([5, 5]);
+            ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#fbbf24'; 
+            ctx.beginPath();
+            ctx.arc(nucleus.x, nucleus.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (mode === 'thomson') {
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.06)'; 
+            ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 繪製電子 (理論上數量等於原子序 Z)
+            ctx.fillStyle = '#60a5fa'; 
+            electrons.forEach(e => {
+                ctx.beginPath();
+                ctx.arc(nucleus.x + e.x, nucleus.y + e.y, 2, 0, Math.PI*2);
+                ctx.fill();
+            });
+        } else if (mode === 'experiment') {
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+            ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+            ctx.stroke();
+        }
+
+        if (isRunning) {
+            emissionTimer++;
+            if (emissionTimer >= EMISSION_INTERVAL_FRAMES) {
+                const dormantParticle = particles.find(p => p.isDormant);
+                if (dormantParticle) {
+                    dormantParticle.emit();
+                }
+                emissionTimer = 0;
+            }
+        }
+
+        particles.forEach(p => {
+            p.update(); 
+            p.draw();
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    resize();
+    updateLabels();
+    animate(); 
+})();
+</script>
+</body>
+</html>
