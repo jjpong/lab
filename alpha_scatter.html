@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpha 粒子散射實驗模擬 (探究模式)</title>
+    <title>Alpha 粒子散射實驗模擬 (單原子模式)</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -134,11 +134,6 @@
             font-weight: bold;
         }
 
-        #btn-experiment.active {
-            background: #94a3b8;
-            color: #0f172a;
-        }
-
         label {
             font-size: 0.8rem;
             color: #94a3b8;
@@ -251,8 +246,8 @@
     </div>
 
     <div id="info-overlay">
-        <h1 id="title-text">Alpha 粒子散射</h1>
-        <p>觀測高能 Alpha 粒子撞擊原子的微觀現象。</p>
+        <h1 id="title-text">Alpha 粒子散射 (單原子)</h1>
+        <p>觀測高能 Alpha 粒子撞擊單一原子的微觀現象。</p>
         <div id="model-description">
             <strong>目前：拉塞福模型</strong><br>
             正電荷集中在極小的核心。<br>預期結果：絕大部分穿透，極少數大角度偏折。
@@ -272,10 +267,6 @@
         <div class="legend-item">
             <div class="dot" style="background: #38bdf8;"></div>
             <span>Alpha 粒子 (He²⁺)</span>
-        </div>
-        <div class="legend-item" id="legend-experiment" style="display:none;">
-            <div class="dot" style="background: #94a3b8;"></div>
-            <span>黑盒子區域</span>
         </div>
     </div>
 </div>
@@ -325,7 +316,6 @@
     const btnExperiment = document.getElementById('btn-experiment');
     const modelDesc = document.getElementById('model-description');
     const legendNucleus = document.getElementById('legend-nucleus');
-    const legendExperiment = document.getElementById('legend-experiment');
     
     const valVel = document.getElementById('val-vel');
     const valCharge = document.getElementById('val-charge');
@@ -339,10 +329,11 @@
     let isRunning = false; 
     let hasStarted = false; 
     let mode = 'rutherford'; 
+    
     let nucleus = { x: 0, y: 0, charge: 79 };
+
     let totalParticles = 0;
     let scatteredParticles = 0;
-    
     let emissionTimer = 0;
     const EMISSION_INTERVAL_FRAMES = 12; 
 
@@ -350,7 +341,7 @@
     const ZOOM = 0.15; 
     const COULOMB_K = 60; 
     const ALPHA_CHARGE = 2;
-    const ATOM_RADIUS = 180; 
+    const ATOM_RADIUS = 220; // 增加原子半徑，佔據較大發射範圍
     
     const BASE_DT = 0.8;
     const SUB_STEPS = 6;
@@ -361,10 +352,12 @@
         height = canvas.parentElement.clientHeight;
         canvas.width = width;
         canvas.height = height;
+
         nucleus.x = width * 0.6;
         nucleus.y = height / 2;
+
         drawDetectorBackground();
-        initElectrons(parseInt(sliderCharge.value));
+        updateElectrons();
         
         if (particles.length === 0) {
             for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
@@ -375,15 +368,11 @@
     
     window.addEventListener('resize', resize);
     
-    /**
-     * 初始化電子位置
-     * @param {number} count 電子數量，理論上等於原子序 Z
-     */
-    function initElectrons(count) {
+    function updateElectrons() {
+        const count = parseInt(sliderCharge.value);
         electrons = [];
         for (let i = 0; i < count; i++) {
-            // 在圓形範圍內均勻分佈
-            const r = Math.sqrt(Math.random()) * (ATOM_RADIUS * 0.9);
+            const r = Math.sqrt(Math.random()) * (ATOM_RADIUS * 0.95);
             const theta = Math.random() * Math.PI * 2;
             electrons.push({ x: r * Math.cos(theta), y: r * Math.sin(theta) });
         }
@@ -424,7 +413,9 @@
         reset(isDormant = false) {
             this.isDormant = isDormant; 
             this.x = isDormant ? -5000 : -20;
-            this.y = Math.random() * height;
+            // 發射範圍調整為與原子直徑相匹配
+            const spawnRange = ATOM_RADIUS * 2.2;
+            this.y = nucleus.y + (Math.random() - 0.5) * spawnRange;
             
             const v = parseFloat(sliderVel.value);
             this.vx = v;
@@ -433,7 +424,7 @@
             this.scatters = false;
             this.color = `hsl(${180 + Math.random()*40}, 80%, 70%)`;
             
-            if (!this.isDormant && hasStarted && this.x > -100) {
+            if (!this.isDormant && hasStarted && isRunning && this.x > -100) {
                 totalParticles++;
                 updateStats();
             }
@@ -442,7 +433,8 @@
         emit() {
             this.isDormant = false;
             this.x = -20;
-            this.y = Math.random() * height;
+            const spawnRange = ATOM_RADIUS * 2.2;
+            this.y = nucleus.y + (Math.random() - 0.5) * spawnRange;
             const v = parseFloat(sliderVel.value);
             this.vx = v;
             this.vy = 0;
@@ -466,10 +458,9 @@
                 ax = (dx / r) * f;
                 ay = (dy / r) * f;
             } else if (mode === 'thomson') {
-                const R = ATOM_RADIUS;
-                if (r < R) {
-                    const fAtSurface = (COULOMB_K * ZOOM * ALPHA_CHARGE * nucleus.charge) / (R * R);
-                    const f = fAtSurface * (r / R);
+                if (r < ATOM_RADIUS) {
+                    const fAtSurface = (COULOMB_K * ZOOM * ALPHA_CHARGE * nucleus.charge) / (ATOM_RADIUS * ATOM_RADIUS);
+                    const f = fAtSurface * (r / ATOM_RADIUS);
                     ax = (dx / (r + 0.1)) * f;
                     ay = (dy / (r + 0.1)) * f;
                 } else {
@@ -484,7 +475,8 @@
             this.x += this.vx * dt;
             this.y += this.vy * dt;
 
-            if (!this.scatters && this.vx < 0 && this.x < nucleus.x + 5) {
+            // 顯著偏折判定 (vx 反向且位置在原子核附近)
+            if (!this.scatters && this.vx < 0 && this.x < nucleus.x + 10) {
                 this.scatters = true;
                 scatteredParticles++;
                 updateStats();
@@ -522,8 +514,7 @@
             for (let i = 0; i < this.history.length; i++) {
                 const p = this.history[i];
                 if (mode === 'experiment') {
-                    const d = Math.sqrt((p.x - nucleus.x)**2 + (p.y - nucleus.y)**2);
-                    if (d < ATOM_RADIUS) {
+                    if (Math.sqrt((p.x - nucleus.x)**2 + (p.y - nucleus.y)**2) < ATOM_RADIUS) {
                         moved = false;
                         continue;
                     }
@@ -549,8 +540,9 @@
 
     function addHitToDetector(angle, vx) {
         if (!hasStarted) return;
-        const isRight = Math.cos(angle) > 0;
-        if (!isRight && vx > 0) return; 
+        const isForward = Math.cos(angle) > 0;
+        // 左半圓 (Backscatter) 僅偵測發生回彈的粒子 (vx <= 0)
+        if (!isForward && vx > 0) return; 
 
         const cx = detHitsCanvas.width / 2;
         const cy = detHitsCanvas.height / 2;
@@ -559,7 +551,7 @@
         const fy = cy + Math.sin(angle) * radius;
 
         detHitsCtx.beginPath();
-        const isBack = !isRight;
+        const isBack = !isForward;
         detHitsCtx.fillStyle = isBack ? 'rgba(244, 63, 94, 0.7)' : 'rgba(74, 222, 128, 0.3)';
         detHitsCtx.arc(fx, fy, isBack ? 3 : 2, 0, Math.PI * 2);
         detHitsCtx.fill();
@@ -576,20 +568,14 @@
         
         if (mode === 'rutherford') {
             btnRutherford.classList.add('active');
-            modelDesc.innerHTML = `<strong>目前：拉塞福模型</strong><br>電荷極端集中於核心。<br>特徵：原子內部空曠，絕大部分粒子不偏折穿透。`;
-            legendNucleus.textContent = "原子核 (Au Core)";
-            legendExperiment.style.display = 'none';
+            modelDesc.innerHTML = `<strong>目前：拉塞福模型</strong><br>正電荷極端集中於微小核心。<br>絕大部分粒子在空曠的原子空間中直線穿透。`;
         } else if (mode === 'thomson') {
             btnThomson.classList.add('active');
-            modelDesc.innerHTML = `<strong>目前：湯姆森模型</strong><br>電荷均勻散布。電子數量 ($Z$) 嵌入其中。<br>特徵：粒子束通過時幾乎不產生偏折。`;
-            legendNucleus.textContent = "帶正電原子球 (布丁)";
-            legendExperiment.style.display = 'none';
-            // 切換到湯姆森模型時確保電子數量正確
-            initElectrons(parseInt(sliderCharge.value));
+            modelDesc.innerHTML = `<strong>目前：湯姆森模型</strong><br>正電荷均勻散布。電子嵌入其中。<br>粒子束通過時幾乎不產生偏折。`;
+            updateElectrons();
         } else {
             btnExperiment.classList.add('active');
-            modelDesc.innerHTML = `<strong>目前：實驗模式</strong><br>無法觀測內部結構。<br>請根據射出粒子的統計落點判斷模型。`;
-            legendExperiment.style.display = 'flex';
+            modelDesc.innerHTML = `<strong>目前：實驗模式</strong><br>內部結構被阻隔。<br>請根據散射數據判斷：是空曠的核心結構，還是實心物質？`;
         }
         clearHandler(); 
     }
@@ -601,13 +587,8 @@
     function updateLabels() {
         valVel.textContent = parseFloat(sliderVel.value).toFixed(1);
         valCharge.textContent = sliderCharge.value;
-        const zValue = parseInt(sliderCharge.value);
-        nucleus.charge = zValue;
-        
-        // 如果目前是湯姆森模型，更新電子數量
-        if (mode === 'thomson') {
-            initElectrons(zValue);
-        }
+        nucleus.charge = parseInt(sliderCharge.value);
+        if (mode === 'thomson') updateElectrons();
     }
 
     sliderVel.oninput = updateLabels;
@@ -646,28 +627,39 @@
         ctx.clearRect(0, 0, width, height);
         const R = ATOM_RADIUS;
 
+        // 渲染模型結構
         if (mode === 'rutherford') {
             ctx.beginPath();
             ctx.fillStyle = 'rgba(251, 191, 36, 0.05)'; 
             ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
             ctx.fill();
+
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(251, 191, 36, 0.08)';
             ctx.setLineDash([5, 5]);
             ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
             ctx.stroke();
             ctx.setLineDash([]);
+
             ctx.fillStyle = '#fbbf24'; 
             ctx.beginPath();
             ctx.arc(nucleus.x, nucleus.y, 4, 0, Math.PI * 2);
             ctx.fill();
+            
+            const grad = ctx.createRadialGradient(nucleus.x, nucleus.y, 0, nucleus.x, nucleus.y, 10);
+            grad.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+            grad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(nucleus.x, nucleus.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+
         } else if (mode === 'thomson') {
             ctx.beginPath();
             ctx.fillStyle = 'rgba(251, 191, 36, 0.06)'; 
             ctx.arc(nucleus.x, nucleus.y, R, 0, Math.PI * 2);
             ctx.fill();
             
-            // 繪製電子 (理論上數量等於原子序 Z)
             ctx.fillStyle = '#60a5fa'; 
             electrons.forEach(e => {
                 ctx.beginPath();
@@ -687,9 +679,7 @@
             emissionTimer++;
             if (emissionTimer >= EMISSION_INTERVAL_FRAMES) {
                 const dormantParticle = particles.find(p => p.isDormant);
-                if (dormantParticle) {
-                    dormantParticle.emit();
-                }
+                if (dormantParticle) dormantParticle.emit();
                 emissionTimer = 0;
             }
         }
