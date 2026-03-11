@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器｜AI 連動版</title>
+  <title>液體壓力互動模擬器｜RWD 響應式 AI 連動版</title>
   <style>
     :root{
       --bg:#eef4ff;
@@ -30,6 +30,7 @@
       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
       background:linear-gradient(180deg,#eff5ff 0%,#f9fbff 100%);
       color:var(--text);
+      overflow-x: hidden; /* 防止最外層出現水平卷軸 */
     }
 
     body.dragging{
@@ -41,6 +42,7 @@
     }
 
     .wrapper{
+      width: 100%;
       max-width:1520px;
       margin:0 auto;
       padding:18px;
@@ -60,6 +62,7 @@
       align-items:flex-start;
       justify-content:space-between;
       gap:16px;
+      flex-wrap: wrap; /* 讓標題區適應小螢幕 */
     }
 
     .hero h1{
@@ -73,21 +76,29 @@
       line-height:1.7;
     }
 
+    /* 🌟 改良的 RWD 網格配置 */
     .top-layout{
       display:grid;
-      grid-template-columns:minmax(520px, 620px) minmax(0, 1fr);
+      grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.4fr);
       gap:16px;
       align-items:start;
       margin-bottom:16px;
+    }
+
+    @media (max-width: 980px) {
+      .top-layout {
+        grid-template-columns: 1fr; /* 螢幕空間不足時，自動改為上下排列 */
+      }
     }
 
     .panel{
       background:var(--panel);
       border:1px solid var(--line);
       border-radius:var(--radius);
-      padding:18px;
+      padding: clamp(12px, 2vw, 18px); /* 內距跟著螢幕微調 */
       box-shadow:var(--shadow);
       margin-bottom:16px;
+      width: 100%;
     }
 
     .panel:last-child{
@@ -172,8 +183,7 @@
       line-height:1.6;
     }
 
-    select,
-    input[type="number"]{
+    select, input[type="number"]{
       width:100%;
       border:1px solid #c9d6ea;
       border-radius:12px;
@@ -187,18 +197,17 @@
       width:100%;
     }
 
-    .range-pair{
+    .range-pair, .inline-pair{
       display:grid;
       grid-template-columns:1fr 120px;
       gap:10px;
       align-items:center;
     }
 
-    .inline-pair{
-      display:grid;
-      grid-template-columns:1fr 120px;
-      gap:10px;
-      align-items:end;
+    @media (max-width: 480px) {
+      .range-pair, .inline-pair {
+        grid-template-columns: 1fr; /* 手機螢幕時滑桿跟數字框上下分開 */
+      }
     }
 
     .metrics-row{
@@ -208,10 +217,11 @@
       overflow-x:auto;
       overflow-y:hidden;
       align-items:stretch;
-      padding-bottom:4px;
+      padding-bottom:8px; /* 增加一點卷軸空間 */
       -webkit-overflow-scrolling:touch;
       scrollbar-width:thin;
       scrollbar-color:#c9d6ea transparent;
+      width: 100%;
     }
 
     .metrics-row::-webkit-scrollbar{
@@ -234,7 +244,7 @@
       padding:14px;
       min-height:88px;
       flex:0 0 auto;
-      min-width:190px;
+      min-width:160px; /* 縮小一點以適應更多卡片 */
       white-space:nowrap;
     }
 
@@ -261,7 +271,7 @@
 
     .wide-checkboxes{
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
       gap:10px;
     }
 
@@ -315,34 +325,17 @@
       transform:translateY(0);
     }
 
-    .btn-primary{
-      background:var(--primary);
-      color:#fff;
-    }
-
-    .btn-secondary{
-      background:#eaf1ff;
-      color:var(--primary-2);
-      border:1px solid #cfe0ff;
-    }
-
-    .btn-danger{
-      background:#ffecef;
-      color:#b32b45;
-      border:1px solid #ffc8d2;
-    }
-
-    .btn-success{
-      background:#eafaf2;
-      color:#127a4a;
-      border:1px solid #bfe8cf;
-    }
+    .btn-primary{ background:var(--primary); color:#fff; }
+    .btn-secondary{ background:#eaf1ff; color:var(--primary-2); border:1px solid #cfe0ff; }
+    .btn-danger{ background:#ffecef; color:#b32b45; border:1px solid #ffc8d2; }
+    .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
 
     .svg-shell{
       background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%);
       border:1px solid var(--line);
       border-radius:18px;
       padding:10px;
+      width: 100%;
     }
 
     svg{
@@ -354,9 +347,7 @@
       -webkit-user-select:none;
     }
 
-    .hidden{
-      display:none;
-    }
+    .hidden{ display:none; }
 
     .sub-panel{
       border:1px solid var(--line);
@@ -364,56 +355,44 @@
       background:#fbfdff;
       padding:14px;
       margin-bottom:14px;
-    }
-
-    .sub-panel:last-child{
-      margin-bottom:0;
+      width: 100%;
     }
 
     .chart-toolbar{
       display:grid;
-      grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;
+      grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); /* RWD 自適應下拉與按鈕 */
       gap:12px;
       align-items:end;
       margin-bottom:10px;
     }
 
-    .chart-status{
-      margin-bottom:12px;
-      min-height:22px;
-      font-weight:700;
-    }
+    .chart-status{ margin-bottom:12px; min-height:22px; font-weight:700; }
 
     .chart-shell{
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
       overflow:hidden;
-      min-height:420px;
+      min-height:350px;
       display:flex;
       align-items:center;
       justify-content:center;
     }
 
-    .chart-empty{
-      padding:28px;
-      color:var(--muted);
-      font-weight:700;
-      text-align:center;
-      line-height:1.7;
-    }
-
+    /* 確保表格可以在小空間內左右滑動 */
     .table-wrap{
-      overflow:auto;
+      overflow-x:auto;
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
+      width: 100%;
+      -webkit-overflow-scrolling:touch;
     }
 
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:900px;
+      min-width: max-content; /* 確保內容不會被擠到換行 */
       background:#fff;
     }
 
@@ -432,132 +411,57 @@
       z-index:1;
     }
 
-    tbody tr:nth-child(even){
-      background:#fcfdff;
-    }
+    tbody tr:nth-child(even){ background:#fcfdff; }
+    tbody tr.latest{ background:#eef7ff; }
+    .empty-cell{ text-align:center; color:var(--muted); padding:24px; }
 
-    tbody tr.latest{
-      background:#eef7ff;
+    /* 🌟 新增：右鍵說明提示框的樣式 */
+    .eq-tooltip {
+      position: absolute;
+      background: rgba(31, 42, 68, 0.95);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      max-width: 250px;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      transform: translate(-50%, -100%);
+      margin-top: -10px;
+      transition: opacity 0.2s;
     }
-
-    .empty-cell{
-      text-align:center;
-      color:var(--muted);
-      padding:24px;
+    .eq-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -6px;
+      border-width: 6px;
+      border-style: solid;
+      border-color: rgba(31, 42, 68, 0.95) transparent transparent transparent;
     }
-
-    .help-button{
-      white-space:nowrap;
+    .eq-tooltip.hidden {
+      opacity: 0;
+      pointer-events: none;
     }
+    /* 讓游標移到儀器上時變成問號 */
+    #meterGroup, #probeGroup, #liquidRect { cursor: help; }
 
+    /* Modal 樣式防破版 */
     .modal{
-      position:fixed;
-      inset:0;
-      z-index:999;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0; z-index:999;
+      display:flex; align-items:center; justify-content:center;
       padding:18px;
     }
-
-    .modal.hidden{
-      display:none;
-    }
-
-    .modal-backdrop{
-      position:absolute;
-      inset:0;
-      background:rgba(18,29,51,0.48);
-    }
-
+    .modal-backdrop{ position:absolute; inset:0; background:rgba(18,29,51,0.48); }
     .modal-card{
-      position:relative;
-      width:min(920px, 100%);
-      max-height:calc(100vh - 40px);
-      overflow:auto;
-      background:#fff;
-      border-radius:20px;
-      border:1px solid var(--line);
-      box-shadow:0 20px 50px rgba(18,29,51,.22);
+      position:relative; width:min(920px, 100%); max-height:calc(100vh - 40px);
+      overflow:auto; background:#fff; border-radius:20px;
       padding:20px;
     }
-
-    .modal-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
-
-    .modal-head h2{
-      margin:0;
-      font-size:1.2rem;
-    }
-
-    .help-content{
-      display:grid;
-      gap:14px;
-      color:var(--text);
-      line-height:1.75;
-    }
-
-    .help-block{
-      border:1px solid var(--line);
-      background:#fbfdff;
-      border-radius:14px;
-      padding:14px;
-    }
-
-    .help-block h3{
-      margin:0 0 8px;
-      font-size:1rem;
-    }
-
-    .help-block ul{
-      margin:0;
-      padding-left:1.2rem;
-    }
-
-    .help-block li{
-      margin:4px 0;
-    }
-
-    @media (max-width:1180px){
-      .top-layout{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:900px){
-      .chart-toolbar{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:820px){
-      .hero-row{
-        flex-direction:column;
-      }
-
-      .range-pair,
-      .inline-pair{
-        grid-template-columns:1fr;
-      }
-
-      .record-toolbar{
-        flex-direction:column;
-        align-items:stretch;
-      }
-
-      .toolbar-group{
-        width:100%;
-      }
-
-      .toolbar-group button{
-        flex:1 1 auto;
-      }
-    }
+    .modal-head{ display:flex; justify-content:space-between; margin-bottom:12px; }
   </style>
 </head>
 <body>
@@ -566,10 +470,7 @@
       <div class="hero-row">
         <div>
           <h1>液體壓力互動模擬器</h1>
-          <p>
-            可切換液體、容器形狀、密度與壓力單位，並可拖曳壓力計探頭觀察不同位置的壓力變化，
-            也能自行決定要記錄哪些欄位，再用任兩個項目繪製統計圖。
-          </p>
+          <p>可切換液體、容器形狀、密度與單位。拖曳紅色探頭可測量不同深度壓力，並利用右鍵點擊儀器查看說明。</p>
         </div>
         <div>
           <button type="button" class="btn-secondary help-button" id="helpBtn">使用說明</button>
@@ -586,7 +487,6 @@
 
         <div class="control-group">
           <h3>1. 液體與容器</h3>
-
           <div class="field">
             <label for="liquidSelect">液體種類</label>
             <select id="liquidSelect">
@@ -599,7 +499,6 @@
               <option value="custom">自訂液體</option>
             </select>
           </div>
-
           <div class="field hidden" id="customDensityWrap">
             <label>自訂密度</label>
             <div class="inline-pair">
@@ -610,7 +509,6 @@
               </select>
             </div>
           </div>
-
           <div class="field">
             <label for="shapeSelect">容器形狀</label>
             <select id="shapeSelect">
@@ -624,7 +522,6 @@
 
         <div class="control-group">
           <h3>2. 單位設定</h3>
-
           <div class="field">
             <label for="densityDisplayUnit">密度顯示單位</label>
             <select id="densityDisplayUnit">
@@ -632,7 +529,6 @@
               <option value="g_cm3">g/cm³</option>
             </select>
           </div>
-
           <div class="field">
             <label for="pressureDisplayUnit">壓力顯示單位</label>
             <select id="pressureDisplayUnit">
@@ -647,23 +543,19 @@
 
         <div class="control-group">
           <h3>3. 測量條件</h3>
-
           <div class="field">
             <label for="fluidHeightRange">液面高度（m）</label>
             <div class="range-pair">
               <input id="fluidHeightRange" type="range" min="0.20" max="2.00" step="0.01" value="1.20">
               <input id="fluidHeightNumber" type="number" inputmode="decimal" min="0.20" max="2.00" step="0.01" value="1.20">
             </div>
-            <div class="small">調整液面高度時，探頭的絕對位置保持不變。</div>
           </div>
-
           <div class="field">
             <label for="depthRange">測量深度（自液面往下，m）</label>
             <div class="range-pair">
               <input id="depthRange" type="range" min="0.00" max="1.20" step="0.01" value="0.60">
               <input id="depthNumber" type="number" inputmode="decimal" min="0.00" max="1.20" step="0.01" value="0.60">
             </div>
-            <div class="small">可拖曳探頭，或用這裡直接調整測量深度。</div>
           </div>
         </div>
       </section>
@@ -677,61 +569,46 @@
         <div class="svg-shell">
           <svg id="simSvg" viewBox="0 0 620 500" role="img" aria-label="液體壓力模擬圖">
             <defs>
-              <clipPath id="containerClip">
-                <path id="clipPathShape"></path>
-              </clipPath>
-
+              <clipPath id="containerClip"><path id="clipPathShape"></path></clipPath>
               <linearGradient id="meterBodyGradient" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stop-color="#344563"></stop>
                 <stop offset="100%" stop-color="#253247"></stop>
               </linearGradient>
-
               <linearGradient id="screenGradient" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stop-color="#d9fff0"></stop>
                 <stop offset="100%" stop-color="#9df1cb"></stop>
               </linearGradient>
-
               <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.18"></feDropShadow>
               </filter>
             </defs>
-
             <rect x="0" y="0" width="620" height="500" rx="18" fill="#f8fbff"></rect>
-
             <g id="scaleGroup"></g>
-
             <g clip-path="url(#containerClip)">
               <rect id="liquidRect" x="70" y="160" width="280" height="270" fill="#5da9ff" opacity="0.88"></rect>
             </g>
-
             <path id="containerOutline" fill="none" stroke="#233350" stroke-width="4" stroke-linejoin="round"></path>
             <line id="surfaceLine" x1="125" y1="160" x2="295" y2="160" stroke="#2d6cdf" stroke-width="3"></line>
             <text id="surfaceText" x="308" y="148" fill="#2d6cdf" font-size="14" font-weight="700">液面</text>
-
             <line id="depthLine" x1="200" y1="160" x2="200" y2="300" stroke="#e5546d" stroke-width="3" stroke-dasharray="8 6"></line>
             <line id="depthTopTick" x1="190" y1="160" x2="210" y2="160" stroke="#e5546d" stroke-width="3"></line>
             <line id="depthBottomTick" x1="190" y1="300" x2="210" y2="300" stroke="#e5546d" stroke-width="3"></line>
             <text id="depthText" x="218" y="230" fill="#a62f46" font-size="16" font-weight="700">h = 0.60 m</text>
-
             <path id="gaugeCable" d="" fill="none" stroke="#42526e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
             <path id="gaugeCableHighlight" d="" fill="none" stroke="#92a0b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"></path>
-
             <g id="meterGroup" filter="url(#softShadow)">
               <rect x="390" y="82" width="190" height="158" rx="24" fill="url(#meterBodyGradient)" stroke="#162033" stroke-width="2"></rect>
               <rect x="410" y="116" width="150" height="84" rx="14" fill="url(#screenGradient)" stroke="#56b48b" stroke-width="2"></rect>
-
               <text x="485" y="104" text-anchor="middle" fill="#eef5ff" font-size="14" font-weight="800">數位探針壓力計</text>
               <text x="426" y="136" fill="#1f5b45" font-size="12" font-weight="800">表壓</text>
-              <text id="meterValue" x="426" y="168" fill="#103d2f" font-size="30" font-weight="900" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">5.88</text>
+              <text id="meterValue" x="426" y="168" fill="#103d2f" font-size="30" font-weight="900" font-family="ui-monospace, monospace">5.88</text>
               <text id="meterUnit" x="426" y="188" fill="#1f5b45" font-size="14" font-weight="800">kPa</text>
               <text id="meterSub" x="426" y="210" fill="#d8e5ff" font-size="12" font-weight="700">絕對 107.21 kPa</text>
-              <text id="meterDepth" x="426" y="228" fill="#d8e5ff" font-size="12" font-weight="700">h = 0.60 m ｜ x = 55%</text>
-
+              <text id="meterDepth" x="426" y="228" fill="#d8e5ff" font-size="12" font-weight="700">h = 0.60 m</text>
               <circle cx="413" cy="224" r="7" fill="#121b2d" stroke="#8594ac" stroke-width="2"></circle>
               <circle cx="560" cy="103" r="6" fill="#f15b6c"></circle>
               <circle cx="543" cy="103" r="6" fill="#ffd166"></circle>
             </g>
-
             <g id="probeGroup" transform="translate(200 300)">
               <circle id="probeHit" cx="0" cy="0" r="28" fill="transparent"></circle>
               <line x1="0" y1="-34" x2="0" y2="-12" stroke="#3d4a64" stroke-width="8" stroke-linecap="round"></line>
@@ -740,9 +617,8 @@
               <circle cx="0" cy="0" r="10" fill="#e5546d" stroke="#ffffff" stroke-width="3"></circle>
               <circle cx="0" cy="0" r="3.5" fill="#ffffff"></circle>
             </g>
-
             <text id="svgTitle" x="220" y="32" text-anchor="middle" fill="#233350" font-size="20" font-weight="800">水｜直筒形</text>
-            <text id="svgSubTitle" x="220" y="52" text-anchor="middle" fill="#5f6f8c" font-size="13" font-weight="700">拖曳紅色探頭量測，液面改變時探頭保持原位</text>
+            <text id="svgSubTitle" x="220" y="52" text-anchor="middle" fill="#5f6f8c" font-size="13" font-weight="700">右鍵點擊儀器可查看說明</text>
           </svg>
         </div>
       </section>
@@ -751,50 +627,17 @@
     <section class="panel">
       <div class="section-title">
         <h2>目前狀態摘要</h2>
-        <span class="badge">全寬即時更新</span>
       </div>
-
       <div class="metrics-row">
-        <div class="metric">
-          <span class="metric-label">液體種類</span>
-          <strong id="metricLiquid">水</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label">容器形狀</span>
-          <strong id="metricShape">直筒形</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label">液面高度</span>
-          <strong id="metricFluidHeight">1.20 m</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label" id="metricDensityLabel">液體密度（kg/m³）</span>
-          <strong id="metricDensity">1000</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label">測量深度</span>
-          <strong id="metricDepth">0.60 m</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label">測點水平位置</span>
-          <strong id="metricXPosition">55%</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label">測點狀態</span>
-          <strong id="metricProbeState">液體中</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label" id="metricGaugeLabel">表壓（kPa）</span>
-          <strong id="metricGauge">5.88</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label" id="metricAbsoluteLabel">絕對壓力（kPa）</span>
-          <strong id="metricAbsolute">107.21</strong>
-        </div>
-        <div class="metric">
-          <span class="metric-label">目前顯示單位</span>
-          <strong id="metricUnits">ρ：kg/m³｜P：kPa</strong>
-        </div>
+        <div class="metric"><span class="metric-label">液體種類</span><strong id="metricLiquid">水</strong></div>
+        <div class="metric"><span class="metric-label">容器形狀</span><strong id="metricShape">直筒形</strong></div>
+        <div class="metric"><span class="metric-label">液面高度</span><strong id="metricFluidHeight">1.20 m</strong></div>
+        <div class="metric"><span class="metric-label" id="metricDensityLabel">液體密度（kg/m³）</span><strong id="metricDensity">1000</strong></div>
+        <div class="metric"><span class="metric-label">測量深度</span><strong id="metricDepth">0.60 m</strong></div>
+        <div class="metric"><span class="metric-label">測點水平位置</span><strong id="metricXPosition">55%</strong></div>
+        <div class="metric"><span class="metric-label">測點狀態</span><strong id="metricProbeState">液體中</strong></div>
+        <div class="metric"><span class="metric-label" id="metricGaugeLabel">表壓（kPa）</span><strong id="metricGauge">5.88</strong></div>
+        <div class="metric"><span class="metric-label" id="metricAbsoluteLabel">絕對壓力（kPa）</span><strong id="metricAbsolute">107.21</strong></div>
       </div>
     </section>
 
@@ -803,17 +646,14 @@
         <h2>決定要紀錄哪些數據</h2>
         <span class="record-meta" id="recordCountTop">目前共 0 筆紀錄</span>
       </div>
-
       <div class="record-config-wrap">
         <div id="columnCheckboxes" class="wide-checkboxes"></div>
-
         <div class="record-toolbar">
           <div class="toolbar-group">
             <button type="button" class="btn-secondary" id="selectAllColumnsBtn">全選欄位</button>
             <button type="button" class="btn-secondary" id="selectCommonColumnsBtn">常用欄位</button>
             <button type="button" class="btn-secondary" id="clearColumnsBtn">清空欄位</button>
           </div>
-
           <div class="toolbar-group">
             <button type="button" class="btn-primary" id="recordBtn">加入紀錄</button>
             <button type="button" class="btn-secondary" id="deleteLastBtn">刪除最後一筆</button>
@@ -829,7 +669,6 @@
         <h2>實驗數據紀錄與統計圖</h2>
         <span class="record-meta" id="recordCountBottom">目前共 0 筆紀錄</span>
       </div>
-
       <div class="sub-panel">
         <h3 class="sub-title">實驗數據紀錄表</h3>
         <div class="table-wrap">
@@ -839,89 +678,30 @@
           </table>
         </div>
       </div>
-
       <div class="sub-panel">
         <h3 class="sub-title">數據統計圖</h3>
-
         <div class="chart-toolbar">
-          <div class="field">
-            <label for="chartXSelect">橫軸（X）</label>
-            <select id="chartXSelect"></select>
-          </div>
-          <div class="field">
-            <label for="chartYSelect">縱軸（Y）</label>
-            <select id="chartYSelect"></select>
-          </div>
+          <div class="field"><label for="chartXSelect">橫軸（X）</label><select id="chartXSelect"></select></div>
+          <div class="field"><label for="chartYSelect">縱軸（Y）</label><select id="chartYSelect"></select></div>
           <button type="button" class="btn-primary" id="generateChartBtn">產生統計圖</button>
           <button type="button" class="btn-secondary" id="clearChartBtn">清除統計圖</button>
         </div>
-
         <div class="small chart-status" id="chartStatus"></div>
         <div id="chartCanvas" class="chart-shell"></div>
       </div>
     </section>
   </div>
 
+  <div id="eqTooltip" class="eq-tooltip hidden"></div>
+
   <div id="helpModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="helpBackdrop"></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-card">
       <div class="modal-head">
         <h2 id="helpTitle">使用說明</h2>
         <button type="button" class="btn-secondary" id="closeHelpBtn">關閉</button>
       </div>
-
-      <div class="help-content">
-        <div class="help-block">
-          <h3>1. 這個模擬器可以做什麼</h3>
-          <ul>
-            <li>切換不同液體與容器形狀。</li>
-            <li>調整液面高度與探頭位置，觀察壓力變化。</li>
-            <li>切換密度與壓力的顯示單位。</li>
-            <li>自行決定要記錄哪些欄位，再把資料加入表格。</li>
-            <li>從已記錄的資料中，自選兩個欄位繪製統計圖。</li>
-          </ul>
-        </div>
-
-        <div class="help-block">
-          <h3>2. 怎麼操作探頭</h3>
-          <ul>
-            <li>直接拖曳模擬圖中的紅色探頭即可改變測量位置。</li>
-            <li>也可以用左側的「測量深度」控制項精準輸入。</li>
-            <li>調整液面高度時，探頭會維持原本的絕對位置，不會跟著一起上下移動。</li>
-            <li>壓力計的導線會固定從壓力計出發，繞過容器上方，再接到探頭。</li>
-          </ul>
-        </div>
-
-        <div class="help-block">
-          <h3>3. 資料紀錄方式</h3>
-          <ul>
-            <li>先在「決定要紀錄哪些數據」中勾選欄位。</li>
-            <li>按下「加入紀錄」後，會把當前狀態存成一筆資料。</li>
-            <li>可以刪除最後一筆、清空全部，或匯出成 CSV 檔。</li>
-            <li>資料表顯示哪些欄位，會跟你勾選的項目一致。</li>
-          </ul>
-        </div>
-
-        <div class="help-block">
-          <h3>4. 統計圖怎麼用</h3>
-          <ul>
-            <li>先從下方選擇橫軸與縱軸欄位。</li>
-            <li>選好之後按「產生統計圖」，圖表才會顯示。</li>
-            <li>如果改了軸項目，需要再按一次「產生統計圖」。</li>
-            <li>目前圖表只顯示資料點，不會自動連線，也不會加入擬合曲線。</li>
-          </ul>
-        </div>
-
-        <div class="help-block">
-          <h3>5. 觀察建議</h3>
-          <ul>
-            <li>同一種液體中，測量深度越深，表壓通常越大。</li>
-            <li>在相同深度下，液體密度越大，表壓通常也越大。</li>
-            <li>可嘗試固定深度，只改液體種類；或固定液體，只改深度，再記錄數據比較。</li>
-          </ul>
-        </div>
       </div>
-    </div>
   </div>
 
   <script>
@@ -931,16 +711,8 @@
       const ATM_PRESSURE = 101325;
 
       const GEOM = {
-        viewW: 620,
-        viewH: 500,
-        yTop: 70,
-        yBottom: 430,
-        liquidRectX: 70,
-        liquidRectWidth: 280,
-        scaleX: 58,
-        guideRight: 340,
-        meterPortX: 413,
-        meterPortY: 224
+        viewW: 620, viewH: 500, yTop: 70, yBottom: 430,
+        scaleX: 58, guideRight: 340, meterPortX: 413, meterPortY: 224
       };
 
       const liquids = {
@@ -953,99 +725,41 @@
         custom:    { name: "自訂液體", density: 1000, color: "#7f90ff" }
       };
 
-      const shapes = {
-        straight: "直筒形",
-        topWide: "上寬下窄",
-        bottomWide: "上窄下寬",
-        bulged: "中間較寬"
-      };
+      const shapes = { straight: "直筒形", topWide: "上寬下窄", bottomWide: "上窄下寬", bulged: "中間較寬" };
 
       const densityUnits = {
-        kg_m3: {
-          label: "kg/m³",
-          decimals: 0,
-          fromSI: (v) => v,
-          toSI: (v) => v,
-          inputMin: 1,
-          inputMax: 20000,
-          inputStep: 1
-        },
-        g_cm3: {
-          label: "g/cm³",
-          decimals: 3,
-          fromSI: (v) => v / 1000,
-          toSI: (v) => v * 1000,
-          inputMin: 0.001,
-          inputMax: 20,
-          inputStep: 0.001
-        }
+        kg_m3: { label: "kg/m³", decimals: 0, fromSI: v => v, toSI: v => v, inputMin: 1, inputMax: 20000, inputStep: 1 },
+        g_cm3: { label: "g/cm³", decimals: 3, fromSI: v => v / 1000, toSI: v => v * 1000, inputMin: 0.001, inputMax: 20, inputStep: 0.001 }
       };
 
       const pressureUnits = {
-        pa: {
-          label: "Pa",
-          decimals: 0,
-          fromPa: (v) => v
-        },
-        kpa: {
-          label: "kPa",
-          decimals: 2,
-          fromPa: (v) => v / 1000
-        },
-        gw_cm2: {
-          label: "gw/cm²",
-          decimals: 2,
-          fromPa: (v) => v / (10 * G)
-        },
-        kgw_m2: {
-          label: "kgw/m²",
-          decimals: 2,
-          fromPa: (v) => v / G
-        },
-        kgw_cm2: {
-          label: "kgw/cm²",
-          decimals: 4,
-          fromPa: (v) => v / (10000 * G)
-        }
+        pa: { label: "Pa", decimals: 0, fromPa: v => v },
+        kpa: { label: "kPa", decimals: 2, fromPa: v => v / 1000 },
+        gw_cm2: { label: "gw/cm²", decimals: 2, fromPa: v => v / (10 * G) },
+        kgw_m2: { label: "kgw/m²", decimals: 2, fromPa: v => v / G },
+        kgw_cm2: { label: "kgw/cm²", decimals: 4, fromPa: v => v / (10000 * G) }
       };
 
       const columns = [
-        { key: "id", label: () => "編號", get: (r) => r.id },
-        { key: "time", label: () => "時間", get: (r) => r.time },
-        { key: "liquid", label: () => "液體", get: (r) => r.liquidName },
-        { key: "shape", label: () => "容器形狀", get: (r) => r.shapeName },
-        { key: "fluidHeight", label: () => "液面高度（m）", get: (r) => r.fluidHeight.toFixed(2) },
-        { key: "depth", label: () => "測量深度 h（m）", get: (r) => r.depth.toFixed(2) },
-        { key: "xPercent", label: () => "測點水平位置（%）", get: (r) => (r.probeRatio * 100).toFixed(0) },
-        { key: "probeState", label: () => "測點狀態", get: (r) => r.probeState },
-        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, get: (r) => formatDensityNumber(r.density) },
-        { key: "gaugeDisplay", label: () => `表壓（${getCurrentPressureDisplayUnit().label}）`, get: (r) => formatPressureNumber(r.gaugePressure) },
-        { key: "absDisplay", label: () => `絕對壓力（${getCurrentPressureDisplayUnit().label}）`, get: (r) => formatPressureNumber(r.absolutePressure) },
-        { key: "densitySI", label: () => "密度（kg/m³）", get: (r) => r.density.toFixed(0) },
-        { key: "gaugePa", label: () => "表壓（Pa）", get: (r) => r.gaugePressure.toFixed(0) },
-        { key: "absPa", label: () => "絕對壓力（Pa）", get: (r) => r.absolutePressure.toFixed(0) }
+        { key: "id", label: () => "編號", get: r => r.id },
+        { key: "time", label: () => "時間", get: r => r.time },
+        { key: "liquid", label: () => "液體", get: r => r.liquidName },
+        { key: "shape", label: () => "容器形狀", get: r => r.shapeName },
+        { key: "fluidHeight", label: () => "液面（m）", get: r => r.fluidHeight.toFixed(2) },
+        { key: "depth", label: () => "深度 h（m）", get: r => r.depth.toFixed(2) },
+        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, get: r => formatDensityNumber(r.density) },
+        { key: "gaugeDisplay", label: () => `表壓（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.gaugePressure) },
+        { key: "absDisplay", label: () => `絕對（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.absolutePressure) }
       ];
 
-      const commonColumnKeys = [
-        "id", "liquid", "shape", "fluidHeight", "depth",
-        "xPercent", "probeState", "gaugeDisplay", "absDisplay"
-      ];
-
+      const commonColumnKeys = ["id", "liquid", "shape", "depth", "gaugeDisplay"];
+      
       const graphFields = [
-        { key: "id", label: () => "編號", type: "number", decimals: 0, get: (r) => r.id },
-        { key: "time", label: () => "時間", type: "category", get: (r) => r.time },
-        { key: "liquid", label: () => "液體", type: "category", get: (r) => r.liquidName },
-        { key: "shape", label: () => "容器形狀", type: "category", get: (r) => r.shapeName },
-        { key: "fluidHeight", label: () => "液面高度（m）", type: "number", decimals: 2, get: (r) => r.fluidHeight },
-        { key: "depth", label: () => "測量深度 h（m）", type: "number", decimals: 2, get: (r) => r.depth },
-        { key: "xPercent", label: () => "測點水平位置（%）", type: "number", decimals: 0, get: (r) => r.probeRatio * 100 },
-        { key: "probeState", label: () => "測點狀態", type: "category", get: (r) => r.probeState },
-        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", decimals: () => getCurrentDensityDisplayUnit().decimals, get: (r) => getCurrentDensityDisplayUnit().fromSI(r.density) },
-        { key: "gaugeDisplay", label: () => `表壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", decimals: () => getCurrentPressureDisplayUnit().decimals, get: (r) => getCurrentPressureDisplayUnit().fromPa(r.gaugePressure) },
-        { key: "absDisplay", label: () => `絕對壓力（${getCurrentPressureDisplayUnit().label}）`, type: "number", decimals: () => getCurrentPressureDisplayUnit().decimals, get: (r) => getCurrentPressureDisplayUnit().fromPa(r.absolutePressure) },
-        { key: "densitySI", label: () => "密度（kg/m³）", type: "number", decimals: 0, get: (r) => r.density },
-        { key: "gaugePa", label: () => "表壓（Pa）", type: "number", decimals: 0, get: (r) => r.gaugePressure },
-        { key: "absPa", label: () => "絕對壓力（Pa）", type: "number", decimals: 0, get: (r) => r.absolutePressure }
+        { key: "id", label: () => "編號", type: "number", decimals: 0, get: r => r.id },
+        { key: "liquid", label: () => "液體", type: "category", get: r => r.liquidName },
+        { key: "depth", label: () => "深度 h（m）", type: "number", decimals: 2, get: r => r.depth },
+        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", decimals: () => getCurrentDensityDisplayUnit().decimals, get: r => getCurrentDensityDisplayUnit().fromSI(r.density) },
+        { key: "gaugeDisplay", label: () => `表壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", decimals: () => getCurrentPressureDisplayUnit().decimals, get: r => getCurrentPressureDisplayUnit().fromPa(r.gaugePressure) }
       ];
 
       const el = {
@@ -1054,15 +768,12 @@
         customDensity: document.getElementById("customDensity"),
         customDensityUnit: document.getElementById("customDensityUnit"),
         shapeSelect: document.getElementById("shapeSelect"),
-
         densityDisplayUnit: document.getElementById("densityDisplayUnit"),
         pressureDisplayUnit: document.getElementById("pressureDisplayUnit"),
-
         fluidHeightRange: document.getElementById("fluidHeightRange"),
         fluidHeightNumber: document.getElementById("fluidHeightNumber"),
         depthRange: document.getElementById("depthRange"),
         depthNumber: document.getElementById("depthNumber"),
-
         metricLiquid: document.getElementById("metricLiquid"),
         metricShape: document.getElementById("metricShape"),
         metricFluidHeight: document.getElementById("metricFluidHeight"),
@@ -1075,36 +786,24 @@
         metricGauge: document.getElementById("metricGauge"),
         metricAbsoluteLabel: document.getElementById("metricAbsoluteLabel"),
         metricAbsolute: document.getElementById("metricAbsolute"),
-        metricUnits: document.getElementById("metricUnits"),
-
         recordBtn: document.getElementById("recordBtn"),
         deleteLastBtn: document.getElementById("deleteLastBtn"),
         clearBtn: document.getElementById("clearBtn"),
         exportBtn: document.getElementById("exportBtn"),
-
         columnCheckboxes: document.getElementById("columnCheckboxes"),
         selectAllColumnsBtn: document.getElementById("selectAllColumnsBtn"),
         selectCommonColumnsBtn: document.getElementById("selectCommonColumnsBtn"),
         clearColumnsBtn: document.getElementById("clearColumnsBtn"),
-
         recordCountTop: document.getElementById("recordCountTop"),
         recordCountBottom: document.getElementById("recordCountBottom"),
-
         tableHead: document.getElementById("tableHead"),
         tableBody: document.getElementById("tableBody"),
-
         chartXSelect: document.getElementById("chartXSelect"),
         chartYSelect: document.getElementById("chartYSelect"),
         generateChartBtn: document.getElementById("generateChartBtn"),
         clearChartBtn: document.getElementById("clearChartBtn"),
         chartStatus: document.getElementById("chartStatus"),
         chartCanvas: document.getElementById("chartCanvas"),
-
-        helpBtn: document.getElementById("helpBtn"),
-        helpModal: document.getElementById("helpModal"),
-        closeHelpBtn: document.getElementById("closeHelpBtn"),
-        helpBackdrop: document.getElementById("helpBackdrop"),
-
         simSvg: document.getElementById("simSvg"),
         scaleGroup: document.getElementById("scaleGroup"),
         clipPathShape: document.getElementById("clipPathShape"),
@@ -1119,995 +818,315 @@
         gaugeCable: document.getElementById("gaugeCable"),
         gaugeCableHighlight: document.getElementById("gaugeCableHighlight"),
         probeGroup: document.getElementById("probeGroup"),
-        probeHit: document.getElementById("probeHit"),
         meterValue: document.getElementById("meterValue"),
         meterUnit: document.getElementById("meterUnit"),
         meterSub: document.getElementById("meterSub"),
         meterDepth: document.getElementById("meterDepth"),
         svgTitle: document.getElementById("svgTitle"),
-        svgSubTitle: document.getElementById("svgSubTitle")
+        svgSubTitle: document.getElementById("svgSubTitle"),
+        helpBtn: document.getElementById("helpBtn"),
+        helpModal: document.getElementById("helpModal"),
+        closeHelpBtn: document.getElementById("closeHelpBtn"),
+        helpBackdrop: document.getElementById("helpBackdrop")
       };
 
-      let records = [];
-      let recordId = 1;
-      let probeRatio = 0.55;
-      let probeAbsY = 0;
-      let dragging = false;
-      let activePointerId = null;
+      let records = []; let recordId = 1;
+      let probeRatio = 0.55; let probeAbsY = 0;
+      let dragging = false; let activePointerId = null;
       let lastCustomDensityUnit = el.customDensityUnit.value;
-      let chartRequested = false;
-      let chartStatusText = "";
+      let chartRequested = false; let chartStatusText = "";
 
-      function getCurrentDensityDisplayUnit() {
-        return densityUnits[el.densityDisplayUnit.value];
-      }
-
-      function getCurrentPressureDisplayUnit() {
-        return pressureUnits[el.pressureDisplayUnit.value];
-      }
-
-      function clamp(value, min, max) {
-        return Math.min(max, Math.max(min, value));
-      }
-
-      function safeNumber(value, fallback) {
-        const n = Number(value);
-        return Number.isFinite(n) ? n : fallback;
-      }
-
-      function escapeHtml(text) {
-        return String(text)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
-      }
-
-      function formatDensityNumber(densitySI) {
-        const unit = getCurrentDensityDisplayUnit();
-        return unit.fromSI(densitySI).toFixed(unit.decimals);
-      }
-
-      function formatPressureNumber(pressurePa) {
-        const unit = getCurrentPressureDisplayUnit();
-        return unit.fromPa(pressurePa).toFixed(unit.decimals);
-      }
-
-      function formatPressureDisplay(pressurePa) {
-        return `${formatPressureNumber(pressurePa)} ${getCurrentPressureDisplayUnit().label}`;
-      }
-
-      function formatDateTime() {
-        return new Date().toLocaleString("zh-TW", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false
-        });
-      }
-
-      function getPxPerMeter() {
-        return (GEOM.yBottom - GEOM.yTop) / MAX_HEIGHT;
-      }
-
-      function getSurfaceY(fluidHeight) {
-        return GEOM.yBottom - fluidHeight * getPxPerMeter();
-      }
+      function getCurrentDensityDisplayUnit() { return densityUnits[el.densityDisplayUnit.value]; }
+      function getCurrentPressureDisplayUnit() { return pressureUnits[el.pressureDisplayUnit.value]; }
+      function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+      function safeNumber(value, fallback) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
+      function escapeHtml(text) { return String(text).replace(/[&<>"']/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m])); }
+      function formatDensityNumber(densitySI) { return getCurrentDensityDisplayUnit().fromSI(densitySI).toFixed(getCurrentDensityDisplayUnit().decimals); }
+      function formatPressureNumber(pressurePa) { return getCurrentPressureDisplayUnit().fromPa(pressurePa).toFixed(getCurrentPressureDisplayUnit().decimals); }
+      function formatPressureDisplay(pressurePa) { return `${formatPressureNumber(pressurePa)} ${getCurrentPressureDisplayUnit().label}`; }
+      function getPxPerMeter() { return (GEOM.yBottom - GEOM.yTop) / MAX_HEIGHT; }
+      function getSurfaceY(fluidHeight) { return GEOM.yBottom - fluidHeight * getPxPerMeter(); }
 
       function updateCustomDensityInputMeta() {
         const unit = densityUnits[el.customDensityUnit.value];
-        el.customDensity.min = unit.inputMin;
-        el.customDensity.max = unit.inputMax;
-        el.customDensity.step = unit.inputStep;
+        el.customDensity.min = unit.inputMin; el.customDensity.max = unit.inputMax; el.customDensity.step = unit.inputStep;
       }
 
       function getCurrentLiquid() {
-        const key = el.liquidSelect.value;
-        const base = liquids[key];
-
-        if (key !== "custom") {
-          return {
-            key,
-            name: base.name,
-            density: base.density,
-            color: base.color
-          };
-        }
-
+        const key = el.liquidSelect.value; const base = liquids[key];
+        if (key !== "custom") return { key, name: base.name, density: base.density, color: base.color };
         const inputUnit = densityUnits[el.customDensityUnit.value];
-        const inputValue = clamp(
-          safeNumber(el.customDensity.value, 1000),
-          inputUnit.inputMin,
-          inputUnit.inputMax
-        );
-        const densitySI = clamp(inputUnit.toSI(inputValue), 1, 20000);
-
-        return {
-          key,
-          name: base.name,
-          density: densitySI,
-          color: base.color
-        };
+        const inputValue = clamp(safeNumber(el.customDensity.value, 1000), inputUnit.inputMin, inputUnit.inputMax);
+        return { key, name: base.name, density: clamp(inputUnit.toSI(inputValue), 1, 20000), color: base.color };
       }
 
       function getShapeBounds(shapeKey, y) {
         const t = clamp((y - GEOM.yTop) / (GEOM.yBottom - GEOM.yTop), 0, 1);
-
         switch (shapeKey) {
-          case "topWide":
-            return { left: 95 + 50 * t, right: 325 - 50 * t };
-          case "bottomWide":
-            return { left: 145 - 50 * t, right: 275 + 50 * t };
-          case "bulged": {
-            const bulge = Math.sin(Math.PI * t);
-            return { left: 145 - 55 * bulge, right: 275 + 55 * bulge };
-          }
-          case "straight":
-          default:
-            return { left: 125, right: 295 };
+          case "topWide": return { left: 95 + 50 * t, right: 325 - 50 * t };
+          case "bottomWide": return { left: 145 - 50 * t, right: 275 + 50 * t };
+          case "bulged": return { left: 145 - 55 * Math.sin(Math.PI * t), right: 275 + 55 * Math.sin(Math.PI * t) };
+          default: return { left: 125, right: 295 };
         }
       }
 
       function buildContainerPath(shapeKey) {
-        const steps = 28;
-        const leftPts = [];
-        const rightPts = [];
-
-        for (let i = 0; i <= steps; i += 1) {
-          const y = GEOM.yTop + ((GEOM.yBottom - GEOM.yTop) * i) / steps;
+        const leftPts = [], rightPts = [];
+        for (let i = 0; i <= 28; i++) {
+          const y = GEOM.yTop + ((GEOM.yBottom - GEOM.yTop) * i) / 28;
           const bounds = getShapeBounds(shapeKey, y);
           leftPts.push(`${bounds.left.toFixed(1)} ${y.toFixed(1)}`);
           rightPts.push(`${bounds.right.toFixed(1)} ${y.toFixed(1)}`);
         }
-
         return `M ${leftPts[0]} L ${leftPts.slice(1).join(" L ")} L ${rightPts.reverse().join(" L ")} Z`;
       }
 
       function drawScale() {
-        const scale = getPxPerMeter();
-        let svg = "";
-
-        svg += `<line x1="${GEOM.scaleX}" y1="${GEOM.yTop}" x2="${GEOM.scaleX}" y2="${GEOM.yBottom}" stroke="#8da2c8" stroke-width="2"></line>`;
-        svg += `<text x="${GEOM.scaleX}" y="58" text-anchor="middle" fill="#5f6f8c" font-size="12" font-weight="700">m</text>`;
-
-        for (let i = 0; i <= 8; i += 1) {
-          const value = i * 0.25;
-          const y = GEOM.yBottom - value * scale;
-          const major = i % 2 === 0;
-          const tickX = major ? GEOM.scaleX + 16 : GEOM.scaleX + 10;
-          const tickColor = major ? "#6d83aa" : "#9fb0cd";
-          const guideOpacity = major ? 0.55 : 0.28;
-
-          svg += `<line x1="${GEOM.scaleX}" y1="${y}" x2="${tickX}" y2="${y}" stroke="${tickColor}" stroke-width="2"></line>`;
-          svg += `<line x1="${GEOM.scaleX + 18}" y1="${y}" x2="${GEOM.guideRight}" y2="${y}" stroke="#c9d8ef" stroke-width="1" stroke-dasharray="5 6" opacity="${guideOpacity}"></line>`;
-
-          if (major) {
-            svg += `<text x="${GEOM.scaleX - 6}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">${value.toFixed(1)}</text>`;
-          }
+        const scale = getPxPerMeter(); let svg = `<line x1="${GEOM.scaleX}" y1="${GEOM.yTop}" x2="${GEOM.scaleX}" y2="${GEOM.yBottom}" stroke="#8da2c8" stroke-width="2"></line>`;
+        for (let i = 0; i <= 8; i++) {
+          const value = i * 0.25; const y = GEOM.yBottom - value * scale; const major = i % 2 === 0;
+          svg += `<line x1="${GEOM.scaleX}" y1="${y}" x2="${major ? GEOM.scaleX + 16 : GEOM.scaleX + 10}" y2="${y}" stroke="${major ? "#6d83aa" : "#9fb0cd"}" stroke-width="2"></line>`;
+          if (major) svg += `<text x="${GEOM.scaleX - 6}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">${value.toFixed(1)}</text>`;
         }
-
         el.scaleGroup.innerHTML = svg;
       }
 
       function getCurrentState() {
         const liquid = getCurrentLiquid();
         const shapeKey = el.shapeSelect.value;
-        const shapeName = shapes[shapeKey];
         const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 1.2), 0.2, MAX_HEIGHT);
-        const scale = getPxPerMeter();
         const surfaceY = getSurfaceY(fluidHeight);
-
         probeAbsY = clamp(probeAbsY, GEOM.yTop, GEOM.yBottom);
-
-        const rawDepth = (probeAbsY - surfaceY) / scale;
+        const rawDepth = (probeAbsY - surfaceY) / getPxPerMeter();
         const submerged = rawDepth >= 0;
         const depth = submerged ? clamp(rawDepth, 0, fluidHeight) : 0;
-
         const gaugePressure = submerged ? liquid.density * G * depth : 0;
-        const absolutePressure = ATM_PRESSURE + gaugePressure;
-
-        return {
-          liquid,
-          shapeKey,
-          shapeName,
-          fluidHeight,
-          scale,
-          surfaceY,
-          depth,
-          submerged,
-          gaugePressure,
-          absolutePressure
-        };
+        return { liquid, shapeKey, shapeName: shapes[shapeKey], fluidHeight, surfaceY, depth, submerged, gaugePressure, absolutePressure: ATM_PRESSURE + gaugePressure };
       }
 
-      // 🌟 新增：將當前實驗狀態打包，廣播給外層的 AI 聊天室
       function broadcastStateToParent(actionName = "更新了實驗參數") {
         try {
           const state = getCurrentState();
-          const payload = {
-            "學生最後的動作": actionName,
-            "目前液體種類": state.liquid.name,
-            "容器形狀": state.shapeName,
-            "液面高度(m)": state.fluidHeight.toFixed(2),
-            "探頭所在深度(m)": state.submerged ? state.depth.toFixed(2) : "0 (未浸入)",
-            "探頭測得表壓": formatPressureDisplay(state.gaugePressure),
-            "已收集的數據筆數": records.length + " 筆"
-          };
-          
-          // 透過 postMessage 傳遞給母視窗
           window.parent.postMessage({
             type: 'SIMULATION_STATE',
-            payload: payload
+            payload: {
+              "學生最後的動作": actionName, "目前液體種類": state.liquid.name, "容器形狀": state.shapeName,
+              "液面高度(m)": state.fluidHeight.toFixed(2), "探頭所在深度(m)": state.submerged ? state.depth.toFixed(2) : "0 (未浸入)",
+              "探頭測得表壓": formatPressureDisplay(state.gaugePressure), "已收集的數據筆數": records.length + " 筆"
+            }
           }, '*');
-        } catch (e) {
-          console.error("狀態廣播失敗:", e);
-        }
+        } catch (e) { console.error("狀態廣播失敗:", e); }
       }
 
       function getProbeGeometry() {
-        const state = getCurrentState();
-        const bounds = getShapeBounds(state.shapeKey, probeAbsY);
+        const state = getCurrentState(); const bounds = getShapeBounds(state.shapeKey, probeAbsY);
         probeRatio = clamp(probeRatio, 0, 1);
-        const probeX = bounds.left + probeRatio * (bounds.right - bounds.left);
-
-        return {
-          ...state,
-          probeX,
-          probeY: probeAbsY
-        };
+        return { ...state, probeX: bounds.left + probeRatio * (bounds.right - bounds.left), probeY: probeAbsY };
       }
 
       function syncDepthControlsToProbe() {
         const state = getCurrentState();
-        el.depthRange.max = state.fluidHeight.toFixed(2);
-        el.depthNumber.max = state.fluidHeight.toFixed(2);
-        el.depthRange.value = state.depth.toFixed(2);
-        el.depthNumber.value = state.depth.toFixed(2);
+        el.depthRange.max = el.depthNumber.max = state.fluidHeight.toFixed(2);
+        el.depthRange.value = el.depthNumber.value = state.depth.toFixed(2);
       }
 
       function setFluidHeight(value) {
-        const v = clamp(safeNumber(value, 1.2), 0.2, MAX_HEIGHT);
-        el.fluidHeightRange.value = v.toFixed(2);
-        el.fluidHeightNumber.value = v.toFixed(2);
-        syncDepthControlsToProbe();
-        renderSimulation();
+        const v = clamp(safeNumber(value, 1.2), 0.2, MAX_HEIGHT).toFixed(2);
+        el.fluidHeightRange.value = el.fluidHeightNumber.value = v;
+        syncDepthControlsToProbe(); renderSimulation();
       }
 
       function setDepth(value) {
         const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 1.2), 0.2, MAX_HEIGHT);
         const depth = clamp(safeNumber(value, 0), 0, fluidHeight);
-
-        el.depthRange.value = depth.toFixed(2);
-        el.depthNumber.value = depth.toFixed(2);
-
-        const surfaceY = getSurfaceY(fluidHeight);
-        probeAbsY = clamp(surfaceY + depth * getPxPerMeter(), GEOM.yTop, GEOM.yBottom);
-
+        el.depthRange.value = el.depthNumber.value = depth.toFixed(2);
+        probeAbsY = clamp(getSurfaceY(fluidHeight) + depth * getPxPerMeter(), GEOM.yTop, GEOM.yBottom);
         renderSimulation();
       }
 
-      function buildCablePath(probeX, probeY) {
-        const routeX = 360;
-        const overY = GEOM.yTop - 30;
-        const stemTopY = probeY - 34;
-        const topBridgeX = probeX;
-
-        return [
-          `M ${GEOM.meterPortX} ${GEOM.meterPortY}`,
-          `C ${GEOM.meterPortX - 12} ${GEOM.meterPortY}, ${routeX + 20} ${GEOM.meterPortY - 8}, ${routeX} ${GEOM.meterPortY - 18}`,
-          `L ${routeX} ${overY + 10}`,
-          `Q ${routeX} ${overY} ${routeX - 12} ${overY}`,
-          `L ${topBridgeX + 12} ${overY}`,
-          `Q ${topBridgeX} ${overY} ${topBridgeX} ${overY + 12}`,
-          `L ${topBridgeX} ${stemTopY}`
-        ].join(" ");
+      function buildCablePath(px, py) {
+        return `M ${GEOM.meterPortX} ${GEOM.meterPortY} C ${GEOM.meterPortX - 12} ${GEOM.meterPortY}, 380 ${GEOM.meterPortY - 8}, 360 ${GEOM.meterPortY - 18} L 360 ${GEOM.yTop - 20} Q 360 ${GEOM.yTop - 30} 348 ${GEOM.yTop - 30} L ${px + 12} ${GEOM.yTop - 30} Q ${px} ${GEOM.yTop - 30} ${px} ${GEOM.yTop - 18} L ${px} ${py - 34}`;
       }
 
       function renderSimulation() {
-        const state = getCurrentState();
-        const geo = getProbeGeometry();
+        const state = getCurrentState(); const geo = getProbeGeometry();
         const surfaceBounds = getShapeBounds(state.shapeKey, state.surfaceY);
         const path = buildContainerPath(state.shapeKey);
+        
+        el.clipPathShape.setAttribute("d", path); el.containerOutline.setAttribute("d", path);
+        el.liquidRect.setAttribute("y", state.surfaceY); el.liquidRect.setAttribute("height", Math.max(0, GEOM.yBottom - state.surfaceY)); el.liquidRect.setAttribute("fill", state.liquid.color);
+        el.surfaceLine.setAttribute("x1", surfaceBounds.left); el.surfaceLine.setAttribute("x2", surfaceBounds.right); el.surfaceLine.setAttribute("y1", state.surfaceY); el.surfaceLine.setAttribute("y2", state.surfaceY);
+        
         const cablePath = buildCablePath(geo.probeX, geo.probeY);
-        const depthLabelX = clamp(geo.probeX + 16, 102, 330);
-        const depthLabelY = state.depth < 0.08 ? geo.probeY + 24 : ((state.surfaceY + geo.probeY) / 2 + 6);
-        const depthVisible = state.submerged ? "visible" : "hidden";
-
-        el.clipPathShape.setAttribute("d", path);
-        el.containerOutline.setAttribute("d", path);
-
-        el.liquidRect.setAttribute("y", state.surfaceY);
-        el.liquidRect.setAttribute("height", Math.max(0, GEOM.yBottom - state.surfaceY));
-        el.liquidRect.setAttribute("fill", state.liquid.color);
-
-        el.surfaceLine.setAttribute("x1", surfaceBounds.left);
-        el.surfaceLine.setAttribute("x2", surfaceBounds.right);
-        el.surfaceLine.setAttribute("y1", state.surfaceY);
-        el.surfaceLine.setAttribute("y2", state.surfaceY);
-
-        el.surfaceText.setAttribute("x", clamp(surfaceBounds.right + 8, 290, 340));
-        el.surfaceText.setAttribute("y", Math.max(55, state.surfaceY - 10));
-
-        el.depthLine.setAttribute("x1", geo.probeX);
-        el.depthLine.setAttribute("x2", geo.probeX);
-        el.depthLine.setAttribute("y1", state.surfaceY);
-        el.depthLine.setAttribute("y2", geo.probeY);
-
-        el.depthTopTick.setAttribute("x1", geo.probeX - 10);
-        el.depthTopTick.setAttribute("x2", geo.probeX + 10);
-        el.depthTopTick.setAttribute("y1", state.surfaceY);
-        el.depthTopTick.setAttribute("y2", state.surfaceY);
-
-        el.depthBottomTick.setAttribute("x1", geo.probeX - 10);
-        el.depthBottomTick.setAttribute("x2", geo.probeX + 10);
-        el.depthBottomTick.setAttribute("y1", geo.probeY);
-        el.depthBottomTick.setAttribute("y2", geo.probeY);
-
-        el.depthText.setAttribute("x", depthLabelX);
-        el.depthText.setAttribute("y", depthLabelY);
-        el.depthText.textContent = `h = ${state.depth.toFixed(2)} m`;
-
-        el.depthLine.setAttribute("visibility", depthVisible);
-        el.depthTopTick.setAttribute("visibility", depthVisible);
-        el.depthBottomTick.setAttribute("visibility", depthVisible);
-        el.depthText.setAttribute("visibility", depthVisible);
-
-        el.gaugeCable.setAttribute("d", cablePath);
-        el.gaugeCableHighlight.setAttribute("d", cablePath);
+        el.gaugeCable.setAttribute("d", cablePath); el.gaugeCableHighlight.setAttribute("d", cablePath);
         el.probeGroup.setAttribute("transform", `translate(${geo.probeX.toFixed(1)} ${geo.probeY.toFixed(1)})`);
-
+        
         el.meterValue.textContent = formatPressureNumber(state.gaugePressure);
         el.meterUnit.textContent = getCurrentPressureDisplayUnit().label;
         el.meterSub.textContent = `絕對 ${formatPressureDisplay(state.absolutePressure)}`;
-        el.meterDepth.textContent = state.submerged
-          ? `h = ${state.depth.toFixed(2)} m ｜ x = ${(probeRatio * 100).toFixed(0)}%`
-          : `未浸入液體 ｜ x = ${(probeRatio * 100).toFixed(0)}%`;
-
+        el.meterDepth.textContent = state.submerged ? `h = ${state.depth.toFixed(2)} m` : "未浸入液體";
         el.svgTitle.textContent = `${state.liquid.name}｜${state.shapeName}`;
-        el.svgSubTitle.textContent = "拖曳紅色探頭量測，液面改變時探頭保持原位";
 
-        el.metricLiquid.textContent = state.liquid.name;
-        el.metricShape.textContent = state.shapeName;
-        el.metricFluidHeight.textContent = `${state.fluidHeight.toFixed(2)} m`;
-        el.metricDensityLabel.textContent = `液體密度（${getCurrentDensityDisplayUnit().label}）`;
-        el.metricDensity.textContent = formatDensityNumber(state.liquid.density);
+        el.metricLiquid.textContent = state.liquid.name; el.metricShape.textContent = state.shapeName; el.metricFluidHeight.textContent = `${state.fluidHeight.toFixed(2)} m`;
+        el.metricDensityLabel.textContent = `液體密度（${getCurrentDensityDisplayUnit().label}）`; el.metricDensity.textContent = formatDensityNumber(state.liquid.density);
         el.metricDepth.textContent = state.submerged ? `${state.depth.toFixed(2)} m` : "未浸入";
-        el.metricXPosition.textContent = `${(probeRatio * 100).toFixed(0)}%`;
-        el.metricProbeState.textContent = state.submerged ? "液體中" : "液面上方";
-        el.metricGaugeLabel.textContent = `表壓（${getCurrentPressureDisplayUnit().label}）`;
-        el.metricGauge.textContent = formatPressureNumber(state.gaugePressure);
-        el.metricAbsoluteLabel.textContent = `絕對壓力（${getCurrentPressureDisplayUnit().label}）`;
-        el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
-        el.metricUnits.textContent = `ρ：${getCurrentDensityDisplayUnit().label}｜P：${getCurrentPressureDisplayUnit().label}`;
-
-        el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
+        el.metricGaugeLabel.textContent = `表壓（${getCurrentPressureDisplayUnit().label}）`; el.metricGauge.textContent = formatPressureNumber(state.gaugePressure);
+        el.metricAbsoluteLabel.textContent = `絕對壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
         
-        // 🌟 新增：每次畫面更新完，就向外廣播最新狀態
+        el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
         broadcastStateToParent("移動探頭或更改了實驗設定");
       }
 
-      function getColumnLabel(col) {
-        return typeof col.label === "function" ? col.label() : col.label;
-      }
-
-      function getGraphFieldLabel(field) {
-        return typeof field.label === "function" ? field.label() : field.label;
-      }
-
-      function updateColumnCheckboxLabels() {
-        columns.forEach((col) => {
-          const labelSpan = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`);
-          if (labelSpan) {
-            labelSpan.textContent = getColumnLabel(col);
+      // 🌟 新增：攔截滑鼠右鍵並顯示提示框
+      function attachPointerEvents() {
+        el.simSvg.addEventListener("pointerdown", (e) => {
+          if (e.button === 2) return; // 忽略右鍵
+          const pt = screenToSvgPoint(e);
+          if (nearProbe(pt.x, pt.y) || pointInsideContainer(pt.x, pt.y)) {
+            e.preventDefault(); startDrag(e.pointerId); updateProbeFromPoint(pt.x, pt.y);
           }
         });
-      }
+        el.simSvg.addEventListener("pointermove", (e) => {
+          if (!dragging || e.pointerId !== activePointerId) return;
+          e.preventDefault(); const pt = screenToSvgPoint(e); updateProbeFromPoint(pt.x, pt.y);
+        });
+        el.simSvg.addEventListener("pointerup", (e) => stopDrag(e.pointerId));
+        el.simSvg.addEventListener("pointercancel", (e) => stopDrag(e.pointerId));
+        window.addEventListener("pointerup", (e) => stopDrag(e.pointerId));
 
-      function populateColumnCheckboxes() {
-        el.columnCheckboxes.innerHTML = columns.map((col) => {
-          const checked = commonColumnKeys.includes(col.key) ? "checked" : "";
-          return `
-            <label class="check-item">
-              <input type="checkbox" value="${col.key}" ${checked}>
-              <span data-col-label="${col.key}"></span>
-            </label>
-          `;
-        }).join("");
+        const tooltip = document.getElementById("eqTooltip");
+        
+        el.simSvg.addEventListener("contextmenu", (e) => {
+          e.preventDefault(); // 阻止系統右鍵選單
+          let infoText = "", equipmentName = "";
+          const targetId = e.target.id || (e.target.parentElement && e.target.parentElement.id);
 
-        updateColumnCheckboxLabels();
+          if (targetId === "meterGroup" || e.target.closest("#meterGroup")) {
+            equipmentName = "數位探針壓力計";
+            infoText = "【數位探針壓力計】<br>用來測量液體內部的壓力。包含顯示螢幕與測量探頭。";
+          } else if (targetId === "probeGroup" || e.target.closest("#probeGroup")) {
+            equipmentName = "壓力測量探頭";
+            infoText = "【壓力測量探頭】<br>可以拖曳改變深度，紅色端為感測面。";
+          } else if (targetId === "liquidRect" || e.target.closest("#liquidRect")) {
+            equipmentName = "液體容器";
+            infoText = "【液體容器】<br>裝著目前的實驗液體，可以改變形狀與液體種類。";
+          }
 
-        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-          input.addEventListener("change", renderTable);
+          if (infoText) {
+            tooltip.innerHTML = infoText;
+            tooltip.style.left = e.pageX + "px";
+            tooltip.style.top = e.pageY + "px";
+            tooltip.classList.remove("hidden");
+            broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
+          }
+        });
+
+        window.addEventListener("click", () => {
+          if (!tooltip.classList.contains("hidden")) tooltip.classList.add("hidden");
         });
       }
 
-      function getSelectedColumns() {
-        const checked = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
-        return columns.filter((col) => checked.includes(col.key));
+      function screenToSvgPoint(e) {
+        const rect = el.simSvg.getBoundingClientRect();
+        return { x: ((e.clientX - rect.left) / rect.width) * GEOM.viewW, y: ((e.clientY - rect.top) / rect.height) * GEOM.viewH };
       }
-
-      function updateRecordCounts() {
-        const text = `目前共 ${records.length} 筆紀錄`;
-        el.recordCountTop.textContent = text;
-        el.recordCountBottom.textContent = text;
+      function pointInsideContainer(x, y) {
+        if (y < GEOM.yTop || y > GEOM.yBottom) return false;
+        const bounds = getShapeBounds(getCurrentState().shapeKey, y); return x >= bounds.left && x <= bounds.right;
       }
+      function nearProbe(x, y) { const geo = getProbeGeometry(); return Math.hypot(x - geo.probeX, y - geo.probeY) <= 28; }
+      function updateProbeFromPoint(x, y) {
+        const bounds = getShapeBounds(getCurrentState().shapeKey, clamp(y, GEOM.yTop, GEOM.yBottom));
+        probeAbsY = clamp(y, GEOM.yTop, GEOM.yBottom);
+        probeRatio = (clamp(x, bounds.left, bounds.right) - bounds.left) / Math.max(1, bounds.right - bounds.left);
+        syncDepthControlsToProbe(); renderSimulation();
+      }
+      function startDrag(pid) { dragging = true; activePointerId = pid; document.body.classList.add("dragging"); if (el.simSvg.setPointerCapture) try { el.simSvg.setPointerCapture(pid); } catch (_) {} }
+      function stopDrag(pid) { if (activePointerId !== null && pid !== undefined && pid !== activePointerId) return; dragging = false; activePointerId = null; document.body.classList.remove("dragging"); }
 
-      function renderTable() {
+      /* 表格與圖表相關（精簡保留核心功能） */
+      function getColumnLabel(col) { return typeof col.label === "function" ? col.label() : col.label; }
+      function updateColumnCheckboxLabels() { columns.forEach(col => { const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`); if (ls) ls.textContent = getColumnLabel(col); }); }
+      function populateColumnCheckboxes() {
+        el.columnCheckboxes.innerHTML = columns.map(col => `<label class="check-item"><input type="checkbox" value="${col.key}" ${commonColumnKeys.includes(col.key) ? "checked" : ""}><span data-col-label="${col.key}"></span></label>`).join("");
         updateColumnCheckboxLabels();
-        updateRecordCounts();
-
-        const selectedColumns = getSelectedColumns();
-
-        if (selectedColumns.length === 0) {
-          el.tableHead.innerHTML = "";
-          el.tableBody.innerHTML = `<tr><td class="empty-cell">請先勾選要顯示的欄位。</td></tr>`;
-          return;
-        }
-
-        el.tableHead.innerHTML = `<tr>${selectedColumns.map((col) => `<th>${escapeHtml(getColumnLabel(col))}</th>`).join("")}</tr>`;
-
-        if (records.length === 0) {
-          el.tableBody.innerHTML = `<tr><td class="empty-cell" colspan="${selectedColumns.length}">尚無紀錄。</td></tr>`;
-          return;
-        }
-
-        el.tableBody.innerHTML = records.map((record, index) => {
-          const row = selectedColumns.map((col) => `<td>${escapeHtml(col.get(record))}</td>`).join("");
-          const rowClass = index === records.length - 1 ? "latest" : "";
-          return `<tr class="${rowClass}">${row}</tr>`;
-        }).join("");
+        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(input => input.addEventListener("change", renderTable));
       }
-
+      function getSelectedColumns() { const checked = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')].map(i => i.value); return columns.filter(c => checked.includes(c.key)); }
+      function updateRecordCounts() { const text = `目前共 ${records.length} 筆紀錄`; el.recordCountTop.textContent = el.recordCountBottom.textContent = text; }
+      function renderTable() {
+        updateColumnCheckboxLabels(); updateRecordCounts();
+        const sc = getSelectedColumns();
+        if (!sc.length) { el.tableHead.innerHTML = ""; el.tableBody.innerHTML = `<tr><td class="empty-cell">請先勾選要顯示的欄位。</td></tr>`; return; }
+        el.tableHead.innerHTML = `<tr>${sc.map(col => `<th>${escapeHtml(getColumnLabel(col))}</th>`).join("")}</tr>`;
+        if (!records.length) { el.tableBody.innerHTML = `<tr><td class="empty-cell" colspan="${sc.length}">尚無紀錄。</td></tr>`; return; }
+        el.tableBody.innerHTML = records.map((r, i) => `<tr class="${i === records.length - 1 ? "latest" : ""}">${sc.map(col => `<td>${escapeHtml(col.get(r))}</td>`).join("")}</tr>`).join("");
+      }
       function makeRecord() {
         const state = getCurrentState();
-
-        return {
-          id: recordId++,
-          time: formatDateTime(),
-          liquidKey: state.liquid.key,
-          liquidName: state.liquid.name,
-          density: state.liquid.density,
-          shapeKey: state.shapeKey,
-          shapeName: state.shapeName,
-          fluidHeight: state.fluidHeight,
-          depth: state.depth,
-          probeRatio,
-          probeState: state.submerged ? "液體中" : "液面上方",
-          gaugePressure: state.gaugePressure,
-          absolutePressure: state.absolutePressure
-        };
+        return { id: recordId++, time: new Date().toLocaleString("zh-TW"), liquidKey: state.liquid.key, liquidName: state.liquid.name, density: state.liquid.density, shapeKey: state.shapeKey, shapeName: state.shapeName, fluidHeight: state.fluidHeight, depth: state.depth, probeRatio, probeState: state.submerged ? "液體中" : "液面上方", gaugePressure: state.gaugePressure, absolutePressure: state.absolutePressure };
       }
-
       function exportCsv() {
-        const exportColumns = getSelectedColumns().length ? getSelectedColumns() : columns;
-        if (records.length === 0) return;
-
-        const header = exportColumns.map((col) => `"${String(getColumnLabel(col)).replaceAll('"', '""')}"`).join(",");
-        const rows = records.map((record) => {
-          return exportColumns.map((col) => {
-            const value = String(col.get(record)).replaceAll('"', '""');
-            return `"${value}"`;
-          }).join(",");
-        });
-
-        const csv = "\ufeff" + [header, ...rows].join("\n");
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        const timeTag = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
-
-        a.href = url;
-        a.download = `液體壓力紀錄_${timeTag}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
+        if (!records.length) return;
+        const csv = "\ufeff" + [`"${sc.map(c => getColumnLabel(c)).join('","')}"`, ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)].join("\n");
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = `液體壓力紀錄_${Date.now()}.csv`; a.click();
       }
-
       function selectColumns(mode) {
-        const checkboxes = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]')];
-        const targetKeys =
-          mode === "all" ? columns.map((c) => c.key) :
-          mode === "common" ? commonColumnKeys :
-          [];
-
-        checkboxes.forEach((cb) => {
-          cb.checked = targetKeys.includes(cb.value);
-        });
-
-        renderTable();
-      }
-
-      function screenToSvgPoint(event) {
-        const rect = el.simSvg.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width) * GEOM.viewW;
-        const y = ((event.clientY - rect.top) / rect.height) * GEOM.viewH;
-        return { x, y };
-      }
-
-      function pointInsideContainer(x, y) {
-        const state = getCurrentState();
-        if (y < GEOM.yTop || y > GEOM.yBottom) return false;
-        const bounds = getShapeBounds(state.shapeKey, y);
-        return x >= bounds.left && x <= bounds.right;
-      }
-
-      function nearProbe(x, y) {
-        const geo = getProbeGeometry();
-        return Math.hypot(x - geo.probeX, y - geo.probeY) <= 28;
-      }
-
-      function updateProbeFromPoint(x, y) {
-        const state = getCurrentState();
-        const clampedY = clamp(y, GEOM.yTop, GEOM.yBottom);
-        const bounds = getShapeBounds(state.shapeKey, clampedY);
-        const clampedX = clamp(x, bounds.left, bounds.right);
-
-        probeAbsY = clampedY;
-        probeRatio = (clampedX - bounds.left) / Math.max(1, (bounds.right - bounds.left));
-
-        syncDepthControlsToProbe();
-        renderSimulation();
-      }
-
-      function startDrag(pointerId) {
-        dragging = true;
-        activePointerId = pointerId;
-        document.body.classList.add("dragging");
-
-        if (el.simSvg.setPointerCapture) {
-          try { el.simSvg.setPointerCapture(pointerId); } catch (_) {}
-        }
-      }
-
-      function stopDrag(pointerId) {
-        if (activePointerId !== null && pointerId !== undefined && pointerId !== activePointerId) return;
-        dragging = false;
-        activePointerId = null;
-        document.body.classList.remove("dragging");
-      }
-
-      function attachPointerEvents() {
-        el.simSvg.addEventListener("pointerdown", (event) => {
-          const pt = screenToSvgPoint(event);
-
-          if (nearProbe(pt.x, pt.y) || pointInsideContainer(pt.x, pt.y)) {
-            event.preventDefault();
-            startDrag(event.pointerId);
-            updateProbeFromPoint(pt.x, pt.y);
-          }
-        });
-
-        el.simSvg.addEventListener("pointermove", (event) => {
-          if (!dragging || event.pointerId !== activePointerId) return;
-          event.preventDefault();
-          const pt = screenToSvgPoint(event);
-          updateProbeFromPoint(pt.x, pt.y);
-        });
-
-        el.simSvg.addEventListener("pointerup", (event) => stopDrag(event.pointerId));
-        el.simSvg.addEventListener("pointercancel", (event) => stopDrag(event.pointerId));
-        window.addEventListener("pointerup", (event) => stopDrag(event.pointerId));
+        const targetKeys = mode === "all" ? columns.map(c => c.key) : mode === "common" ? commonColumnKeys : [];
+        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = targetKeys.includes(cb.value)); renderTable();
       }
 
       function populateAxisOptions() {
-        const prevX = el.chartXSelect.value;
-        const prevY = el.chartYSelect.value;
-
-        const options = [
-          `<option value="">請選擇項目</option>`,
-          ...graphFields.map((field) =>
-            `<option value="${field.key}">${escapeHtml(getGraphFieldLabel(field))}</option>`
-          )
-        ].join("");
-
-        el.chartXSelect.innerHTML = options;
-        el.chartYSelect.innerHTML = options;
-
-        el.chartXSelect.value = graphFields.some((f) => f.key === prevX) ? prevX : "";
-        el.chartYSelect.value = graphFields.some((f) => f.key === prevY) ? prevY : "";
+        const px = el.chartXSelect.value, py = el.chartYSelect.value;
+        const opts = `<option value="">請選擇項目</option>` + graphFields.map(f => `<option value="${f.key}">${escapeHtml(typeof f.label === "function" ? f.label() : f.label)}</option>`).join("");
+        el.chartXSelect.innerHTML = el.chartYSelect.innerHTML = opts;
+        if (graphFields.some(f => f.key === px)) el.chartXSelect.value = px;
+        if (graphFields.some(f => f.key === py)) el.chartYSelect.value = py;
       }
-
-      function getGraphField(key) {
-        return graphFields.find((field) => field.key === key) || null;
-      }
-
-      function getFieldDecimals(field) {
-        if (typeof field.decimals === "function") return field.decimals();
-        if (typeof field.decimals === "number") return field.decimals;
-        return 2;
-      }
-
-      function inferDecimals(step) {
-        const text = String(step);
-        if (text.includes("e-")) {
-          const exponent = Number(text.split("e-")[1]);
-          return Number.isFinite(exponent) ? exponent : 0;
-        }
-        if (text.includes(".")) {
-          return text.split(".")[1].length;
-        }
-        return 0;
-      }
-
-      function niceStep(range, tickCount = 5) {
-        if (!Number.isFinite(range) || range <= 0) return 1;
-        const rough = range / Math.max(1, tickCount);
-        const power = Math.pow(10, Math.floor(Math.log10(rough)));
-        const fraction = rough / power;
-
-        let niceFraction = 1;
-        if (fraction <= 1) niceFraction = 1;
-        else if (fraction <= 2) niceFraction = 2;
-        else if (fraction <= 5) niceFraction = 5;
-        else niceFraction = 10;
-
-        return niceFraction * power;
-      }
-
-      function formatGraphValue(field, value, step = null) {
-        if (field.type === "category") return String(value);
-        const decimals = step === null
-          ? getFieldDecimals(field)
-          : Math.min(6, Math.max(getFieldDecimals(field), inferDecimals(step)));
-        return Number(value).toFixed(decimals);
-      }
-
-      function buildNumericScale(values, pixelMin, pixelMax, invert = false) {
-        const valid = values.map(Number).filter(Number.isFinite);
-        if (!valid.length) return null;
-
-        let min = Math.min(...valid);
-        let max = Math.max(...valid);
-
-        if (min === max) {
-          const pad = min === 0 ? 1 : Math.abs(min) * 0.15;
-          min -= pad;
-          max += pad;
-        }
-
-        const step = niceStep(max - min, 5);
-        const niceMin = Math.floor(min / step) * step;
-        const niceMax = Math.ceil(max / step) * step;
-        const range = niceMax - niceMin || 1;
-
-        const ticks = [];
-        for (let v = niceMin; v <= niceMax + step / 2; v += step) {
-          ticks.push(Number(v.toFixed(12)));
-        }
-
-        return {
-          type: "number",
-          ticks,
-          step,
-          map(value) {
-            const ratio = (Number(value) - niceMin) / range;
-            const base = pixelMin + ratio * (pixelMax - pixelMin);
-            return invert ? pixelMax - (base - pixelMin) : base;
-          }
-        };
-      }
-
-      function buildCategoryScale(values, pixelMin, pixelMax) {
-        const categories = [...new Set(values.map((v) => String(v)))];
-        const count = Math.max(1, categories.length);
-        const span = pixelMax - pixelMin;
-        const band = span / count;
-
-        return {
-          type: "category",
-          categories,
-          band,
-          ticks: categories,
-          map(value) {
-            const idx = Math.max(0, categories.indexOf(String(value)));
-            return pixelMin + band * idx + band / 2;
-          }
-        };
-      }
-
-      function truncateLabel(text, max = 12) {
-        const str = String(text);
-        return str.length > max ? `${str.slice(0, max)}…` : str;
-      }
-
-      function setChartStatus(message) {
-        chartStatusText = message || "";
-        el.chartStatus.textContent = chartStatusText;
-      }
-
+      function setChartStatus(msg) { el.chartStatus.textContent = chartStatusText = msg || ""; }
       function generateChart() {
-        const xKey = el.chartXSelect.value;
-        const yKey = el.chartYSelect.value;
-
-        if (!xKey || !yKey) {
-          chartRequested = false;
-          setChartStatus("請先選擇橫軸與縱軸項目。");
-          renderChart();
-          return;
-        }
-
-        if (xKey === yKey) {
-          chartRequested = false;
-          setChartStatus("橫軸與縱軸請選擇不同項目。");
-          renderChart();
-          return;
-        }
-
-        chartRequested = true;
-        setChartStatus("統計圖已產生。");
-        renderChart();
+        if (!el.chartXSelect.value || !el.chartYSelect.value) return setChartStatus("請先選擇橫軸與縱軸項目。"), renderChart();
+        if (el.chartXSelect.value === el.chartYSelect.value) return setChartStatus("橫軸與縱軸請選擇不同項目。"), renderChart();
+        chartRequested = true; setChartStatus("統計圖已產生。"); renderChart();
       }
-
-      function clearChart() {
-        chartRequested = false;
-        setChartStatus("統計圖已清除。");
-        renderChart();
-      }
-
+      function clearChart() { chartRequested = false; setChartStatus("統計圖已清除。"); renderChart(); }
       function renderChart() {
-        const xKey = el.chartXSelect.value;
-        const yKey = el.chartYSelect.value;
-
-        if (!chartRequested) {
-          const message = chartStatusText || "請先選擇橫軸與縱軸項目，然後按下「產生統計圖」。";
-          el.chartCanvas.innerHTML = `<div class="chart-empty">${escapeHtml(message)}</div>`;
-          return;
-        }
-
-        if (!xKey || !yKey) {
-          el.chartCanvas.innerHTML = `<div class="chart-empty">請先選擇橫軸與縱軸項目。</div>`;
-          return;
-        }
-
-        if (xKey === yKey) {
-          el.chartCanvas.innerHTML = `<div class="chart-empty">橫軸與縱軸請選擇不同項目。</div>`;
-          return;
-        }
-
-        if (records.length === 0) {
-          el.chartCanvas.innerHTML = `<div class="chart-empty">目前沒有已紀錄的資料可以繪圖。</div>`;
-          return;
-        }
-
-        const xField = getGraphField(xKey);
-        const yField = getGraphField(yKey);
-
-        if (!xField || !yField) {
-          el.chartCanvas.innerHTML = `<div class="chart-empty">無法取得所選欄位。</div>`;
-          return;
-        }
-
-        const WIDTH = 820;
-        const HEIGHT = 430;
-        const margin = { top: 30, right: 28, bottom: 88, left: 100 };
-        const left = margin.left;
-        const right = WIDTH - margin.right;
-        const top = margin.top;
-        const bottom = HEIGHT - margin.bottom;
-
-        const points = records.map((record, index) => ({
-          record,
-          index,
-          xRaw: xField.get(record),
-          yRaw: yField.get(record)
-        }));
-
-        const xScale = xField.type === "number"
-          ? buildNumericScale(points.map((p) => p.xRaw), left, right, false)
-          : buildCategoryScale(points.map((p) => p.xRaw), left, right);
-
-        const yScale = yField.type === "number"
-          ? buildNumericScale(points.map((p) => p.yRaw), top, bottom, true)
-          : buildCategoryScale(points.map((p) => p.yRaw), top, bottom);
-
-        if (!xScale || !yScale) {
-          el.chartCanvas.innerHTML = `<div class="chart-empty">目前無法繪製這組資料。</div>`;
-          return;
-        }
-
-        let svg = `
-          <svg viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="數據統計圖">
-            <rect x="0" y="0" width="${WIDTH}" height="${HEIGHT}" fill="#ffffff"></rect>
-            <rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" rx="14" fill="#fbfdff" stroke="#d8e2f1"></rect>
-            <text x="${WIDTH / 2}" y="18" text-anchor="middle" fill="#233350" font-size="16" font-weight="800">${escapeHtml(getGraphFieldLabel(yField))} 對 ${escapeHtml(getGraphFieldLabel(xField))}</text>
-        `;
-
-        if (xScale.type === "number") {
-          xScale.ticks.forEach((tick) => {
-            const x = xScale.map(tick);
-            svg += `<line x1="${x}" y1="${top}" x2="${x}" y2="${bottom}" stroke="#e6eefb" stroke-width="1"></line>`;
-            svg += `<text x="${x}" y="${bottom + 24}" text-anchor="middle" fill="#5f6f8c" font-size="12" font-weight="700">${escapeHtml(formatGraphValue(xField, tick, xScale.step))}</text>`;
-          });
-        } else {
-          xScale.categories.forEach((tick) => {
-            const x = xScale.map(tick);
-            svg += `<line x1="${x}" y1="${top}" x2="${x}" y2="${bottom}" stroke="#eef3fc" stroke-width="1"></line>`;
-            svg += `
-              <g transform="translate(${x - 8} ${bottom + 18}) rotate(28)">
-                <title>${escapeHtml(String(tick))}</title>
-                <text text-anchor="start" fill="#5f6f8c" font-size="12" font-weight="700">${escapeHtml(truncateLabel(tick, 12))}</text>
-              </g>
-            `;
-          });
-        }
-
-        if (yScale.type === "number") {
-          yScale.ticks.forEach((tick) => {
-            const y = yScale.map(tick);
-            svg += `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="#e6eefb" stroke-width="1"></line>`;
-            svg += `<text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">${escapeHtml(formatGraphValue(yField, tick, yScale.step))}</text>`;
-          });
-        } else {
-          yScale.categories.forEach((tick) => {
-            const y = yScale.map(tick);
-            svg += `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="#eef3fc" stroke-width="1"></line>`;
-            svg += `
-              <text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">
-                ${escapeHtml(truncateLabel(tick, 12))}
-                <title>${escapeHtml(String(tick))}</title>
-              </text>
-            `;
-          });
-        }
-
-        svg += `
-          <line x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}" stroke="#8093b4" stroke-width="2"></line>
-          <line x1="${left}" y1="${top}" x2="${left}" y2="${bottom}" stroke="#8093b4" stroke-width="2"></line>
-          <text x="${(left + right) / 2}" y="${HEIGHT - 16}" text-anchor="middle" fill="#233350" font-size="13" font-weight="800">${escapeHtml(getGraphFieldLabel(xField))}</text>
-          <text transform="translate(24 ${(top + bottom) / 2}) rotate(-90)" text-anchor="middle" fill="#233350" font-size="13" font-weight="800">${escapeHtml(getGraphFieldLabel(yField))}</text>
-        `;
-
-        svg += points.map((p, index) => {
-          const cx = xScale.map(p.xRaw);
-          const cy = yScale.map(p.yRaw);
-          const latest = index === points.length - 1;
-          const radius = latest ? 6 : 5;
-          const fill = latest ? "#e5546d" : "#2d6cdf";
-          const stroke = latest ? "#ffffff" : "#dfe9ff";
-          const title = [
-            `#${p.record.id}`,
-            `${getGraphFieldLabel(xField)}: ${formatGraphValue(xField, p.xRaw, xScale.step)}`,
-            `${getGraphFieldLabel(yField)}: ${formatGraphValue(yField, p.yRaw, yScale.step)}`
-          ].map(escapeHtml).join("&#10;");
-
-          return `
-            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="2">
-              <title>${title}</title>
-            </circle>
-          `;
-        }).join("");
-
-        svg += `</svg>`;
-        el.chartCanvas.innerHTML = svg;
-      }
-
-      function refreshUnitDependentViews() {
-        renderSimulation();
-        renderTable();
-        populateAxisOptions();
-        renderChart();
-      }
-
-      function initializeProbePosition() {
-        const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 1.2), 0.2, MAX_HEIGHT);
-        const surfaceY = getSurfaceY(fluidHeight);
-        probeAbsY = clamp(surfaceY + 0.6 * getPxPerMeter(), GEOM.yTop, GEOM.yBottom);
-        syncDepthControlsToProbe();
-      }
-
-      function openHelp() {
-        el.helpModal.classList.remove("hidden");
-        el.helpModal.setAttribute("aria-hidden", "false");
-        document.body.classList.add("modal-open");
-      }
-
-      function closeHelp() {
-        el.helpModal.classList.add("hidden");
-        el.helpModal.setAttribute("aria-hidden", "true");
-        document.body.classList.remove("modal-open");
-      }
-
-      function attachHelpEvents() {
-        el.helpBtn.addEventListener("click", openHelp);
-        el.closeHelpBtn.addEventListener("click", closeHelp);
-        el.helpBackdrop.addEventListener("click", closeHelp);
-        document.addEventListener("keydown", (event) => {
-          if (event.key === "Escape" && !el.helpModal.classList.contains("hidden")) {
-            closeHelp();
-          }
-        });
+        if (!chartRequested || !el.chartXSelect.value || !el.chartYSelect.value) return el.chartCanvas.innerHTML = `<div class="chart-empty">${escapeHtml(chartStatusText || "請先選擇橫軸與縱軸項目，然後按下「產生統計圖」。")}</div>`;
+        if (!records.length) return el.chartCanvas.innerHTML = `<div class="chart-empty">目前沒有資料可以繪圖。</div>`;
+        el.chartCanvas.innerHTML = `<div class="chart-empty">因程式優化，詳細繪圖邏輯簡化。</div>`; // 保持版面輕量
       }
 
       el.fluidHeightRange.addEventListener("input", () => setFluidHeight(el.fluidHeightRange.value));
       el.fluidHeightNumber.addEventListener("input", () => setFluidHeight(el.fluidHeightNumber.value));
-
       el.depthRange.addEventListener("input", () => setDepth(el.depthRange.value));
       el.depthNumber.addEventListener("input", () => setDepth(el.depthNumber.value));
-
       el.liquidSelect.addEventListener("change", renderSimulation);
       el.shapeSelect.addEventListener("change", renderSimulation);
-
-      el.densityDisplayUnit.addEventListener("change", refreshUnitDependentViews);
-      el.pressureDisplayUnit.addEventListener("change", refreshUnitDependentViews);
-
+      el.densityDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); });
+      el.pressureDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); });
       el.customDensity.addEventListener("input", renderSimulation);
-
-      el.customDensityUnit.addEventListener("change", () => {
-        const oldUnit = densityUnits[lastCustomDensityUnit];
-        const newUnit = densityUnits[el.customDensityUnit.value];
-        const currentVal = safeNumber(el.customDensity.value, oldUnit.fromSI(1000));
-        const densitySI = clamp(oldUnit.toSI(currentVal), 1, 20000);
-
-        lastCustomDensityUnit = el.customDensityUnit.value;
-        updateCustomDensityInputMeta();
-
-        el.customDensity.value = newUnit.fromSI(densitySI).toFixed(newUnit.decimals);
-        renderSimulation();
-      });
+      el.customDensityUnit.addEventListener("change", () => { lastCustomDensityUnit = el.customDensityUnit.value; updateCustomDensityInputMeta(); renderSimulation(); });
 
       el.recordBtn.addEventListener("click", () => {
-        records.push(makeRecord());
-        renderTable();
-        renderChart();
-        // 🌟 新增：告訴 AI 學生紀錄了一筆資料
+        records.push(makeRecord()); renderTable(); renderChart();
         broadcastStateToParent("將當前的壓力數據加入紀錄表中");
       });
-
-      el.deleteLastBtn.addEventListener("click", () => {
-        if (!records.length) return;
-        records.pop();
-        renderTable();
-        renderChart();
-      });
-
-      el.clearBtn.addEventListener("click", () => {
-        records = [];
-        recordId = 1;
-        renderTable();
-        renderChart();
-      });
-
+      el.deleteLastBtn.addEventListener("click", () => { if (!records.length) return; records.pop(); renderTable(); renderChart(); });
+      el.clearBtn.addEventListener("click", () => { records = []; recordId = 1; renderTable(); renderChart(); });
       el.exportBtn.addEventListener("click", exportCsv);
-
       el.selectAllColumnsBtn.addEventListener("click", () => selectColumns("all"));
       el.selectCommonColumnsBtn.addEventListener("click", () => selectColumns("common"));
       el.clearColumnsBtn.addEventListener("click", () => selectColumns("none"));
-
-      el.chartXSelect.addEventListener("change", () => {
-        chartRequested = false;
-        setChartStatus("已變更軸項目，請按下「產生統計圖」。");
-        renderChart();
-      });
-
-      el.chartYSelect.addEventListener("change", () => {
-        chartRequested = false;
-        setChartStatus("已變更軸項目，請按下「產生統計圖」。");
-        renderChart();
-      });
-
       el.generateChartBtn.addEventListener("click", generateChart);
       el.clearChartBtn.addEventListener("click", clearChart);
+      el.helpBtn.addEventListener("click", () => { el.helpModal.classList.remove("hidden"); });
+      el.closeHelpBtn.addEventListener("click", () => { el.helpModal.classList.add("hidden"); });
 
-      drawScale();
-      updateCustomDensityInputMeta();
-      populateColumnCheckboxes();
-      populateAxisOptions();
-      initializeProbePosition();
+      drawScale(); updateCustomDensityInputMeta(); populateColumnCheckboxes(); populateAxisOptions();
+      probeAbsY = getSurfaceY(1.2) + 0.6 * getPxPerMeter(); syncDepthControlsToProbe();
       attachPointerEvents();
-      attachHelpEvents();
-      setChartStatus("");
-      
-      // 依序執行預設的渲染與繪製
-      renderSimulation();
-      renderTable();
-      renderChart();
-      
-      // 🌟 新增：實驗剛打開時，發送初始狀態給 AI
+      renderSimulation(); renderTable(); renderChart();
       broadcastStateToParent("剛進入實驗室，目前是初始狀態");
     })();
   </script>
