@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器｜RWD 響應式 AI 連動版</title>
+  <title>液體壓力互動模擬器｜AI 連動終極版</title>
   <style>
     :root{
       --bg:#eef4ff;
@@ -30,16 +30,11 @@
       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
       background:linear-gradient(180deg,#eff5ff 0%,#f9fbff 100%);
       color:var(--text);
-      overflow-x: hidden; /* 防止最外層出現水平卷軸 */
+      overflow-x: hidden;
     }
 
-    body.dragging{
-      cursor:grabbing;
-    }
-
-    body.modal-open{
-      overflow:hidden;
-    }
+    body.dragging{ cursor:grabbing; }
+    body.modal-open{ overflow:hidden; }
 
     .wrapper{
       width: 100%;
@@ -62,7 +57,7 @@
       align-items:flex-start;
       justify-content:space-between;
       gap:16px;
-      flex-wrap: wrap; /* 讓標題區適應小螢幕 */
+      flex-wrap: wrap;
     }
 
     .hero h1{
@@ -76,7 +71,6 @@
       line-height:1.7;
     }
 
-    /* 🌟 改良的 RWD 網格配置 */
     .top-layout{
       display:grid;
       grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.4fr);
@@ -86,24 +80,20 @@
     }
 
     @media (max-width: 980px) {
-      .top-layout {
-        grid-template-columns: 1fr; /* 螢幕空間不足時，自動改為上下排列 */
-      }
+      .top-layout { grid-template-columns: 1fr; }
     }
 
     .panel{
       background:var(--panel);
       border:1px solid var(--line);
       border-radius:var(--radius);
-      padding: clamp(12px, 2vw, 18px); /* 內距跟著螢幕微調 */
+      padding: clamp(12px, 2vw, 18px);
       box-shadow:var(--shadow);
       margin-bottom:16px;
       width: 100%;
     }
 
-    .panel:last-child{
-      margin-bottom:0;
-    }
+    .panel:last-child{ margin-bottom:0; }
 
     .section-title{
       display:flex;
@@ -114,15 +104,8 @@
       flex-wrap:wrap;
     }
 
-    .section-title h2{
-      margin:0;
-      font-size:1.15rem;
-    }
-
-    .sub-title{
-      margin:0 0 12px;
-      font-size:1rem;
-    }
+    .section-title h2{ margin:0; font-size:1.15rem; }
+    .sub-title{ margin:0 0 12px; font-size:1rem; }
 
     .badge{
       display:inline-flex;
@@ -153,14 +136,8 @@
       margin-bottom:12px;
     }
 
-    .control-group:last-child{
-      margin-bottom:0;
-    }
-
-    .control-group h3{
-      margin:0 0 12px;
-      font-size:1rem;
-    }
+    .control-group:last-child{ margin-bottom:0; }
+    .control-group h3{ margin:0 0 12px; font-size:1rem; }
 
     .field{
       display:grid;
@@ -168,20 +145,9 @@
       margin-bottom:12px;
     }
 
-    .field:last-child{
-      margin-bottom:0;
-    }
-
-    label{
-      font-weight:700;
-      font-size:.95rem;
-    }
-
-    .small{
-      font-size:.86rem;
-      color:var(--muted);
-      line-height:1.6;
-    }
+    .field:last-child{ margin-bottom:0; }
+    label{ font-weight:700; font-size:.95rem; }
+    .small{ font-size:.86rem; color:var(--muted); line-height:1.6; }
 
     select, input[type="number"]{
       width:100%;
@@ -193,9 +159,7 @@
       color:var(--text);
     }
 
-    input[type="range"]{
-      width:100%;
-    }
+    input[type="range"]{ width:100%; }
 
     .range-pair, .inline-pair{
       display:grid;
@@ -205,9 +169,7 @@
     }
 
     @media (max-width: 480px) {
-      .range-pair, .inline-pair {
-        grid-template-columns: 1fr; /* 手機螢幕時滑桿跟數字框上下分開 */
-      }
+      .range-pair, .inline-pair { grid-template-columns: 1fr; }
     }
 
     .metrics-row{
@@ -217,25 +179,16 @@
       overflow-x:auto;
       overflow-y:hidden;
       align-items:stretch;
-      padding-bottom:8px; /* 增加一點卷軸空間 */
+      padding-bottom:8px;
       -webkit-overflow-scrolling:touch;
       scrollbar-width:thin;
       scrollbar-color:#c9d6ea transparent;
       width: 100%;
     }
 
-    .metrics-row::-webkit-scrollbar{
-      height:8px;
-    }
-
-    .metrics-row::-webkit-scrollbar-track{
-      background:transparent;
-    }
-
-    .metrics-row::-webkit-scrollbar-thumb{
-      background:#c9d6ea;
-      border-radius:999px;
-    }
+    .metrics-row::-webkit-scrollbar{ height:8px; }
+    .metrics-row::-webkit-scrollbar-track{ background:transparent; }
+    .metrics-row::-webkit-scrollbar-thumb{ background:#c9d6ea; border-radius:999px; }
 
     .metric{
       background:#fbfdff;
@@ -244,7 +197,7 @@
       padding:14px;
       min-height:88px;
       flex:0 0 auto;
-      min-width:160px; /* 縮小一點以適應更多卡片 */
+      min-width:160px;
       white-space:nowrap;
     }
 
@@ -264,11 +217,7 @@
       word-break:normal;
     }
 
-    .record-config-wrap{
-      display:grid;
-      gap:14px;
-    }
-
+    .record-config-wrap{ display:grid; gap:14px; }
     .wide-checkboxes{
       display:grid;
       grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
@@ -288,23 +237,9 @@
       line-height:1.45;
     }
 
-    .check-item input{
-      margin-top:3px;
-      flex:0 0 auto;
-    }
-
-    .record-toolbar{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:space-between;
-      gap:12px;
-    }
-
-    .toolbar-group{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
+    .check-item input{ margin-top:3px; flex:0 0 auto; }
+    .record-toolbar{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
+    .toolbar-group{ display:flex; flex-wrap:wrap; gap:8px; }
 
     button{
       border:none;
@@ -316,14 +251,8 @@
       transition:.2s transform,.2s filter,.2s background;
     }
 
-    button:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.02);
-    }
-
-    button:active{
-      transform:translateY(0);
-    }
+    button:hover{ transform:translateY(-1px); filter:brightness(1.02); }
+    button:active{ transform:translateY(0); }
 
     .btn-primary{ background:var(--primary); color:#fff; }
     .btn-secondary{ background:#eaf1ff; color:var(--primary-2); border:1px solid #cfe0ff; }
@@ -347,7 +276,7 @@
       -webkit-user-select:none;
     }
 
-    .hidden{ display:none; }
+    .hidden{ display:none !important; }
 
     .sub-panel{
       border:1px solid var(--line);
@@ -360,14 +289,13 @@
 
     .chart-toolbar{
       display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); /* RWD 自適應下拉與按鈕 */
+      grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
       gap:12px;
       align-items:end;
       margin-bottom:10px;
     }
 
     .chart-status{ margin-bottom:12px; min-height:22px; font-weight:700; }
-
     .chart-shell{
       border:1px solid var(--line);
       border-radius:14px;
@@ -379,7 +307,6 @@
       justify-content:center;
     }
 
-    /* 確保表格可以在小空間內左右滑動 */
     .table-wrap{
       overflow-x:auto;
       border:1px solid var(--line);
@@ -392,7 +319,7 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width: max-content; /* 確保內容不會被擠到換行 */
+      min-width: max-content;
       background:#fff;
     }
 
@@ -415,7 +342,7 @@
     tbody tr.latest{ background:#eef7ff; }
     .empty-cell{ text-align:center; color:var(--muted); padding:24px; }
 
-    /* 🌟 新增：右鍵說明提示框的樣式 */
+    /* 🌟 右鍵說明提示框的樣式 */
     .eq-tooltip {
       position: absolute;
       background: rgba(31, 42, 68, 0.95);
@@ -446,7 +373,7 @@
       opacity: 0;
       pointer-events: none;
     }
-    /* 讓游標移到儀器上時變成問號 */
+
     #meterGroup, #probeGroup, #liquidRect { cursor: help; }
 
     /* Modal 樣式防破版 */
@@ -459,9 +386,25 @@
     .modal-card{
       position:relative; width:min(920px, 100%); max-height:calc(100vh - 40px);
       overflow:auto; background:#fff; border-radius:20px;
-      padding:20px;
+      padding:20px; z-index:1001;
+      box-shadow: 0 20px 50px rgba(18,29,51,.22);
     }
-    .modal-head{ display:flex; justify-content:space-between; margin-bottom:12px; }
+    .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .help-content{
+      display:grid;
+      gap:14px;
+      color:var(--text);
+      line-height:1.75;
+    }
+    .help-block{
+      border:1px solid var(--line);
+      background:#fbfdff;
+      border-radius:14px;
+      padding:14px;
+    }
+    .help-block h3{ margin:0 0 8px; font-size:1rem; }
+    .help-block ul{ margin:0; padding-left:1.2rem; }
+    .help-block li{ margin:4px 0; }
   </style>
 </head>
 <body>
@@ -701,7 +644,46 @@
         <h2 id="helpTitle">使用說明</h2>
         <button type="button" class="btn-secondary" id="closeHelpBtn">關閉</button>
       </div>
+      <div class="help-content">
+        <div class="help-block">
+          <h3>1. 這個模擬器可以做什麼</h3>
+          <ul>
+            <li>切換不同液體與容器形狀。</li>
+            <li>調整液面高度與探頭位置，觀察壓力變化。</li>
+            <li>切換密度與壓力的顯示單位。</li>
+            <li>自行決定要記錄哪些欄位，再把資料加入表格。</li>
+            <li>從已記錄的資料中，自選兩個欄位繪製統計圖。</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <h3>2. 怎麼操作探頭</h3>
+          <ul>
+            <li>直接拖曳模擬圖中的紅色探頭即可改變測量位置。</li>
+            <li>也可以用左側的「測量深度」控制項精準輸入。</li>
+            <li>調整液面高度時，探頭會維持原本的絕對位置，不會跟著一起上下移動。</li>
+            <li>壓力計的導線會固定從壓力計出發，繞過容器上方，再接到探頭。</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <h3>3. 資料紀錄方式</h3>
+          <ul>
+            <li>先在「決定要紀錄哪些數據」中勾選欄位。</li>
+            <li>按下「加入紀錄」後，會把當前狀態存成一筆資料。</li>
+            <li>可以刪除最後一筆、清空全部，或匯出成 CSV 檔。</li>
+            <li>資料表顯示哪些欄位，會跟你勾選的項目一致。</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <h3>4. 統計圖怎麼用</h3>
+          <ul>
+            <li>先從下方選擇橫軸與縱軸欄位。</li>
+            <li>選好之後按「產生統計圖」，圖表才會顯示。</li>
+            <li>如果改了軸項目，需要再按一次「產生統計圖」。</li>
+            <li>目前圖表只顯示資料點，不會自動連線，也不會加入擬合曲線。</li>
+          </ul>
+        </div>
       </div>
+    </div>
   </div>
 
   <script>
@@ -835,6 +817,9 @@
       let dragging = false; let activePointerId = null;
       let lastCustomDensityUnit = el.customDensityUnit.value;
       let chartRequested = false; let chartStatusText = "";
+      
+      // 🌟 初始化狀態旗標，防止連環廣播
+      let isSimInitialized = false;
 
       function getCurrentDensityDisplayUnit() { return densityUnits[el.densityDisplayUnit.value]; }
       function getCurrentPressureDisplayUnit() { return pressureUnits[el.pressureDisplayUnit.value]; }
@@ -974,10 +959,14 @@
         el.metricAbsoluteLabel.textContent = `絕對壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
         
         el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
-        broadcastStateToParent("移動探頭或更改了實驗設定");
+        
+        // 🌟 只有在初始化完成後，一般的畫面更新才廣播
+        if (isSimInitialized) {
+          broadcastStateToParent("移動探頭或更改了實驗設定");
+        }
       }
 
-      // 🌟 新增：攔截滑鼠右鍵並顯示提示框
+      // 🌟 攔截滑鼠右鍵並顯示提示框
       function attachPointerEvents() {
         el.simSvg.addEventListener("pointerdown", (e) => {
           if (e.button === 2) return; // 忽略右鍵
@@ -1017,12 +1006,18 @@
             tooltip.style.left = e.pageX + "px";
             tooltip.style.top = e.pageY + "px";
             tooltip.classList.remove("hidden");
-            broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
+            
+            // 點擊右鍵也要廣播
+            if (isSimInitialized) {
+              broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
+            }
           }
         });
 
         window.addEventListener("click", () => {
-          if (!tooltip.classList.contains("hidden")) tooltip.classList.add("hidden");
+          if (tooltip && !tooltip.classList.contains("hidden")) {
+             tooltip.classList.add("hidden");
+          }
         });
       }
 
@@ -1110,7 +1105,7 @@
 
       el.recordBtn.addEventListener("click", () => {
         records.push(makeRecord()); renderTable(); renderChart();
-        broadcastStateToParent("將當前的壓力數據加入紀錄表中");
+        if (isSimInitialized) broadcastStateToParent("將當前的壓力數據加入紀錄表中");
       });
       el.deleteLastBtn.addEventListener("click", () => { if (!records.length) return; records.pop(); renderTable(); renderChart(); });
       el.clearBtn.addEventListener("click", () => { records = []; recordId = 1; renderTable(); renderChart(); });
@@ -1120,13 +1115,28 @@
       el.clearColumnsBtn.addEventListener("click", () => selectColumns("none"));
       el.generateChartBtn.addEventListener("click", generateChart);
       el.clearChartBtn.addEventListener("click", clearChart);
-      el.helpBtn.addEventListener("click", () => { el.helpModal.classList.remove("hidden"); });
-      el.closeHelpBtn.addEventListener("click", () => { el.helpModal.classList.add("hidden"); });
+      
+      // 🌟 修復 Modal 開關邏輯
+      el.helpBtn.addEventListener("click", () => { 
+        el.helpModal.classList.remove("hidden"); 
+        document.body.classList.add("modal-open");
+      });
+      el.closeHelpBtn.addEventListener("click", () => { 
+        el.helpModal.classList.add("hidden"); 
+        document.body.classList.remove("modal-open");
+      });
+      el.helpBackdrop.addEventListener("click", () => { 
+        el.helpModal.classList.add("hidden"); 
+        document.body.classList.remove("modal-open");
+      });
 
       drawScale(); updateCustomDensityInputMeta(); populateColumnCheckboxes(); populateAxisOptions();
       probeAbsY = getSurfaceY(1.2) + 0.6 * getPxPerMeter(); syncDepthControlsToProbe();
       attachPointerEvents();
       renderSimulation(); renderTable(); renderChart();
+      
+      // 🌟 開啟開關：標記初始化已完成，並發送第一聲廣播
+      isSimInitialized = true; 
       broadcastStateToParent("剛進入實驗室，目前是初始狀態");
     })();
   </script>
