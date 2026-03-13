@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器</title>
+  <title>液體壓力互動模擬器o</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -229,7 +229,7 @@
     .eq-tooltip.hidden { opacity: 0; pointer-events: none; }
     #meterGroup, #probeGroup, #liquidRect { cursor: help; }
 
-    /* 🌟 歸零按鈕的互動效果 */
+    /* 歸零按鈕的互動效果 */
     #zeroBtnGroup .btn-rect { transition: fill 0.2s; }
     #zeroBtnGroup:hover .btn-rect { fill: #e2e8f0; }
     #zeroBtnGroup:active .btn-rect { fill: #cbd5e1; }
@@ -648,12 +648,9 @@
         gaugeCable: document.getElementById("gaugeCable"),
         gaugeCableHighlight: document.getElementById("gaugeCableHighlight"),
         probeGroup: document.getElementById("probeGroup"),
-        
-        // 🌟 更新 UI 節點
         meterValue: document.getElementById("meterValue"),
         meterUnit: document.getElementById("meterUnit"),
         zeroBtnGroup: document.getElementById("zeroBtnGroup"),
-
         svgTitle: document.getElementById("svgTitle"),
         svgSubTitle: document.getElementById("svgSubTitle"),
         helpBtn: document.getElementById("helpBtn"),
@@ -669,7 +666,6 @@
       let chartRequested = false; let chartStatusText = "";
       let isSimInitialized = false;
 
-      // 🌟 新增：歸零偏移量 (單位: Pa)
       let zeroOffsetPa = 0;
 
       function getCurrentDensityDisplayUnit() { return densityUnits[el.densityDisplayUnit.value]; }
@@ -749,10 +745,11 @@
         return { liquid, shapeKey, shapeName: shapes[shapeKey], fluidHeight, surfaceY, depth, distFromBottom, submerged, gaugePressure, absolutePressure };
       }
 
-      function broadcastStateToParent(actionName = "更新了實驗參數") {
+      // 廣播函式 (此處不再接收預設的空字串事件)
+      function broadcastStateToParent(actionName) {
+        if (!actionName) return; 
         try {
           const state = getCurrentState();
-          // 廣播給小 T 知道的是「學生儀表板目前看到的讀數」
           const displayedValueStr = formatPressureDisplay(state.absolutePressure - zeroOffsetPa);
           window.parent.postMessage({
             type: 'SIMULATION_STATE',
@@ -844,7 +841,6 @@
         el.bottomDistText.setAttribute("y", (geo.probeY + GEOM.yBottom) / 2 + 5);
         el.bottomDistText.textContent = `d = ${probeToBottomCm} cm`;
 
-        // 🌟 更新：壓力計畫面計算與顯示
         const displayedPressurePa = state.absolutePressure - zeroOffsetPa;
         el.meterValue.textContent = formatPressureNumber(displayedPressurePa);
         el.meterUnit.textContent = getCurrentPressureDisplayUnit().label;
@@ -861,9 +857,7 @@
         
         el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
         
-        if (isSimInitialized) {
-          broadcastStateToParent("移動探頭或更改了實驗設定");
-        }
+        // 注意：這裡已經刪除了會瘋狂洗版 AI 的廣播
       }
 
       function attachPointerEvents() {
@@ -919,7 +913,6 @@
           if (tooltip && !tooltip.classList.contains("hidden")) tooltip.classList.add("hidden");
         });
         
-        // 🌟 綁定歸零按鈕事件
         el.zeroBtnGroup.addEventListener("click", () => {
           const state = getCurrentState();
           zeroOffsetPa = state.absolutePressure;
@@ -946,7 +939,17 @@
         syncDepthControlsToProbe(); renderSimulation();
       }
       function startDrag(pid) { dragging = true; activePointerId = pid; document.body.classList.add("dragging"); if (el.simSvg.setPointerCapture) try { el.simSvg.setPointerCapture(pid); } catch (_) {} }
-      function stopDrag(pid) { if (activePointerId !== null && pid !== undefined && pid !== activePointerId) return; dragging = false; activePointerId = null; document.body.classList.remove("dragging"); }
+      
+      // 🌟 精準廣播：只有在拖曳真的結束時，才發送「一次」廣播
+      function stopDrag(pid) { 
+        if (activePointerId !== null && pid !== undefined && pid !== activePointerId) return; 
+        let wasDragging = dragging;
+        dragging = false; activePointerId = null; document.body.classList.remove("dragging"); 
+        
+        if (wasDragging && isSimInitialized) {
+          broadcastStateToParent("拖曳移動了測量探頭");
+        }
+      }
 
       function getColumnLabel(col) { return typeof col.label === "function" ? col.label() : col.label; }
       function updateColumnCheckboxLabels() { columns.forEach(col => { const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`); if (ls) ls.textContent = getColumnLabel(col); }); }
@@ -1095,16 +1098,38 @@
         }
       }
 
+      // ==========================================
+      // 🌟 這裡負責每一項 UI 變動時的「精準廣播」
+      // ==========================================
       el.fluidHeightRange.addEventListener("input", () => setFluidHeight(el.fluidHeightRange.value));
+      el.fluidHeightRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("拉動滑桿調整了液面高度"); });
+
       el.fluidHeightNumber.addEventListener("input", () => setFluidHeight(el.fluidHeightNumber.value));
+      el.fluidHeightNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("輸入數值調整了液面高度"); });
+
       el.depthRange.addEventListener("input", () => setDepth(el.depthRange.value));
+      el.depthRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("拉動滑桿調整了探頭深度"); });
+
       el.depthNumber.addEventListener("input", () => setDepth(el.depthNumber.value));
-      el.liquidSelect.addEventListener("change", renderSimulation);
-      el.shapeSelect.addEventListener("change", renderSimulation);
-      el.densityDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); });
-      el.pressureDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); });
+      el.depthNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("輸入數值調整了探頭深度"); });
+
+      el.liquidSelect.addEventListener("change", () => { 
+        renderSimulation(); 
+        if(isSimInitialized) broadcastStateToParent(`將液體種類切換為「${el.liquidSelect.options[el.liquidSelect.selectedIndex].text}」`); 
+      });
+      
+      el.shapeSelect.addEventListener("change", () => { 
+        renderSimulation(); 
+        if(isSimInitialized) broadcastStateToParent(`將容器形狀切換為「${el.shapeSelect.options[el.shapeSelect.selectedIndex].text}」`); 
+      });
+
+      el.densityDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); if(isSimInitialized) broadcastStateToParent("切換了密度顯示單位"); });
+      el.pressureDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); if(isSimInitialized) broadcastStateToParent("切換了壓力顯示單位"); });
+      
       el.customDensity.addEventListener("input", renderSimulation);
-      el.customDensityUnit.addEventListener("change", () => { lastCustomDensityUnit = el.customDensityUnit.value; updateCustomDensityInputMeta(); renderSimulation(); });
+      el.customDensity.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("更改了自訂液體的密度數值"); });
+      
+      el.customDensityUnit.addEventListener("change", () => { lastCustomDensityUnit = el.customDensityUnit.value; updateCustomDensityInputMeta(); renderSimulation(); if(isSimInitialized) broadcastStateToParent("切換了自訂密度的單位"); });
 
       el.recordBtn.addEventListener("click", () => {
         records.push(makeRecord()); renderTable(); renderChart();
@@ -1130,7 +1155,7 @@
       renderSimulation(); renderTable(); renderChart();
       
       isSimInitialized = true; 
-      broadcastStateToParent("我們剛走進一間設備齊全的流體力學實驗室。實驗桌正中央擺著一個大型透明容器（可切換直筒形、上寬下窄、上窄下寬、中間較寬等形狀），旁邊備有多種實驗液體（包含水、鹽水、植物油、酒精、甘油、水銀，甚至可自訂密度）。桌上架設了一台專屬的『數位探針壓力計』，帶有紅色的感測探頭，能夠垂降到液體中精準測量不同深度的壓力。此外，實驗桌下方還配備了專業的資料收集系統，可以隨時將測量到的各項數據加入紀錄表，並能自由選擇變數來繪製數據統計圖。目前一切設備皆處於初始就緒狀態，尚未開始任何測量。");
+      broadcastStateToParent("我們剛走進一間設備齊全的流體力學實驗室。實驗桌正中央擺著一個大型透明容器（可切換直筒形、上寬下窄、上窄下寬、中間較寬等形狀），旁邊備有多種實驗液體（包含水、鹽水、植物油、酒精、甘油、水銀，甚至可自訂密度）。桌上架設了一台專屬的『數位壓力計』，帶有紅色的感測探頭，能夠垂降到液體中精準測量不同深度的壓力。此外，實驗桌下方還配備了專業的資料收集系統，可以隨時將測量到的各項數據加入紀錄表，並能自由選擇變數來繪製數據統計圖。目前一切設備皆處於初始就緒狀態，尚未開始任何測量。");
     })();
   </script>
 </body>
