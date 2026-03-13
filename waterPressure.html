@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>液體壓力互動模擬器p</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <style>
     :root{
       --bg:#eef4ff;
@@ -449,7 +451,7 @@
             <button type="button" class="btn-primary" id="recordBtn">加入紀錄</button>
             <button type="button" class="btn-secondary" id="deleteLastBtn">刪除最後一筆</button>
             <button type="button" class="btn-danger" id="clearBtn">清空全部</button>
-            <button type="button" class="btn-success" id="exportBtn">匯出 CSV</button>
+            <button type="button" class="btn-success" id="exportBtn">匯出EXCEL報告</button>
           </div>
         </div>
       </div>
@@ -996,11 +998,59 @@
         };
       }
 
-      function exportCsv() {
+     // 🌟 全新升級：匯出包含數據與圖表的 Excel 檔案
+      async function exportExcel() {
         const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
-        if (!records.length) return;
-        const csv = "\ufeff" + [`"${sc.map(c => getColumnLabel(c)).join('","')}"`, ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)].join("\n");
-        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = `液體壓力紀錄_${Date.now()}.csv`; a.click();
+        if (!records.length) {
+          alert("請先將數據「加入紀錄」後，才能匯出報告喔！");
+          return;
+        }
+
+        // 1. 建立 Excel 工作簿與工作表
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('實驗紀錄表');
+
+        // 2. 寫入標題列
+        ws.addRow(sc.map(c => getColumnLabel(c)));
+        
+        // 標題列粗體與底色設定
+        ws.getRow(1).font = { bold: true };
+        ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5EDF8' } };
+
+        // 3. 寫入實驗數據
+        records.forEach(r => {
+          ws.addRow(sc.map(c => c.get(r)));
+        });
+
+        // 調整欄寬讓畫面好看一點
+        ws.columns.forEach(column => { column.width = 18; });
+
+        // 4. 如果畫面上已經有產生統計圖，就把圖表也塞進 Excel 裡
+        if (myChart) {
+          const canvas = document.getElementById('pressureChart');
+          const imgData = canvas.toDataURL('image/png'); // 把圖表轉成圖片
+          
+          const imageId = wb.addImage({
+            base64: imgData,
+            extension: 'png',
+          });
+          
+          // 把圖片放在數據表的下方 (保留兩行空白)
+          ws.addImage(imageId, {
+            tl: { col: 0, row: records.length + 2 },
+            ext: { width: 600, height: 350 }
+          });
+        }
+
+        // 5. 觸發下載檔案
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `流體壓力實驗報告_${Date.now()}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
       }
 
       function selectColumns(mode) {
@@ -1136,7 +1186,7 @@
       });
       el.deleteLastBtn.addEventListener("click", () => { if (!records.length) return; records.pop(); renderTable(); renderChart(); });
       el.clearBtn.addEventListener("click", () => { records = []; recordId = 1; renderTable(); renderChart(); });
-      el.exportBtn.addEventListener("click", exportCsv);
+      el.exportBtn.addEventListener("click", exportExcel);
       el.selectAllColumnsBtn.addEventListener("click", () => selectColumns("all"));
       el.selectCommonColumnsBtn.addEventListener("click", () => selectColumns("common"));
       el.clearColumnsBtn.addEventListener("click", () => selectColumns("none"));
