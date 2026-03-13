@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器x</title>
+  <title>液體壓力互動模擬器</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -63,11 +63,11 @@
     .hero p{ margin:0; color:var(--muted); line-height:1.7; }
 
     /* 🌟 修改點 1：調整左右比例，左側最寬限制在 320px，讓右邊模擬區變大 */
-    .top-layout{
+.top-layout{
       display:grid;
       grid-template-columns: minmax(260px, 320px) 1fr;
       gap:16px;
-      align-items:start;
+      align-items:stretch; /* 🌟 關鍵：將 start 改為 stretch，讓左右等高 */
       margin-bottom:16px;
     }
 
@@ -83,6 +83,8 @@
       box-shadow:var(--shadow);
       margin-bottom:16px;
       width: 100%;
+      display: flex;           /* 🌟 讓面板內容可以使用彈性排版 */
+      flex-direction: column;  /* 🌟 讓內容由上往下排 */
     }
 
     .panel:last-child{ margin-bottom:0; }
@@ -154,17 +156,11 @@
       .range-pair, .inline-pair { grid-template-columns: 1fr; }
     }
 
-    .metrics-row{
+.metrics-row{
       display:flex;
-      flex-wrap:nowrap;
-      gap:12px;
-      overflow-x:auto;
-      overflow-y:hidden;
+      flex-wrap:wrap; /* 允許換行 */
+      gap:8px;        /* 縮小卡片之間的間距 */
       align-items:stretch;
-      padding-bottom:8px;
-      -webkit-overflow-scrolling:touch;
-      scrollbar-width:thin;
-      scrollbar-color:#c9d6ea transparent;
       width: 100%;
     }
 
@@ -172,19 +168,19 @@
     .metrics-row::-webkit-scrollbar-track{ background:transparent; }
     .metrics-row::-webkit-scrollbar-thumb{ background:#c9d6ea; border-radius:999px; }
 
+/* 🌟 讓數據卡片變得更緊湊 */
     .metric{
       background:#fbfdff;
       border:1px solid var(--line);
-      border-radius:14px;
-      padding:14px;
-      min-height:88px;
-      flex:0 0 auto;
-      min-width:160px;
+      border-radius:10px; /* 縮小圓角 */
+      padding:10px 12px;  /* 縮小內距 */
+      min-height:auto;    /* 移除原本的固定高度 */
+      flex:1 1 130px;     /* 自動分配寬度，最小不低於130px */
       white-space:nowrap;
     }
 
-    .metric .metric-label{ display:block; color:var(--muted); font-size:.88rem; margin-bottom:6px; white-space:nowrap; }
-    .metric strong{ font-size:1.02rem; line-height:1.4; display:block; white-space:nowrap; }
+    .metric .metric-label{ display:block; color:var(--muted); font-size:.82rem; margin-bottom:4px; white-space:nowrap; }
+    .metric strong{ font-size:.98rem; line-height:1.2; display:block; white-space:nowrap; }
 
     .record-config-wrap{ display:grid; gap:14px; }
     .wide-checkboxes{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
@@ -201,7 +197,17 @@
     .btn-danger{ background:#ffecef; color:#b32b45; border:1px solid #ffc8d2; }
     .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
 
-    .svg-shell{ background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%); border:1px solid var(--line); border-radius:18px; padding:10px; width: 100%; }
+.svg-shell{ 
+      background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%); 
+      border:1px solid var(--line); 
+      border-radius:18px; 
+      padding:10px; 
+      width: 100%; 
+      flex: 1; /* 🌟 關鍵：讓模擬圖填滿面板剩餘的垂直空間 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     svg{ width:100%; height:auto; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
     .hidden{ display:none !important; }
 
