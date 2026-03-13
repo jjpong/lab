@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器3</title>
+  <title>液體壓力互動模擬器</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -229,6 +229,11 @@
     .eq-tooltip.hidden { opacity: 0; pointer-events: none; }
     #meterGroup, #probeGroup, #liquidRect { cursor: help; }
 
+    /* 🌟 歸零按鈕的互動效果 */
+    #zeroBtnGroup .btn-rect { transition: fill 0.2s; }
+    #zeroBtnGroup:hover .btn-rect { fill: #e2e8f0; }
+    #zeroBtnGroup:active .btn-rect { fill: #cbd5e1; }
+    
     .modal{ position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center; padding:18px; }
     .modal-backdrop{ position:absolute; inset:0; background:rgba(18,29,51,0.48); }
     .modal-card{ position:relative; width:min(920px, 100%); max-height:calc(100vh - 40px); overflow:auto; background:#fff; border-radius:20px; padding:20px; z-index:1001; box-shadow: 0 20px 50px rgba(18,29,51,.22); }
@@ -377,19 +382,27 @@
 
             <path id="gaugeCable" d="" fill="none" stroke="#42526e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
             <path id="gaugeCableHighlight" d="" fill="none" stroke="#92a0b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"></path>
+            
             <g id="meterGroup" filter="url(#softShadow)">
               <rect x="390" y="82" width="190" height="158" rx="24" fill="url(#meterBodyGradient)" stroke="#162033" stroke-width="2"></rect>
               <rect x="410" y="116" width="150" height="84" rx="14" fill="url(#screenGradient)" stroke="#56b48b" stroke-width="2"></rect>
-              <text x="485" y="104" text-anchor="middle" fill="#eef5ff" font-size="14" font-weight="800">數位探針壓力計</text>
-              <text x="426" y="136" fill="#1f5b45" font-size="12" font-weight="800">液壓</text>
-              <text id="meterValue" x="426" y="168" fill="#103d2f" font-size="30" font-weight="900" font-family="ui-monospace, monospace">60.00</text>
-              <text id="meterUnit" x="426" y="188" fill="#1f5b45" font-size="14" font-weight="800">gw/cm²</text>
-              <text id="meterSub" x="426" y="210" fill="#d8e5ff" font-size="12" font-weight="700">絕對 1093.52 gw/cm²</text>
-              <text id="meterDepth" x="426" y="228" fill="#d8e5ff" font-size="12" font-weight="700">h = 60 cm</text>
+              
+              <text x="485" y="104" text-anchor="middle" fill="#eef5ff" font-size="14" font-weight="800">數位壓力計</text>
+              <text x="485" y="140" text-anchor="middle" fill="#1f5b45" font-size="12" font-weight="800">壓力讀數</text>
+              
+              <text id="meterValue" x="485" y="172" text-anchor="middle" fill="#103d2f" font-size="30" font-weight="900" font-family="ui-monospace, monospace">1093.52</text>
+              <text id="meterUnit" x="485" y="190" text-anchor="middle" fill="#1f5b45" font-size="13" font-weight="800">gw/cm²</text>
+              
               <circle cx="413" cy="224" r="7" fill="#121b2d" stroke="#8594ac" stroke-width="2"></circle>
               <circle cx="560" cy="103" r="6" fill="#f15b6c"></circle>
               <circle cx="543" cy="103" r="6" fill="#ffd166"></circle>
+
+              <g id="zeroBtnGroup" transform="translate(450, 206)" style="cursor:pointer;" role="button">
+                <rect width="70" height="26" rx="13" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" class="btn-rect"></rect>
+                <text x="35" y="17" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">TARE 歸零</text>
+              </g>
             </g>
+
             <g id="probeGroup" transform="translate(200 300)">
               <circle id="probeHit" cx="0" cy="0" r="28" fill="transparent"></circle>
               <line x1="0" y1="-34" x2="0" y2="-12" stroke="#3d4a64" stroke-width="8" stroke-linecap="round"></line>
@@ -413,7 +426,8 @@
         <div class="metric"><span class="metric-label">容器形狀</span><strong id="metricShape">直筒形</strong></div>
         <div class="metric"><span class="metric-label">液面高度</span><strong id="metricFluidHeight">120 cm</strong></div>
         <div class="metric"><span class="metric-label" id="metricDensityLabel">液體密度（g/cm³）</span><strong id="metricDensity">1.000</strong></div>
-        <div class="metric"><span class="metric-label">測量深度</span><strong id="metricDepth">60 cm</strong></div>
+        <div class="metric"><span class="metric-label">測量深度 h</span><strong id="metricDepth">60 cm</strong></div>
+        <div class="metric"><span class="metric-label">距底高度 d</span><strong id="metricBottomDist">60 cm</strong></div>
         <div class="metric"><span class="metric-label" id="metricGaugeLabel">液壓（gw/cm²）</span><strong id="metricGauge">60.00</strong></div>
         <div class="metric"><span class="metric-label" id="metricAbsoluteLabel">總壓力（gw/cm²）</span><strong id="metricAbsolute">1093.52</strong></div>
       </div>
@@ -481,13 +495,11 @@
       </div>
       <div class="help-content">
         <div class="help-block">
-          <h3>1. 這個模擬器可以做什麼</h3>
+          <h3>1. 數位壓力計操作方式</h3>
           <ul>
-            <li>切換不同液體與容器形狀。</li>
-            <li>調整液面高度與探頭位置，觀察壓力變化。</li>
-            <li>切換密度與壓力的顯示單位。</li>
-            <li>自行決定要記錄哪些欄位，再把資料加入表格。</li>
-            <li>從已記錄的資料中，自選兩個欄位繪製統計圖。</li>
+            <li>壓力計只會顯示單一的壓力讀數。</li>
+            <li>在空氣中測量時，按下壓力計上的【TARE 歸零】按鈕，可扣除大氣壓力。</li>
+            <li>正確歸零後，放進液體中測量到的就是純粹的「液體壓力」。</li>
           </ul>
         </div>
         <div class="help-block">
@@ -495,17 +507,14 @@
           <ul>
             <li>直接拖曳模擬圖中的紅色探頭即可改變測量位置。</li>
             <li>也可以用左側的「測量深度」控制項精準輸入。</li>
-            <li>調整液面高度時，探頭會維持原本的絕對位置，不會跟著一起上下移動。</li>
-            <li>壓力計的導線會固定從壓力計出發，繞過容器上方，再接到探頭。</li>
           </ul>
         </div>
         <div class="help-block">
           <h3>3. 資料紀錄方式</h3>
           <ul>
             <li>先在「決定要紀錄哪些數據」中勾選欄位。</li>
-            <li>按下「加入紀錄」後，會把當前狀態存成一筆資料。</li>
-            <li>可以刪除最後一筆、清空全部，或匯出成 CSV 檔。</li>
-            <li>資料表顯示哪些欄位，會跟你勾選的項目一致。</li>
+            <li>按下「加入紀錄」後，會把當前狀態存成一筆資料（資料表會忠實記錄理論總壓力與液壓，不受亂按歸零影響）。</li>
+            <li>💡 <b>橫軸與縱軸選單，只會顯示你有勾選的資料欄位喔！</b></li>
           </ul>
         </div>
         <div class="help-block">
@@ -513,7 +522,6 @@
           <ul>
             <li>先從下方選擇橫軸與縱軸欄位。</li>
             <li>選好之後按「產生統計圖」，圖表才會顯示。</li>
-            <li>如果改了軸項目，需要再按一次「產生統計圖」。</li>
           </ul>
         </div>
       </div>
@@ -522,7 +530,7 @@
 
   <script>
     (() => {
-      // 內部物理計算依然維持使用公尺 (m)，以確保公式 p = rho * g * h 的正確性
+      // 內部物理計算依然維持使用公尺 (m)
       const MAX_HEIGHT = 2.0; 
       const G = 9.8;
       const ATM_PRESSURE = 101325;
@@ -564,19 +572,22 @@
         { key: "shape", label: () => "容器形狀", get: r => r.shapeName },
         { key: "fluidHeight", label: () => "液面（cm）", get: r => (r.fluidHeight * 100).toFixed(0) },
         { key: "depth", label: () => "深度 h（cm）", get: r => (r.depth * 100).toFixed(0) },
+        { key: "distFromBottom", label: () => "距底高度 d（cm）", get: r => (r.distFromBottom * 100).toFixed(0) },
         { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, get: r => formatDensityNumber(r.density) },
         { key: "gaugeDisplay", label: () => `液壓（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.gaugePressure) },
         { key: "absDisplay", label: () => `總壓力（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.absolutePressure) }
       ];
 
-      const commonColumnKeys = ["id", "liquid", "shape", "depth", "gaugeDisplay"];
+      const commonColumnKeys = ["id", "liquid", "shape", "depth", "distFromBottom", "gaugeDisplay"];
       
       const graphFields = [
-        { key: "id", label: () => "編號", type: "number", decimals: 0, get: r => r.id },
-        { key: "liquid", label: () => "液體", type: "category", get: r => r.liquidName },
-        { key: "depth", label: () => "深度 h（cm）", type: "number", decimals: 0, get: r => r.depth * 100 },
-        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", decimals: () => getCurrentDensityDisplayUnit().decimals, get: r => getCurrentDensityDisplayUnit().fromSI(r.density) },
-        { key: "gaugeDisplay", label: () => `液壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", decimals: () => getCurrentPressureDisplayUnit().decimals, get: r => getCurrentPressureDisplayUnit().fromPa(r.gaugePressure) }
+        { key: "id", label: () => "編號", type: "number", get: r => r.id },
+        { key: "fluidHeight", label: () => "液面（cm）", type: "number", get: r => r.fluidHeight * 100 },
+        { key: "depth", label: () => "深度 h（cm）", type: "number", get: r => r.depth * 100 },
+        { key: "distFromBottom", label: () => "距底高度 d（cm）", type: "number", get: r => r.distFromBottom * 100 },
+        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", get: r => getCurrentDensityDisplayUnit().fromSI(r.density) },
+        { key: "gaugeDisplay", label: () => `液壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", get: r => getCurrentPressureDisplayUnit().fromPa(r.gaugePressure) },
+        { key: "absDisplay", label: () => `總壓力（${getCurrentPressureDisplayUnit().label}）`, type: "number", get: r => getCurrentPressureDisplayUnit().fromPa(r.absolutePressure) }
       ];
 
       const el = {
@@ -597,8 +608,7 @@
         metricDensityLabel: document.getElementById("metricDensityLabel"),
         metricDensity: document.getElementById("metricDensity"),
         metricDepth: document.getElementById("metricDepth"),
-        metricXPosition: document.getElementById("metricXPosition"),
-        metricProbeState: document.getElementById("metricProbeState"),
+        metricBottomDist: document.getElementById("metricBottomDist"), 
         metricGaugeLabel: document.getElementById("metricGaugeLabel"),
         metricGauge: document.getElementById("metricGauge"),
         metricAbsoluteLabel: document.getElementById("metricAbsoluteLabel"),
@@ -627,8 +637,6 @@
         containerOutline: document.getElementById("containerOutline"),
         liquidRect: document.getElementById("liquidRect"),
         surfaceLine: document.getElementById("surfaceLine"),
-        
-        // 🌟 更新 DOM 對應
         depthLine: document.getElementById("depthLine"),
         depthTopTick: document.getElementById("depthTopTick"),
         depthBottomTick: document.getElementById("depthBottomTick"),
@@ -637,14 +645,15 @@
         bottomDistTopTick: document.getElementById("bottomDistTopTick"),
         bottomDistBottomTick: document.getElementById("bottomDistBottomTick"),
         bottomDistText: document.getElementById("bottomDistText"),
-
         gaugeCable: document.getElementById("gaugeCable"),
         gaugeCableHighlight: document.getElementById("gaugeCableHighlight"),
         probeGroup: document.getElementById("probeGroup"),
+        
+        // 🌟 更新 UI 節點
         meterValue: document.getElementById("meterValue"),
         meterUnit: document.getElementById("meterUnit"),
-        meterSub: document.getElementById("meterSub"),
-        meterDepth: document.getElementById("meterDepth"),
+        zeroBtnGroup: document.getElementById("zeroBtnGroup"),
+
         svgTitle: document.getElementById("svgTitle"),
         svgSubTitle: document.getElementById("svgSubTitle"),
         helpBtn: document.getElementById("helpBtn"),
@@ -659,6 +668,9 @@
       let lastCustomDensityUnit = el.customDensityUnit.value;
       let chartRequested = false; let chartStatusText = "";
       let isSimInitialized = false;
+
+      // 🌟 新增：歸零偏移量 (單位: Pa)
+      let zeroOffsetPa = 0;
 
       function getCurrentDensityDisplayUnit() { return densityUnits[el.densityDisplayUnit.value]; }
       function getCurrentPressureDisplayUnit() { return pressureUnits[el.pressureDisplayUnit.value]; }
@@ -725,22 +737,29 @@
         const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 120), 20, 200) / 100;
         const surfaceY = getSurfaceY(fluidHeight);
         probeAbsY = clamp(probeAbsY, GEOM.yTop, GEOM.yBottom);
+        
         const rawDepth = (probeAbsY - surfaceY) / getPxPerMeter();
         const submerged = rawDepth >= 0;
         const depth = submerged ? clamp(rawDepth, 0, fluidHeight) : 0;
+        
+        const distFromBottom = (GEOM.yBottom - probeAbsY) / getPxPerMeter();
         const gaugePressure = submerged ? liquid.density * G * depth : 0;
-        return { liquid, shapeKey, shapeName: shapes[shapeKey], fluidHeight, surfaceY, depth, submerged, gaugePressure, absolutePressure: ATM_PRESSURE + gaugePressure };
+        const absolutePressure = ATM_PRESSURE + gaugePressure;
+        
+        return { liquid, shapeKey, shapeName: shapes[shapeKey], fluidHeight, surfaceY, depth, distFromBottom, submerged, gaugePressure, absolutePressure };
       }
 
       function broadcastStateToParent(actionName = "更新了實驗參數") {
         try {
           const state = getCurrentState();
+          // 廣播給小 T 知道的是「學生儀表板目前看到的讀數」
+          const displayedValueStr = formatPressureDisplay(state.absolutePressure - zeroOffsetPa);
           window.parent.postMessage({
             type: 'SIMULATION_STATE',
             payload: {
               "學生最後的動作": actionName, "目前液體種類": state.liquid.name, "容器形狀": state.shapeName,
               "液面高度(cm)": (state.fluidHeight * 100).toFixed(0), "探頭所在深度(cm)": state.submerged ? (state.depth * 100).toFixed(0) : "0 (未浸入)",
-              "探頭測得液壓": formatPressureDisplay(state.gaugePressure), "已收集的數據筆數": records.length + " 筆"
+              "壓力計顯示數值": displayedValueStr, "已收集的數據筆數": records.length + " 筆"
             }
           }, '*');
         } catch (e) { console.error("狀態廣播失敗:", e); }
@@ -789,15 +808,11 @@
         el.gaugeCable.setAttribute("d", cablePath); el.gaugeCableHighlight.setAttribute("d", cablePath);
         el.probeGroup.setAttribute("transform", `translate(${geo.probeX.toFixed(1)} ${geo.probeY.toFixed(1)})`);
         
-        // ==========================================
-        // 🌟 更新：動態標示線邏輯
-        // ==========================================
-        const lineX = geo.probeX - 45; // 讓線跟在探頭左側
+        const lineX = geo.probeX - 45; 
         const tickLeft = lineX - 8;
         const tickRight = lineX + 8;
         const textX = lineX + 16;
 
-        // 1. 深度 h (紅色，水面到探頭)
         if (state.submerged) {
           el.depthLine.setAttribute("x1", lineX); el.depthLine.setAttribute("x2", lineX);
           el.depthLine.setAttribute("y1", state.surfaceY); el.depthLine.setAttribute("y2", geo.probeY);
@@ -817,9 +832,7 @@
           el.depthBottomTick.classList.add("hidden"); el.depthText.classList.add("hidden");
         }
 
-        // 2. 距底高度 d (綠色，探頭到底部)
-        const probeToBottomCm = ((GEOM.yBottom - geo.probeY) / getPxPerMeter() * 100).toFixed(0);
-        
+        const probeToBottomCm = (state.distFromBottom * 100).toFixed(0);
         el.bottomDistLine.setAttribute("x1", lineX); el.bottomDistLine.setAttribute("x2", lineX);
         el.bottomDistLine.setAttribute("y1", geo.probeY); el.bottomDistLine.setAttribute("y2", GEOM.yBottom);
         el.bottomDistTopTick.setAttribute("x1", tickLeft); el.bottomDistTopTick.setAttribute("x2", tickRight);
@@ -830,19 +843,19 @@
         el.bottomDistText.setAttribute("x", textX);
         el.bottomDistText.setAttribute("y", (geo.probeY + GEOM.yBottom) / 2 + 5);
         el.bottomDistText.textContent = `d = ${probeToBottomCm} cm`;
-        // ==========================================
 
-
-        el.meterValue.textContent = formatPressureNumber(state.gaugePressure);
+        // 🌟 更新：壓力計畫面計算與顯示
+        const displayedPressurePa = state.absolutePressure - zeroOffsetPa;
+        el.meterValue.textContent = formatPressureNumber(displayedPressurePa);
         el.meterUnit.textContent = getCurrentPressureDisplayUnit().label;
-        el.meterSub.textContent = `絕對 ${formatPressureDisplay(state.absolutePressure)}`;
-        el.meterDepth.textContent = state.submerged ? `h = ${(state.depth * 100).toFixed(0)} cm` : "未浸入液體";
+        
         el.svgTitle.textContent = `${state.liquid.name}｜${state.shapeName}`;
 
         el.metricLiquid.textContent = state.liquid.name; el.metricShape.textContent = state.shapeName; 
         el.metricFluidHeight.textContent = `${(state.fluidHeight * 100).toFixed(0)} cm`;
         el.metricDensityLabel.textContent = `液體密度（${getCurrentDensityDisplayUnit().label}）`; el.metricDensity.textContent = formatDensityNumber(state.liquid.density);
         el.metricDepth.textContent = state.submerged ? `${(state.depth * 100).toFixed(0)} cm` : "未浸入";
+        el.metricBottomDist.textContent = `${probeToBottomCm} cm`; 
         el.metricGaugeLabel.textContent = `液壓（${getCurrentPressureDisplayUnit().label}）`; el.metricGauge.textContent = formatPressureNumber(state.gaugePressure);
         el.metricAbsoluteLabel.textContent = `總壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
         
@@ -877,14 +890,17 @@
           const targetId = e.target.id || (e.target.parentElement && e.target.parentElement.id);
 
           if (targetId === "meterGroup" || e.target.closest("#meterGroup")) {
-            equipmentName = "數位探針壓力計";
-            infoText = "【數位探針壓力計】<br>用來測量液體內部的壓力。包含顯示螢幕與測量探頭。";
+            equipmentName = "數位壓力計";
+            infoText = "【數位壓力計】<br>測量並顯示探頭感受到的總壓力（減去歸零基準）。";
           } else if (targetId === "probeGroup" || e.target.closest("#probeGroup")) {
             equipmentName = "壓力測量探頭";
             infoText = "【壓力測量探頭】<br>可以拖曳改變深度，紅色端為感測面。";
           } else if (targetId === "liquidRect" || e.target.closest("#liquidRect")) {
             equipmentName = "液體容器";
             infoText = "【液體容器】<br>裝著目前的實驗液體，可以改變形狀與液體種類。";
+          } else if (targetId === "zeroBtnGroup" || e.target.closest("#zeroBtnGroup")) {
+            equipmentName = "歸零按鈕";
+            infoText = "【歸零按鈕 (TARE)】<br>將目前的壓力設定為 0。通常會在探頭位於空氣中時按下，以便測量純粹的液體壓力。";
           }
 
           if (infoText) {
@@ -901,6 +917,16 @@
 
         window.addEventListener("click", () => {
           if (tooltip && !tooltip.classList.contains("hidden")) tooltip.classList.add("hidden");
+        });
+        
+        // 🌟 綁定歸零按鈕事件
+        el.zeroBtnGroup.addEventListener("click", () => {
+          const state = getCurrentState();
+          zeroOffsetPa = state.absolutePressure;
+          renderSimulation();
+          if (isSimInitialized) {
+            broadcastStateToParent(`按下了壓力計的「歸零」按鈕`);
+          }
         });
       }
 
@@ -924,11 +950,19 @@
 
       function getColumnLabel(col) { return typeof col.label === "function" ? col.label() : col.label; }
       function updateColumnCheckboxLabels() { columns.forEach(col => { const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`); if (ls) ls.textContent = getColumnLabel(col); }); }
+      
       function populateColumnCheckboxes() {
         el.columnCheckboxes.innerHTML = columns.map(col => `<label class="check-item"><input type="checkbox" value="${col.key}" ${commonColumnKeys.includes(col.key) ? "checked" : ""}><span data-col-label="${col.key}"></span></label>`).join("");
         updateColumnCheckboxLabels();
-        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(input => input.addEventListener("change", renderTable));
+        
+        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(input => {
+          input.addEventListener("change", () => {
+            renderTable();
+            populateAxisOptions(); 
+          });
+        });
       }
+
       function getSelectedColumns() { const checked = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')].map(i => i.value); return columns.filter(c => checked.includes(c.key)); }
       function updateRecordCounts() { const text = `目前共 ${records.length} 筆紀錄`; el.recordCountTop.textContent = el.recordCountBottom.textContent = text; }
       function renderTable() {
@@ -939,28 +973,54 @@
         if (!records.length) { el.tableBody.innerHTML = `<tr><td class="empty-cell" colspan="${sc.length}">尚無紀錄。</td></tr>`; return; }
         el.tableBody.innerHTML = records.map((r, i) => `<tr class="${i === records.length - 1 ? "latest" : ""}">${sc.map(col => `<td>${escapeHtml(col.get(r))}</td>`).join("")}</tr>`).join("");
       }
+      
       function makeRecord() {
         const state = getCurrentState();
-        return { id: recordId++, time: new Date().toLocaleString("zh-TW"), liquidKey: state.liquid.key, liquidName: state.liquid.name, density: state.liquid.density, shapeKey: state.shapeKey, shapeName: state.shapeName, fluidHeight: state.fluidHeight, depth: state.depth, probeRatio, probeState: state.submerged ? "液體中" : "液面上方", gaugePressure: state.gaugePressure, absolutePressure: state.absolutePressure };
+        return { 
+          id: recordId++, 
+          time: new Date().toLocaleString("zh-TW"), 
+          liquidKey: state.liquid.key, 
+          liquidName: state.liquid.name, 
+          density: state.liquid.density, 
+          shapeKey: state.shapeKey, 
+          shapeName: state.shapeName, 
+          fluidHeight: state.fluidHeight, 
+          depth: state.depth, 
+          distFromBottom: state.distFromBottom, 
+          probeRatio, 
+          probeState: state.submerged ? "液體中" : "液面上方", 
+          gaugePressure: state.gaugePressure, 
+          absolutePressure: state.absolutePressure 
+        };
       }
+
       function exportCsv() {
         const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
         if (!records.length) return;
         const csv = "\ufeff" + [`"${sc.map(c => getColumnLabel(c)).join('","')}"`, ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)].join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = `液體壓力紀錄_${Date.now()}.csv`; a.click();
       }
+
       function selectColumns(mode) {
         const targetKeys = mode === "all" ? columns.map(c => c.key) : mode === "common" ? commonColumnKeys : [];
-        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = targetKeys.includes(cb.value)); renderTable();
+        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = targetKeys.includes(cb.value)); 
+        renderTable();
+        populateAxisOptions(); 
       }
 
       function populateAxisOptions() {
         const px = el.chartXSelect.value, py = el.chartYSelect.value;
-        const opts = `<option value="">請選擇項目</option>` + graphFields.map(f => `<option value="${f.key}">${escapeHtml(typeof f.label === "function" ? f.label() : f.label)}</option>`).join("");
+        const checkedKeys = getSelectedColumns().map(c => c.key);
+        
+        const availableFields = graphFields.filter(f => checkedKeys.includes(f.key));
+
+        const opts = `<option value="">請選擇項目</option>` + availableFields.map(f => `<option value="${f.key}">${escapeHtml(typeof f.label === "function" ? f.label() : f.label)}</option>`).join("");
         el.chartXSelect.innerHTML = el.chartYSelect.innerHTML = opts;
-        if (graphFields.some(f => f.key === px)) el.chartXSelect.value = px;
-        if (graphFields.some(f => f.key === py)) el.chartYSelect.value = py;
+        
+        if (availableFields.some(f => f.key === px)) el.chartXSelect.value = px;
+        if (availableFields.some(f => f.key === py)) el.chartYSelect.value = py;
       }
+
       function setChartStatus(msg) { el.chartStatus.textContent = chartStatusText = msg || ""; }
       function generateChart() {
         if (!el.chartXSelect.value || !el.chartYSelect.value) return setChartStatus("請先選擇橫軸與縱軸項目。"), renderChart();
