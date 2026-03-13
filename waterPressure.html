@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器o</title>
+  <title>液體壓力互動模擬器p</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -373,12 +373,9 @@
             <line id="depthLine" x1="200" y1="160" x2="200" y2="300" stroke="#e5546d" stroke-width="3" stroke-dasharray="8 6"></line>
             <line id="depthTopTick" x1="190" y1="160" x2="210" y2="160" stroke="#e5546d" stroke-width="3"></line>
             <line id="depthBottomTick" x1="190" y1="300" x2="210" y2="300" stroke="#e5546d" stroke-width="3"></line>
-            <text id="depthText" x="218" y="230" fill="#a62f46" font-size="16" font-weight="700">h = 60 cm</text>
-
             <line id="bottomDistLine" x1="200" y1="300" x2="200" y2="430" stroke="#1f9d61" stroke-width="3" stroke-dasharray="8 6"></line>
             <line id="bottomDistTopTick" x1="190" y1="300" x2="210" y2="300" stroke="#1f9d61" stroke-width="3"></line>
             <line id="bottomDistBottomTick" x1="190" y1="430" x2="210" y2="430" stroke="#1f9d61" stroke-width="3"></line>
-            <text id="bottomDistText" x="218" y="365" fill="#127a4a" font-size="16" font-weight="700">d = 60 cm</text>
 
             <path id="gaugeCable" d="" fill="none" stroke="#42526e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
             <path id="gaugeCableHighlight" d="" fill="none" stroke="#92a0b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"></path>
@@ -412,6 +409,8 @@
               <circle cx="0" cy="0" r="3.5" fill="#ffffff"></circle>
             </g>
             <text id="svgTitle" x="220" y="32" text-anchor="middle" fill="#233350" font-size="20" font-weight="800">水｜直筒形</text>
+            <text id="depthText" x="218" y="230" fill="#a62f46" font-size="16" font-weight="700">h = 60 cm</text>
+            <text id="bottomDistText" x="218" y="365" fill="#127a4a" font-size="16" font-weight="700">d = 60 cm</text>
           </svg>
         </div>
       </section>
