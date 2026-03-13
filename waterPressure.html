@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器x</title>
+  <title>液體壓力互動模擬器</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -412,7 +412,7 @@
         <div class="metric"><span class="metric-label" id="metricDensityLabel">液體密度（g/cm³）</span><strong id="metricDensity">1.000</strong></div>
         <div class="metric"><span class="metric-label">測量深度</span><strong id="metricDepth">60 cm</strong></div>
         <div class="metric"><span class="metric-label" id="metricGaugeLabel">液壓（gw/cm²）</span><strong id="metricGauge">60.00</strong></div>
-        <div class="metric"><span class="metric-label" id="metricAbsoluteLabel">總壓（gw/cm²）</span><strong id="metricAbsolute">1093.52</strong></div>
+        <div class="metric"><span class="metric-label" id="metricAbsoluteLabel">總壓力（gw/cm²）</span><strong id="metricAbsolute">1093.52</strong></div>
       </div>
     </section>
 
@@ -564,7 +564,7 @@
         { key: "depth", label: () => "深度 h（cm）", get: r => (r.depth * 100).toFixed(0) },
         { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, get: r => formatDensityNumber(r.density) },
         { key: "gaugeDisplay", label: () => `液壓（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.gaugePressure) },
-        { key: "absDisplay", label: () => `總（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.absolutePressure) }
+        { key: "absDisplay", label: () => `總壓力（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.absolutePressure) }
       ];
 
       const commonColumnKeys = ["id", "liquid", "shape", "depth", "gaugeDisplay"];
