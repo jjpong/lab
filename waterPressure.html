@@ -6,6 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>液體壓力互動模擬器</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
       --bg:#eef4ff;
@@ -1086,11 +1087,90 @@
         chartRequested = true; setChartStatus("統計圖已產生。"); renderChart();
       }
       function clearChart() { chartRequested = false; setChartStatus("統計圖已清除。"); renderChart(); }
-      function renderChart() {
-        if (!chartRequested || !el.chartXSelect.value || !el.chartYSelect.value) return el.chartCanvas.innerHTML = `<div class="chart-empty">${escapeHtml(chartStatusText || "請先選擇橫軸與縱軸項目，然後按下「產生統計圖」。")}</div>`;
-        if (!records.length) return el.chartCanvas.innerHTML = `<div class="chart-empty">目前沒有資料可以繪圖。</div>`;
-        el.chartCanvas.innerHTML = `<div class="chart-empty">因程式優化，詳細繪圖邏輯簡化。</div>`; // 保持版面輕量
+     
+      let myChart = null; // 用來儲存圖表實例，避免重複畫圖重疊
+
+function renderChart() {
+  const xKey = document.getElementById('x-axis').value;
+  const yKey = document.getElementById('y-axis').value;
+
+  // 防呆機制：如果還沒有任何紀錄，就不畫圖
+  if (recordedData.length === 0) {
+    alert("請先將數據加入紀錄表，才能產生統計圖喔！");
+    return;
+  }
+
+  // 1. 準備 Chart.js 需要的數據格式，並過濾掉無效數值
+  const chartDataPoints = recordedData.map(data => {
+    let xVal = parseFloat(data[xKey]);
+    let yVal = parseFloat(data[yKey]);
+    return { x: xVal, y: yVal };
+  }).filter(point => !isNaN(point.x) && !isNaN(point.y)); // 確保都是數字
+
+  // 如果過濾後沒有有效數據，提示使用者
+  if (chartDataPoints.length === 0) {
+    alert("目前選擇的座標軸沒有有效的數字可以繪圖。");
+    return;
+  }
+
+  // 2. 銷毀舊圖表，繪製新圖表
+  const ctx = document.getElementById('pressureChart').getContext('2d');
+  if (myChart) {
+    myChart.destroy();
+  }
+  
+  myChart = new Chart(ctx, {
+    type: 'line', // 使用折線圖，如果是離散數據也可以改用 'scatter'
+    data: {
+      datasets: [{
+        label: `${yKey} vs ${xKey}`,
+        data: chartDataPoints,
+        backgroundColor: 'rgba(66, 133, 244, 0.2)',
+        borderColor: '#4285F4',
+        borderWidth: 2,
+        pointBackgroundColor: '#EA4335',
+        pointRadius: 5,
+        showLine: true, // 把點連起來
+        tension: 0.1 // 線條平滑度
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { 
+          type: 'linear', 
+          position: 'bottom',
+          title: { display: true, text: xKey, font: { size: 14 } }
+        },
+        y: { 
+          title: { display: true, text: yKey, font: { size: 14 } }
+        }
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `(${context.parsed.x}, ${context.parsed.y})`;
+            }
+          }
+        }
       }
+    }
+  });
+
+  // =========================================
+  // 🌟 3. 將圖表資訊打包廣播給 AI (核心功能)
+  // =========================================
+  // 我們把數據點轉換成 AI 看得懂的文字字串，例如 "(0.1, 100), (0.2, 200)"
+  const dataSummaryString = chartDataPoints.map(p => `(${p.x}, ${p.y})`).join(', ');
+  
+  // 組裝一段白話文，讓小 T 知道圖表畫了什麼
+  const aiMessage = `產生了統計圖。橫軸(X)為【${xKey}】，縱軸(Y)為【${yKey}】。圖表上的數據點(x, y)依序為：${dataSummaryString}。`;
+  
+  // 呼叫我們寫好的廣播函式，將這句話送進 Index.html 的記憶 Log 裡
+  broadcastStateToParent(aiMessage);
+}
 
       el.fluidHeightRange.addEventListener("input", () => setFluidHeight(el.fluidHeightRange.value));
       el.fluidHeightNumber.addEventListener("input", () => setFluidHeight(el.fluidHeightNumber.value));
