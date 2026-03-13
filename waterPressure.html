@@ -341,7 +341,6 @@
       <section class="panel">
         <div class="section-title">
           <h2>模擬視窗</h2>
-          <span class="badge">壓力計導線固定由上方繞入</span>
         </div>
 
         <div class="svg-shell">
@@ -796,8 +795,8 @@
         el.metricFluidHeight.textContent = `${(state.fluidHeight * 100).toFixed(0)} cm`;
         el.metricDensityLabel.textContent = `液體密度（${getCurrentDensityDisplayUnit().label}）`; el.metricDensity.textContent = formatDensityNumber(state.liquid.density);
         el.metricDepth.textContent = state.submerged ? `${(state.depth * 100).toFixed(0)} cm` : "未浸入";
-        el.metricGaugeLabel.textContent = `表壓（${getCurrentPressureDisplayUnit().label}）`; el.metricGauge.textContent = formatPressureNumber(state.gaugePressure);
-        el.metricAbsoluteLabel.textContent = `絕對壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
+        el.metricGaugeLabel.textContent = `液壓（${getCurrentPressureDisplayUnit().label}）`; el.metricGauge.textContent = formatPressureNumber(state.gaugePressure);
+        el.metricAbsoluteLabel.textContent = `總壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
         
         el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
         
