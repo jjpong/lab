@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta name="x-poe-datastore-behavior" content="local_only">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器</title>
+  <title>液體壓力互動模擬器x</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -61,20 +59,13 @@
       flex-wrap: wrap;
     }
 
-    .hero h1{
-      margin:0 0 8px;
-      font-size:clamp(1.5rem,3vw,2.2rem);
-    }
+    .hero h1{ margin:0 0 8px; font-size:clamp(1.5rem,3vw,2.2rem); }
+    .hero p{ margin:0; color:var(--muted); line-height:1.7; }
 
-    .hero p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-    }
-
+    /* 🌟 修改點 1：調整左右比例，左側最寬限制在 320px，讓右邊模擬區變大 */
     .top-layout{
       display:grid;
-      grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.4fr);
+      grid-template-columns: minmax(260px, 320px) 1fr;
       gap:16px;
       align-items:start;
       margin-bottom:16px;
@@ -122,12 +113,7 @@
       white-space:nowrap;
     }
 
-    .record-meta{
-      color:var(--muted);
-      font-weight:700;
-      font-size:.92rem;
-      white-space:nowrap;
-    }
+    .record-meta{ color:var(--muted); font-weight:700; font-size:.92rem; white-space:nowrap; }
 
     .control-group{
       padding:14px;
@@ -140,12 +126,7 @@
     .control-group:last-child{ margin-bottom:0; }
     .control-group h3{ margin:0 0 12px; font-size:1rem; }
 
-    .field{
-      display:grid;
-      gap:6px;
-      margin-bottom:12px;
-    }
-
+    .field{ display:grid; gap:6px; margin-bottom:12px; }
     .field:last-child{ margin-bottom:0; }
     label{ font-weight:700; font-size:.95rem; }
     .small{ font-size:.86rem; color:var(--muted); line-height:1.6; }
@@ -164,7 +145,7 @@
 
     .range-pair, .inline-pair{
       display:grid;
-      grid-template-columns:1fr 120px;
+      grid-template-columns:1fr 80px; /* 縮小一點數字框，適應緊湊版面 */
       gap:10px;
       align-items:center;
     }
@@ -202,210 +183,56 @@
       white-space:nowrap;
     }
 
-    .metric .metric-label{
-      display:block;
-      color:var(--muted);
-      font-size:.88rem;
-      margin-bottom:6px;
-      white-space:nowrap;
-    }
-
-    .metric strong{
-      font-size:1.02rem;
-      line-height:1.4;
-      display:block;
-      white-space:nowrap;
-      word-break:normal;
-    }
+    .metric .metric-label{ display:block; color:var(--muted); font-size:.88rem; margin-bottom:6px; white-space:nowrap; }
+    .metric strong{ font-size:1.02rem; line-height:1.4; display:block; white-space:nowrap; }
 
     .record-config-wrap{ display:grid; gap:14px; }
-    .wide-checkboxes{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
-      gap:10px;
-    }
-
-    .check-item{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-      padding:10px 12px;
-      border:1px solid var(--line);
-      background:#fbfdff;
-      border-radius:12px;
-      font-weight:600;
-      cursor:pointer;
-      line-height:1.45;
-    }
-
+    .wide-checkboxes{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+    .check-item{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); background:#fbfdff; border-radius:12px; font-weight:600; cursor:pointer; line-height:1.45; }
     .check-item input{ margin-top:3px; flex:0 0 auto; }
     .record-toolbar{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
     .toolbar-group{ display:flex; flex-wrap:wrap; gap:8px; }
 
-    button{
-      border:none;
-      border-radius:12px;
-      padding:11px 14px;
-      font-size:.95rem;
-      font-weight:800;
-      cursor:pointer;
-      transition:.2s transform,.2s filter,.2s background;
-    }
-
+    button{ border:none; border-radius:12px; padding:11px 14px; font-size:.95rem; font-weight:800; cursor:pointer; transition:.2s transform,.2s filter,.2s background; }
     button:hover{ transform:translateY(-1px); filter:brightness(1.02); }
     button:active{ transform:translateY(0); }
-
     .btn-primary{ background:var(--primary); color:#fff; }
     .btn-secondary{ background:#eaf1ff; color:var(--primary-2); border:1px solid #cfe0ff; }
     .btn-danger{ background:#ffecef; color:#b32b45; border:1px solid #ffc8d2; }
     .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
 
-    .svg-shell{
-      background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:10px;
-      width: 100%;
-    }
-
-    svg{
-      width:100%;
-      height:auto;
-      display:block;
-      touch-action:none;
-      user-select:none;
-      -webkit-user-select:none;
-    }
-
+    .svg-shell{ background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%); border:1px solid var(--line); border-radius:18px; padding:10px; width: 100%; }
+    svg{ width:100%; height:auto; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
     .hidden{ display:none !important; }
 
-    .sub-panel{
-      border:1px solid var(--line);
-      border-radius:16px;
-      background:#fbfdff;
-      padding:14px;
-      margin-bottom:14px;
-      width: 100%;
-    }
-
-    .chart-toolbar{
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
-      gap:12px;
-      align-items:end;
-      margin-bottom:10px;
-    }
-    .chart-toolbar .field {
-      margin-bottom: 0;
-    }
+    .sub-panel{ border:1px solid var(--line); border-radius:16px; background:#fbfdff; padding:14px; margin-bottom:14px; width: 100%; }
+    .chart-toolbar{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; align-items:end; margin-bottom:10px; }
+    
+    /* 🌟 修復點：修正圖表工具列按鈕高低不齊的問題 */
+    .chart-toolbar .field { margin-bottom: 0; }
 
     .chart-status{ margin-bottom:12px; min-height:22px; font-weight:700; }
-    .chart-shell{
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#fff;
-      overflow:hidden;
-      min-height:350px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .table-wrap{
-      overflow-x:auto;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#fff;
-      width: 100%;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width: max-content;
-      background:#fff;
-    }
-
-    th, td{
-      padding:12px 14px;
-      border-bottom:1px solid #e5edf8;
-      text-align:left;
-      font-size:.96rem;
-      white-space:nowrap;
-    }
-
-    th{
-      position:sticky;
-      top:0;
-      background:#f4f8ff;
-      z-index:1;
-    }
-
+    .chart-shell{ border:1px solid var(--line); border-radius:14px; background:#fff; overflow:hidden; min-height:350px; display:flex; align-items:center; justify-content:center; }
+    
+    .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:#fff; width: 100%; -webkit-overflow-scrolling:touch; }
+    table{ width:100%; border-collapse:collapse; min-width: max-content; background:#fff; }
+    th, td{ padding:12px 14px; border-bottom:1px solid #e5edf8; text-align:left; font-size:.96rem; white-space:nowrap; }
+    th{ position:sticky; top:0; background:#f4f8ff; z-index:1; }
     tbody tr:nth-child(even){ background:#fcfdff; }
     tbody tr.latest{ background:#eef7ff; }
     .empty-cell{ text-align:center; color:var(--muted); padding:24px; }
 
-    /* 🌟 右鍵說明提示框的樣式 */
-    .eq-tooltip {
-      position: absolute;
-      background: rgba(31, 42, 68, 0.95);
-      color: #fff;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      line-height: 1.5;
-      max-width: 250px;
-      pointer-events: none;
-      z-index: 1000;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-      transform: translate(-50%, -100%);
-      margin-top: -10px;
-      transition: opacity 0.2s;
-    }
-    .eq-tooltip::after {
-      content: '';
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      margin-left: -6px;
-      border-width: 6px;
-      border-style: solid;
-      border-color: rgba(31, 42, 68, 0.95) transparent transparent transparent;
-    }
-    .eq-tooltip.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
+    .eq-tooltip { position: absolute; background: rgba(31, 42, 68, 0.95); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; max-width: 250px; pointer-events: none; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.2); transform: translate(-50%, -100%); margin-top: -10px; transition: opacity 0.2s; }
+    .eq-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: rgba(31, 42, 68, 0.95) transparent transparent transparent; }
+    .eq-tooltip.hidden { opacity: 0; pointer-events: none; }
     #meterGroup, #probeGroup, #liquidRect { cursor: help; }
 
-    /* Modal 樣式防破版 */
-    .modal{
-      position:fixed; inset:0; z-index:999;
-      display:flex; align-items:center; justify-content:center;
-      padding:18px;
-    }
+    .modal{ position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center; padding:18px; }
     .modal-backdrop{ position:absolute; inset:0; background:rgba(18,29,51,0.48); }
-    .modal-card{
-      position:relative; width:min(920px, 100%); max-height:calc(100vh - 40px);
-      overflow:auto; background:#fff; border-radius:20px;
-      padding:20px; z-index:1001;
-      box-shadow: 0 20px 50px rgba(18,29,51,.22);
-    }
+    .modal-card{ position:relative; width:min(920px, 100%); max-height:calc(100vh - 40px); overflow:auto; background:#fff; border-radius:20px; padding:20px; z-index:1001; box-shadow: 0 20px 50px rgba(18,29,51,.22); }
     .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-    .help-content{
-      display:grid;
-      gap:14px;
-      color:var(--text);
-      line-height:1.75;
-    }
-    .help-block{
-      border:1px solid var(--line);
-      background:#fbfdff;
-      border-radius:14px;
-      padding:14px;
-    }
+    .help-content{ display:grid; gap:14px; color:var(--text); line-height:1.75; }
+    .help-block{ border:1px solid var(--line); background:#fbfdff; border-radius:14px; padding:14px; }
     .help-block h3{ margin:0 0 8px; font-size:1rem; }
     .help-block ul{ margin:0; padding-left:1.2rem; }
     .help-block li{ margin:4px 0; }
@@ -473,16 +300,14 @@
             <label for="densityDisplayUnit">密度顯示單位</label>
             <select id="densityDisplayUnit">
               <option value="kg_m3">kg/m³</option>
-              <option value="g_cm3">g/cm³</option>
-            </select>
+              <option value="g_cm3" selected>g/cm³</option> </select>
           </div>
           <div class="field">
             <label for="pressureDisplayUnit">壓力顯示單位</label>
             <select id="pressureDisplayUnit">
               <option value="pa">Pa</option>
-              <option value="kpa" selected="">kPa</option>
-              <option value="gw_cm2">gw/cm²</option>
-              <option value="kgw_m2">kgw/m²</option>
+              <option value="kpa">kPa</option>
+              <option value="gw_cm2" selected>gw/cm²</option> <option value="kgw_m2">kgw/m²</option>
               <option value="kgw_cm2">kgw/cm²</option>
             </select>
           </div>
@@ -491,17 +316,17 @@
         <div class="control-group">
           <h3>3. 測量條件</h3>
           <div class="field">
-            <label for="fluidHeightRange">液面高度（m）</label>
+            <label for="fluidHeightRange">液面高度（cm）</label>
             <div class="range-pair">
-              <input id="fluidHeightRange" type="range" min="0.20" max="2.00" step="0.01" value="1.20">
-              <input id="fluidHeightNumber" type="number" inputmode="decimal" min="0.20" max="2.00" step="0.01" value="1.20">
+              <input id="fluidHeightRange" type="range" min="20" max="200" step="1" value="120">
+              <input id="fluidHeightNumber" type="number" inputmode="decimal" min="20" max="200" step="1" value="120">
             </div>
           </div>
           <div class="field">
-            <label for="depthRange">測量深度（自液面往下，m）</label>
+            <label for="depthRange">測量深度（自液面往下，cm）</label>
             <div class="range-pair">
-              <input id="depthRange" type="range" min="0.00" max="1.20" step="0.01" value="0.60">
-              <input id="depthNumber" type="number" inputmode="decimal" min="0.00" max="1.20" step="0.01" value="0.60">
+              <input id="depthRange" type="range" min="0" max="120" step="1" value="60">
+              <input id="depthNumber" type="number" inputmode="decimal" min="0" max="120" step="1" value="60">
             </div>
           </div>
         </div>
@@ -540,7 +365,7 @@
             <line id="depthLine" x1="200" y1="160" x2="200" y2="300" stroke="#e5546d" stroke-width="3" stroke-dasharray="8 6"></line>
             <line id="depthTopTick" x1="190" y1="160" x2="210" y2="160" stroke="#e5546d" stroke-width="3"></line>
             <line id="depthBottomTick" x1="190" y1="300" x2="210" y2="300" stroke="#e5546d" stroke-width="3"></line>
-            <text id="depthText" x="218" y="230" fill="#a62f46" font-size="16" font-weight="700">h = 0.60 m</text>
+            <text id="depthText" x="218" y="230" fill="#a62f46" font-size="16" font-weight="700">h = 60 cm</text>
             <path id="gaugeCable" d="" fill="none" stroke="#42526e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
             <path id="gaugeCableHighlight" d="" fill="none" stroke="#92a0b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"></path>
             <g id="meterGroup" filter="url(#softShadow)">
@@ -548,10 +373,10 @@
               <rect x="410" y="116" width="150" height="84" rx="14" fill="url(#screenGradient)" stroke="#56b48b" stroke-width="2"></rect>
               <text x="485" y="104" text-anchor="middle" fill="#eef5ff" font-size="14" font-weight="800">數位探針壓力計</text>
               <text x="426" y="136" fill="#1f5b45" font-size="12" font-weight="800">表壓</text>
-              <text id="meterValue" x="426" y="168" fill="#103d2f" font-size="30" font-weight="900" font-family="ui-monospace, monospace">5.88</text>
-              <text id="meterUnit" x="426" y="188" fill="#1f5b45" font-size="14" font-weight="800">kPa</text>
-              <text id="meterSub" x="426" y="210" fill="#d8e5ff" font-size="12" font-weight="700">絕對 107.21 kPa</text>
-              <text id="meterDepth" x="426" y="228" fill="#d8e5ff" font-size="12" font-weight="700">h = 0.60 m</text>
+              <text id="meterValue" x="426" y="168" fill="#103d2f" font-size="30" font-weight="900" font-family="ui-monospace, monospace">60.00</text>
+              <text id="meterUnit" x="426" y="188" fill="#1f5b45" font-size="14" font-weight="800">gw/cm²</text>
+              <text id="meterSub" x="426" y="210" fill="#d8e5ff" font-size="12" font-weight="700">絕對 1093.52 gw/cm²</text>
+              <text id="meterDepth" x="426" y="228" fill="#d8e5ff" font-size="12" font-weight="700">h = 60 cm</text>
               <circle cx="413" cy="224" r="7" fill="#121b2d" stroke="#8594ac" stroke-width="2"></circle>
               <circle cx="560" cy="103" r="6" fill="#f15b6c"></circle>
               <circle cx="543" cy="103" r="6" fill="#ffd166"></circle>
@@ -578,13 +403,13 @@
       <div class="metrics-row">
         <div class="metric"><span class="metric-label">液體種類</span><strong id="metricLiquid">水</strong></div>
         <div class="metric"><span class="metric-label">容器形狀</span><strong id="metricShape">直筒形</strong></div>
-        <div class="metric"><span class="metric-label">液面高度</span><strong id="metricFluidHeight">1.20 m</strong></div>
-        <div class="metric"><span class="metric-label" id="metricDensityLabel">液體密度（kg/m³）</span><strong id="metricDensity">1000</strong></div>
-        <div class="metric"><span class="metric-label">測量深度</span><strong id="metricDepth">0.60 m</strong></div>
+        <div class="metric"><span class="metric-label">液面高度</span><strong id="metricFluidHeight">120 cm</strong></div>
+        <div class="metric"><span class="metric-label" id="metricDensityLabel">液體密度（g/cm³）</span><strong id="metricDensity">1.000</strong></div>
+        <div class="metric"><span class="metric-label">測量深度</span><strong id="metricDepth">60 cm</strong></div>
         <div class="metric"><span class="metric-label">測點水平位置</span><strong id="metricXPosition">55%</strong></div>
         <div class="metric"><span class="metric-label">測點狀態</span><strong id="metricProbeState">液體中</strong></div>
-        <div class="metric"><span class="metric-label" id="metricGaugeLabel">表壓（kPa）</span><strong id="metricGauge">5.88</strong></div>
-        <div class="metric"><span class="metric-label" id="metricAbsoluteLabel">絕對壓力（kPa）</span><strong id="metricAbsolute">107.21</strong></div>
+        <div class="metric"><span class="metric-label" id="metricGaugeLabel">表壓（gw/cm²）</span><strong id="metricGauge">60.00</strong></div>
+        <div class="metric"><span class="metric-label" id="metricAbsoluteLabel">絕對壓力（gw/cm²）</span><strong id="metricAbsolute">1093.52</strong></div>
       </div>
     </section>
 
@@ -683,7 +508,6 @@
             <li>先從下方選擇橫軸與縱軸欄位。</li>
             <li>選好之後按「產生統計圖」，圖表才會顯示。</li>
             <li>如果改了軸項目，需要再按一次「產生統計圖」。</li>
-            <li>目前圖表只顯示資料點，不會自動連線，也不會加入擬合曲線。</li>
           </ul>
         </div>
       </div>
@@ -692,7 +516,8 @@
 
   <script>
     (() => {
-      const MAX_HEIGHT = 2.0;
+      // 內部物理計算依然維持使用公尺 (m)，以確保公式 p = rho * g * h 的正確性
+      const MAX_HEIGHT = 2.0; 
       const G = 9.8;
       const ATM_PRESSURE = 101325;
 
@@ -726,13 +551,14 @@
         kgw_cm2: { label: "kgw/cm²", decimals: 4, fromPa: v => v / (10000 * G) }
       };
 
+      // 🌟 表格欄位輸出全部轉為公分 (cm)
       const columns = [
         { key: "id", label: () => "編號", get: r => r.id },
         { key: "time", label: () => "時間", get: r => r.time },
         { key: "liquid", label: () => "液體", get: r => r.liquidName },
         { key: "shape", label: () => "容器形狀", get: r => r.shapeName },
-        { key: "fluidHeight", label: () => "液面（m）", get: r => r.fluidHeight.toFixed(2) },
-        { key: "depth", label: () => "深度 h（m）", get: r => r.depth.toFixed(2) },
+        { key: "fluidHeight", label: () => "液面（cm）", get: r => (r.fluidHeight * 100).toFixed(0) },
+        { key: "depth", label: () => "深度 h（cm）", get: r => (r.depth * 100).toFixed(0) },
         { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, get: r => formatDensityNumber(r.density) },
         { key: "gaugeDisplay", label: () => `表壓（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.gaugePressure) },
         { key: "absDisplay", label: () => `絕對（${getCurrentPressureDisplayUnit().label}）`, get: r => formatPressureNumber(r.absolutePressure) }
@@ -743,7 +569,7 @@
       const graphFields = [
         { key: "id", label: () => "編號", type: "number", decimals: 0, get: r => r.id },
         { key: "liquid", label: () => "液體", type: "category", get: r => r.liquidName },
-        { key: "depth", label: () => "深度 h（m）", type: "number", decimals: 2, get: r => r.depth },
+        { key: "depth", label: () => "深度 h（cm）", type: "number", decimals: 0, get: r => r.depth * 100 },
         { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", decimals: () => getCurrentDensityDisplayUnit().decimals, get: r => getCurrentDensityDisplayUnit().fromSI(r.density) },
         { key: "gaugeDisplay", label: () => `表壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", decimals: () => getCurrentPressureDisplayUnit().decimals, get: r => getCurrentPressureDisplayUnit().fromPa(r.gaugePressure) }
       ];
@@ -821,8 +647,6 @@
       let dragging = false; let activePointerId = null;
       let lastCustomDensityUnit = el.customDensityUnit.value;
       let chartRequested = false; let chartStatusText = "";
-      
-      // 🌟 初始化狀態旗標，防止連環廣播
       let isSimInitialized = false;
 
       function getCurrentDensityDisplayUnit() { return densityUnits[el.densityDisplayUnit.value]; }
@@ -871,11 +695,15 @@
       }
 
       function drawScale() {
-        const scale = getPxPerMeter(); let svg = `<line x1="${GEOM.scaleX}" y1="${GEOM.yTop}" x2="${GEOM.scaleX}" y2="${GEOM.yBottom}" stroke="#8da2c8" stroke-width="2"></line>`;
+        const scale = getPxPerMeter(); 
+        let svg = `<line x1="${GEOM.scaleX}" y1="${GEOM.yTop}" x2="${GEOM.scaleX}" y2="${GEOM.yBottom}" stroke="#8da2c8" stroke-width="2"></line>`;
         for (let i = 0; i <= 8; i++) {
-          const value = i * 0.25; const y = GEOM.yBottom - value * scale; const major = i % 2 === 0;
+          const valueMeters = i * 0.25; 
+          const displayValueCm = valueMeters * 100; // 🌟 刻度顯示為公分
+          const y = GEOM.yBottom - valueMeters * scale; 
+          const major = i % 2 === 0;
           svg += `<line x1="${GEOM.scaleX}" y1="${y}" x2="${major ? GEOM.scaleX + 16 : GEOM.scaleX + 10}" y2="${y}" stroke="${major ? "#6d83aa" : "#9fb0cd"}" stroke-width="2"></line>`;
-          if (major) svg += `<text x="${GEOM.scaleX - 6}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">${value.toFixed(1)}</text>`;
+          if (major) svg += `<text x="${GEOM.scaleX - 6}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">${displayValueCm.toFixed(0)}</text>`;
         }
         el.scaleGroup.innerHTML = svg;
       }
@@ -883,7 +711,8 @@
       function getCurrentState() {
         const liquid = getCurrentLiquid();
         const shapeKey = el.shapeSelect.value;
-        const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 1.2), 0.2, MAX_HEIGHT);
+        // 🌟 讀取 UI 的公分設定，並轉為公尺供物理公式計算
+        const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 120), 20, 200) / 100;
         const surfaceY = getSurfaceY(fluidHeight);
         probeAbsY = clamp(probeAbsY, GEOM.yTop, GEOM.yBottom);
         const rawDepth = (probeAbsY - surfaceY) / getPxPerMeter();
@@ -900,7 +729,7 @@
             type: 'SIMULATION_STATE',
             payload: {
               "學生最後的動作": actionName, "目前液體種類": state.liquid.name, "容器形狀": state.shapeName,
-              "液面高度(m)": state.fluidHeight.toFixed(2), "探頭所在深度(m)": state.submerged ? state.depth.toFixed(2) : "0 (未浸入)",
+              "液面高度(cm)": (state.fluidHeight * 100).toFixed(0), "探頭所在深度(cm)": state.submerged ? (state.depth * 100).toFixed(0) : "0 (未浸入)",
               "探頭測得表壓": formatPressureDisplay(state.gaugePressure), "已收集的數據筆數": records.length + " 筆"
             }
           }, '*');
@@ -915,21 +744,21 @@
 
       function syncDepthControlsToProbe() {
         const state = getCurrentState();
-        el.depthRange.max = el.depthNumber.max = state.fluidHeight.toFixed(2);
-        el.depthRange.value = el.depthNumber.value = state.depth.toFixed(2);
+        el.depthRange.max = el.depthNumber.max = (state.fluidHeight * 100).toFixed(0);
+        el.depthRange.value = el.depthNumber.value = (state.depth * 100).toFixed(0);
       }
 
       function setFluidHeight(value) {
-        const v = clamp(safeNumber(value, 1.2), 0.2, MAX_HEIGHT).toFixed(2);
+        const v = clamp(safeNumber(value, 120), 20, 200).toFixed(0);
         el.fluidHeightRange.value = el.fluidHeightNumber.value = v;
         syncDepthControlsToProbe(); renderSimulation();
       }
 
       function setDepth(value) {
-        const fluidHeight = clamp(safeNumber(el.fluidHeightRange.value, 1.2), 0.2, MAX_HEIGHT);
-        const depth = clamp(safeNumber(value, 0), 0, fluidHeight);
-        el.depthRange.value = el.depthNumber.value = depth.toFixed(2);
-        probeAbsY = clamp(getSurfaceY(fluidHeight) + depth * getPxPerMeter(), GEOM.yTop, GEOM.yBottom);
+        const fluidHeightCm = clamp(safeNumber(el.fluidHeightRange.value, 120), 20, 200);
+        const depthCm = clamp(safeNumber(value, 0), 0, fluidHeightCm);
+        el.depthRange.value = el.depthNumber.value = depthCm.toFixed(0);
+        probeAbsY = clamp(getSurfaceY(fluidHeightCm / 100) + (depthCm / 100) * getPxPerMeter(), GEOM.yTop, GEOM.yBottom);
         renderSimulation();
       }
 
@@ -950,30 +779,32 @@
         el.gaugeCable.setAttribute("d", cablePath); el.gaugeCableHighlight.setAttribute("d", cablePath);
         el.probeGroup.setAttribute("transform", `translate(${geo.probeX.toFixed(1)} ${geo.probeY.toFixed(1)})`);
         
+        // 🌟 畫面上的標籤轉為公分 (cm)
+        el.depthText.textContent = state.submerged ? `h = ${(state.depth * 100).toFixed(0)} cm` : "";
+        el.meterDepth.textContent = state.submerged ? `h = ${(state.depth * 100).toFixed(0)} cm` : "未浸入液體";
+        
         el.meterValue.textContent = formatPressureNumber(state.gaugePressure);
         el.meterUnit.textContent = getCurrentPressureDisplayUnit().label;
         el.meterSub.textContent = `絕對 ${formatPressureDisplay(state.absolutePressure)}`;
-        el.meterDepth.textContent = state.submerged ? `h = ${state.depth.toFixed(2)} m` : "未浸入液體";
         el.svgTitle.textContent = `${state.liquid.name}｜${state.shapeName}`;
 
-        el.metricLiquid.textContent = state.liquid.name; el.metricShape.textContent = state.shapeName; el.metricFluidHeight.textContent = `${state.fluidHeight.toFixed(2)} m`;
+        el.metricLiquid.textContent = state.liquid.name; el.metricShape.textContent = state.shapeName; 
+        el.metricFluidHeight.textContent = `${(state.fluidHeight * 100).toFixed(0)} cm`;
         el.metricDensityLabel.textContent = `液體密度（${getCurrentDensityDisplayUnit().label}）`; el.metricDensity.textContent = formatDensityNumber(state.liquid.density);
-        el.metricDepth.textContent = state.submerged ? `${state.depth.toFixed(2)} m` : "未浸入";
+        el.metricDepth.textContent = state.submerged ? `${(state.depth * 100).toFixed(0)} cm` : "未浸入";
         el.metricGaugeLabel.textContent = `表壓（${getCurrentPressureDisplayUnit().label}）`; el.metricGauge.textContent = formatPressureNumber(state.gaugePressure);
         el.metricAbsoluteLabel.textContent = `絕對壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
         
         el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
         
-        // 🌟 只有在初始化完成後，一般的畫面更新才廣播
         if (isSimInitialized) {
           broadcastStateToParent("移動探頭或更改了實驗設定");
         }
       }
 
-      // 🌟 攔截滑鼠右鍵並顯示提示框
       function attachPointerEvents() {
         el.simSvg.addEventListener("pointerdown", (e) => {
-          if (e.button === 2) return; // 忽略右鍵
+          if (e.button === 2) return; 
           const pt = screenToSvgPoint(e);
           if (nearProbe(pt.x, pt.y) || pointInsideContainer(pt.x, pt.y)) {
             e.preventDefault(); startDrag(e.pointerId); updateProbeFromPoint(pt.x, pt.y);
@@ -990,7 +821,7 @@
         const tooltip = document.getElementById("eqTooltip");
         
         el.simSvg.addEventListener("contextmenu", (e) => {
-          e.preventDefault(); // 阻止系統右鍵選單
+          e.preventDefault(); 
           let infoText = "", equipmentName = "";
           const targetId = e.target.id || (e.target.parentElement && e.target.parentElement.id);
 
@@ -1011,7 +842,6 @@
             tooltip.style.top = e.pageY + "px";
             tooltip.classList.remove("hidden");
             
-            // 點擊右鍵也要廣播
             if (isSimInitialized) {
               broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
             }
@@ -1019,9 +849,7 @@
         });
 
         window.addEventListener("click", () => {
-          if (tooltip && !tooltip.classList.contains("hidden")) {
-             tooltip.classList.add("hidden");
-          }
+          if (tooltip && !tooltip.classList.contains("hidden")) tooltip.classList.add("hidden");
         });
       }
 
@@ -1043,7 +871,6 @@
       function startDrag(pid) { dragging = true; activePointerId = pid; document.body.classList.add("dragging"); if (el.simSvg.setPointerCapture) try { el.simSvg.setPointerCapture(pid); } catch (_) {} }
       function stopDrag(pid) { if (activePointerId !== null && pid !== undefined && pid !== activePointerId) return; dragging = false; activePointerId = null; document.body.classList.remove("dragging"); }
 
-      /* 表格與圖表相關（精簡保留核心功能） */
       function getColumnLabel(col) { return typeof col.label === "function" ? col.label() : col.label; }
       function updateColumnCheckboxLabels() { columns.forEach(col => { const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`); if (ls) ls.textContent = getColumnLabel(col); }); }
       function populateColumnCheckboxes() {
@@ -1091,33 +918,25 @@
       }
       function clearChart() { chartRequested = false; setChartStatus("統計圖已清除。"); renderChart(); }
      
-let myChart = null; // 用來儲存圖表實例
+      // 🌟 修復點：完美的動態繪圖與廣播功能
+      let myChart = null; 
+
       function renderChart() {
-        // 💡 修正 1：改用正確的下拉選單 ID
         const xKey = el.chartXSelect.value;
         const yKey = el.chartYSelect.value;
         
-        // 如果還沒按下「產生統計圖」或者沒有選擇欄位，就清空畫面並退出
         if (!chartRequested || !xKey || !yKey) {
-          if (myChart) {
-             myChart.destroy();
-             myChart = null;
-          }
+          if (myChart) { myChart.destroy(); myChart = null; }
           el.chartCanvas.innerHTML = '<div style="color:#888; text-align:center; padding: 20px;">請選擇橫軸與縱軸，並按下「產生統計圖」。</div>';
           return;
         }
 
-        // 💡 修正 2：改用正確的資料陣列 records，並過濾出有效數字
         const chartDataPoints = records.map(record => {
-          // 因為 records 存的是原始物件，我們要找出對應的 graphField 設定來取值
           const xField = graphFields.find(f => f.key === xKey);
           const yField = graphFields.find(f => f.key === yKey);
-          
           if (!xField || !yField) return null;
-          
           let xVal = parseFloat(xField.get(record));
           let yVal = parseFloat(yField.get(record));
-          
           return { x: xVal, y: yVal };
         }).filter(point => point !== null && !isNaN(point.x) && !isNaN(point.y));
 
@@ -1126,17 +945,14 @@ let myChart = null; // 用來儲存圖表實例
           return;
         }
 
-        // 準備 Canvas 容器
         el.chartCanvas.innerHTML = '<canvas id="pressureChart"></canvas>';
         const ctx = document.getElementById('pressureChart').getContext('2d');
         
-        // 取得標籤名稱 (如果可以取得的話)
         const xFieldDef = graphFields.find(f => f.key === xKey);
         const yFieldDef = graphFields.find(f => f.key === yKey);
         const xLabel = xFieldDef ? (typeof xFieldDef.label === 'function' ? xFieldDef.label() : xFieldDef.label) : xKey;
         const yLabel = yFieldDef ? (typeof yFieldDef.label === 'function' ? yFieldDef.label() : yFieldDef.label) : yKey;
 
-        // 開始繪圖
         myChart = new Chart(ctx, {
           type: 'line', 
           data: {
@@ -1153,31 +969,15 @@ let myChart = null; // 用來儲存圖表實例
             }]
           },
           options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             scales: {
-              x: { 
-                type: 'linear', 
-                position: 'bottom',
-                title: { display: true, text: xLabel, font: { size: 14 } }
-              },
-              y: { 
-                title: { display: true, text: yLabel, font: { size: 14 } }
-              }
+              x: { type: 'linear', position: 'bottom', title: { display: true, text: xLabel, font: { size: 14 } } },
+              y: { title: { display: true, text: yLabel, font: { size: 14 } } }
             },
-            plugins: {
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    return `(${context.parsed.x}, ${context.parsed.y})`;
-                  }
-                }
-              }
-            }
+            plugins: { tooltip: { callbacks: { label: function(context) { return `(${context.parsed.x}, ${context.parsed.y})`; } } } }
           }
         });
 
-        // 🌟 廣播圖表資訊給 AI
         if (isSimInitialized) {
             const dataSummaryString = chartDataPoints.map(p => `(${p.x}, ${p.y})`).join(', ');
             const aiMessage = `產生了統計圖。橫軸(X)為【${xLabel}】，縱軸(Y)為【${yLabel}】。圖表上的數據點依序為：${dataSummaryString}。`;
@@ -1209,26 +1009,17 @@ let myChart = null; // 用來儲存圖表實例
       el.generateChartBtn.addEventListener("click", generateChart);
       el.clearChartBtn.addEventListener("click", clearChart);
       
-      // 🌟 修復 Modal 開關邏輯
-      el.helpBtn.addEventListener("click", () => { 
-        el.helpModal.classList.remove("hidden"); 
-        document.body.classList.add("modal-open");
-      });
-      el.closeHelpBtn.addEventListener("click", () => { 
-        el.helpModal.classList.add("hidden"); 
-        document.body.classList.remove("modal-open");
-      });
-      el.helpBackdrop.addEventListener("click", () => { 
-        el.helpModal.classList.add("hidden"); 
-        document.body.classList.remove("modal-open");
-      });
+      el.helpBtn.addEventListener("click", () => { el.helpModal.classList.remove("hidden"); document.body.classList.add("modal-open"); });
+      el.closeHelpBtn.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
+      el.helpBackdrop.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
 
       drawScale(); updateCustomDensityInputMeta(); populateColumnCheckboxes(); populateAxisOptions();
+      
+      // 🌟 初始化位置設為 120cm 深的液體，探頭放在 60cm 處
       probeAbsY = getSurfaceY(1.2) + 0.6 * getPxPerMeter(); syncDepthControlsToProbe();
       attachPointerEvents();
       renderSimulation(); renderTable(); renderChart();
       
-      // 🌟 開啟開關：標記初始化已完成，並發送第一聲廣播
       isSimInitialized = true; 
       broadcastStateToParent("我們剛走進一間設備齊全的流體力學實驗室。實驗桌正中央擺著一個大型透明容器（可切換直筒形、上寬下窄、上窄下寬、中間較寬等形狀），旁邊備有多種實驗液體（包含水、鹽水、植物油、酒精、甘油、水銀，甚至可自訂密度）。桌上架設了一台專屬的『數位探針壓力計』，帶有紅色的感測探頭，能夠垂降到液體中精準測量不同深度的壓力。此外，實驗桌下方還配備了專業的資料收集系統，可以隨時將測量到的各項數據加入紀錄表，並能自由選擇變數來繪製數據統計圖。目前一切設備皆處於初始就緒狀態，尚未開始任何測量。");
     })();
