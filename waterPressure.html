@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>液體壓力互動模擬器2</title>
+  <title>液體壓力互動模擬器</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -1088,89 +1088,99 @@
       }
       function clearChart() { chartRequested = false; setChartStatus("統計圖已清除。"); renderChart(); }
      
-      let myChart = null; // 用來儲存圖表實例，避免重複畫圖重疊
-
-function renderChart() {
-  const xKey = document.getElementById('x-axis').value;
-  const yKey = document.getElementById('y-axis').value;
-
-  // 防呆機制：如果還沒有任何紀錄，就不畫圖
-  if (recordedData.length === 0) {
-    alert("請先將數據加入紀錄表，才能產生統計圖喔！");
-    return;
-  }
-
-  // 1. 準備 Chart.js 需要的數據格式，並過濾掉無效數值
-  const chartDataPoints = recordedData.map(data => {
-    let xVal = parseFloat(data[xKey]);
-    let yVal = parseFloat(data[yKey]);
-    return { x: xVal, y: yVal };
-  }).filter(point => !isNaN(point.x) && !isNaN(point.y)); // 確保都是數字
-
-  // 如果過濾後沒有有效數據，提示使用者
-  if (chartDataPoints.length === 0) {
-    alert("目前選擇的座標軸沒有有效的數字可以繪圖。");
-    return;
-  }
-
-  // 2. 銷毀舊圖表，繪製新圖表
-  const ctx = document.getElementById('pressureChart').getContext('2d');
-  if (myChart) {
-    myChart.destroy();
-  }
-  
-  myChart = new Chart(ctx, {
-    type: 'line', // 使用折線圖，如果是離散數據也可以改用 'scatter'
-    data: {
-      datasets: [{
-        label: `${yKey} vs ${xKey}`,
-        data: chartDataPoints,
-        backgroundColor: 'rgba(66, 133, 244, 0.2)',
-        borderColor: '#4285F4',
-        borderWidth: 2,
-        pointBackgroundColor: '#EA4335',
-        pointRadius: 5,
-        showLine: true, // 把點連起來
-        tension: 0.1 // 線條平滑度
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: { 
-          type: 'linear', 
-          position: 'bottom',
-          title: { display: true, text: xKey, font: { size: 14 } }
-        },
-        y: { 
-          title: { display: true, text: yKey, font: { size: 14 } }
+let myChart = null; // 用來儲存圖表實例
+      function renderChart() {
+        // 💡 修正 1：改用正確的下拉選單 ID
+        const xKey = el.chartXSelect.value;
+        const yKey = el.chartYSelect.value;
+        
+        // 如果還沒按下「產生統計圖」或者沒有選擇欄位，就清空畫面並退出
+        if (!chartRequested || !xKey || !yKey) {
+          if (myChart) {
+             myChart.destroy();
+             myChart = null;
+          }
+          el.chartCanvas.innerHTML = '<div style="color:#888; text-align:center; padding: 20px;">請選擇橫軸與縱軸，並按下「產生統計圖」。</div>';
+          return;
         }
-      },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              return `(${context.parsed.x}, ${context.parsed.y})`;
+
+        // 💡 修正 2：改用正確的資料陣列 records，並過濾出有效數字
+        const chartDataPoints = records.map(record => {
+          // 因為 records 存的是原始物件，我們要找出對應的 graphField 設定來取值
+          const xField = graphFields.find(f => f.key === xKey);
+          const yField = graphFields.find(f => f.key === yKey);
+          
+          if (!xField || !yField) return null;
+          
+          let xVal = parseFloat(xField.get(record));
+          let yVal = parseFloat(yField.get(record));
+          
+          return { x: xVal, y: yVal };
+        }).filter(point => point !== null && !isNaN(point.x) && !isNaN(point.y));
+
+        if (chartDataPoints.length === 0) {
+          el.chartCanvas.innerHTML = '<div style="color:red; text-align:center; padding: 20px;">目前選擇的座標軸沒有有效的數字可以繪圖。</div>';
+          return;
+        }
+
+        // 準備 Canvas 容器
+        el.chartCanvas.innerHTML = '<canvas id="pressureChart"></canvas>';
+        const ctx = document.getElementById('pressureChart').getContext('2d');
+        
+        // 取得標籤名稱 (如果可以取得的話)
+        const xFieldDef = graphFields.find(f => f.key === xKey);
+        const yFieldDef = graphFields.find(f => f.key === yKey);
+        const xLabel = xFieldDef ? (typeof xFieldDef.label === 'function' ? xFieldDef.label() : xFieldDef.label) : xKey;
+        const yLabel = yFieldDef ? (typeof yFieldDef.label === 'function' ? yFieldDef.label() : yFieldDef.label) : yKey;
+
+        // 開始繪圖
+        myChart = new Chart(ctx, {
+          type: 'line', 
+          data: {
+            datasets: [{
+              label: `${yLabel} vs ${xLabel}`,
+              data: chartDataPoints,
+              backgroundColor: 'rgba(66, 133, 244, 0.2)',
+              borderColor: '#4285F4',
+              borderWidth: 2,
+              pointBackgroundColor: '#EA4335',
+              pointRadius: 5,
+              showLine: true,
+              tension: 0.1 
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { 
+                type: 'linear', 
+                position: 'bottom',
+                title: { display: true, text: xLabel, font: { size: 14 } }
+              },
+              y: { 
+                title: { display: true, text: yLabel, font: { size: 14 } }
+              }
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return `(${context.parsed.x}, ${context.parsed.y})`;
+                  }
+                }
+              }
             }
           }
+        });
+
+        // 🌟 廣播圖表資訊給 AI
+        if (isSimInitialized) {
+            const dataSummaryString = chartDataPoints.map(p => `(${p.x}, ${p.y})`).join(', ');
+            const aiMessage = `產生了統計圖。橫軸(X)為【${xLabel}】，縱軸(Y)為【${yLabel}】。圖表上的數據點依序為：${dataSummaryString}。`;
+            broadcastStateToParent(aiMessage);
         }
       }
-    }
-  });
-
-  // =========================================
-  // 🌟 3. 將圖表資訊打包廣播給 AI (核心功能)
-  // =========================================
-  // 我們把數據點轉換成 AI 看得懂的文字字串，例如 "(0.1, 100), (0.2, 200)"
-  const dataSummaryString = chartDataPoints.map(p => `(${p.x}, ${p.y})`).join(', ');
-  
-  // 組裝一段白話文，讓小 T 知道圖表畫了什麼
-  const aiMessage = `產生了統計圖。橫軸(X)為【${xKey}】，縱軸(Y)為【${yKey}】。圖表上的數據點(x, y)依序為：${dataSummaryString}。`;
-  
-  // 呼叫我們寫好的廣播函式，將這句話送進 Index.html 的記憶 Log 裡
-  broadcastStateToParent(aiMessage);
-}
 
       el.fluidHeightRange.addEventListener("input", () => setFluidHeight(el.fluidHeightRange.value));
       el.fluidHeightNumber.addEventListener("input", () => setFluidHeight(el.fluidHeightNumber.value));
