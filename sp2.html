@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>光譜分析</title>
+    <style>
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+        .video-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        #video {
+            border: 2px solid #333;
+        }
+        #selectionCanvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+        }
+        #spectrumCanvas {
+            border: 1px solid #333;
+            margin-top: 10px;
+            background-color: white;
+        }
+        .controls {
+            margin: 10px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        .calibration-controls {
+            margin: 10px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        select, button, input {
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .captured-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-start;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 10px;
+        }
+        .captured-item {
+            position: relative;
+            border: 1px solid #ccc;
+            padding: 5px;
+            display: inline-block;
+        }
+        .captured-item img {
+            max-width: 320px;
+            height: auto;
+        }
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        #calStatus {
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-container">
+            <video id="video" width="640" height="480" autoplay playsinline></video>
+            <canvas id="selectionCanvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <select id="resolutionSelect">
+                <option value="320x240">320x240</option>
+                <option value="640x480" selected>640x480</option>
+                <option value="1280x720">1280x720</option>
+                <option value="1920x1080">1920x1080</option>
+            </select>
+            <button onclick="startCamera()">開啟攝影機</button>
+            <button id="pauseButton" onclick="toggleSpectrum()" disabled>暫停/鎖定光譜</button>
+            <button id="downloadButton" onclick="downloadSpectrum()" disabled>下載光譜CSV</button>
+            <button id="captureButton" onclick="captureScene()" disabled>擷取畫面</button>
+            <button id="clearCapturesButton" onclick="clearCaptures()">清除所有擷取</button>
+            <button id="downloadAllButton" onclick="downloadAllCaptures()">下載所有擷取</button>
+        </div>
+
+        <div class="calibration-controls">
+            <label><strong>波長校正:</strong></label>
+            <select id="laserSelect">
+                <option value="650">紅光雷射 (650 nm)</option>
+                <option value="532">綠光雷射 (532 nm)</option>
+                <option value="405">藍光雷射 (405 nm)</option>
+                <option value="custom">自訂波長...</option>
+            </select>
+            <input type="number" id="customWavelength" placeholder="輸入波長(nm)" style="display:none; width: 100px;">
+            <button id="calibrateBtn" onclick="calibratePeak()" disabled>紀錄目前峰值</button>
+            <button id="resetCalBtn" onclick="resetCalibration()">重置校正</button>
+            <span id="calStatus">尚未校正 (需記錄至少 2 個光源)</span>
+        </div>
+
+        <canvas id="spectrumCanvas"></canvas>
+        <div id="capturedContainer" class="captured-container"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const selectionCanvas = document.getElementById('selectionCanvas');
+        const spectrumCanvas = document.getElementById('spectrumCanvas');
+        const resolutionSelect = document.getElementById('resolutionSelect');
+        const pauseButton = document.getElementById('pauseButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const captureButton = document.getElementById('captureButton');
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        const capturedContainer = document.getElementById('capturedContainer');
+        const laserSelect = document.getElementById('laserSelect');
+        const customWavelength = document.getElementById('customWavelength');
+        
+        let stream = null;
+        let isDrawing = false;
+        let startX = 0;
+        let startY = 0;
+        let selectionRect = null;
+        let animationFrameId = null;
+        let isSpectrumActive = false;
+        let isPaused = false;
+        let currentIntensities = null;
+        let captureCount = 0;
+
+        // 用於提升效能的離屏 Canvas
+        const offscreenCanvas = document.createElement('canvas');
+        const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+
+        // 校正相關變數
+        let calPoints = []; // 儲存 {pixel, wavelength}
+        let calSlope = 1;
+        let calIntercept = 0;
+        let isCalibrated = false;
+
+        // 監聽自訂波長選項
+        laserSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                customWavelength.style.display = 'inline-block';
+            } else {
+                customWavelength.style.display = 'none';
+            }
+        });
+
+        function setupCanvases() {
+            selectionCanvas.width = video.videoWidth;
+            selectionCanvas.height = video.videoHeight;
+            spectrumCanvas.width = video.videoWidth;
+            spectrumCanvas.height = 200;
+            offscreenCanvas.width = video.videoWidth;
+            offscreenCanvas.height = video.videoHeight;
+            pauseButton.disabled = false;
+        }
+
+        function startDrawing(e) {
+            const rect = video.getBoundingClientRect();
+            // 考慮到縮放比例，做相對應的座標轉換
+            const scaleX = video.videoWidth / rect.width;
+            const scaleY = video.videoHeight / rect.height;
+            startX = (e.clientX - rect.left) * scaleX;
+            startY = (e.clientY - rect.top) * scaleY;
+            isDrawing = true;
+
+            const ctx = selectionCanvas.getContext('2d');
+            ctx.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const rect = video.getBoundingClientRect();
+            const scaleX = video.videoWidth / rect.width;
+            const scaleY = video.videoHeight / rect.height;
+            const currentX = (e.clientX - rect.left) * scaleX;
+            const currentY = (e.clientY - rect.top) * scaleY;
+
+            const ctx = selectionCanvas.getContext('2d');
+            ctx.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
+            
+            const width = currentX - startX;
+            const height = currentY - startY;
+
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, startY, width, height);
+
+            selectionRect = {
+                x: Math.min(startX, currentX),
+                y: Math.min(startY, currentY),
+                width: Math.abs(width),
+                height: Math.abs(height)
+            };
+
+            if (!isPaused) calculateSpectrum();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            if (selectionRect) {
+                isSpectrumActive = true;
+                calibrateBtn.disabled = false;
+                if (!isPaused) calculateSpectrum();
+            }
+        }
+
+        function calculateSpectrum() {
+            if (!selectionRect || (isPaused && !currentIntensities)) return;
+
+            const ctx = spectrumCanvas.getContext('2d');
+            
+            // 只有在未暫停時才重新從攝影機抓取畫面
+            if (!isPaused) {
+                offscreenCtx.drawImage(video, 0, 0);
+                const imageData = offscreenCtx.getImageData(
+                    selectionRect.x,
+                    selectionRect.y,
+                    selectionRect.width,
+                    1 // 取選取框第一行的高度，或者取平均值 (這裡維持原版取一行)
+                );
+
+                const intensities = [];
+                let maxIntensity = 0;
+                for (let i = 0; i < imageData.width; i++) {
+                    const index = i * 4;
+                    const r = imageData.data[index];
+                    const g = imageData.data[index + 1];
+                    const b = imageData.data[index + 2];
+                    const intensity = (0.299 * r + 0.587 * g + 0.114 * b);
+                    intensities.push(intensity);
+                    maxIntensity = Math.max(maxIntensity, intensity);
+                }
+                currentIntensities = intensities; // 更新全域強度資料
+                window.currentMaxIntensity = maxIntensity; // 儲存最大值供繪圖使用
+            }
+
+            const intensities = currentIntensities;
+            const maxIntensity = window.currentMaxIntensity || 255;
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, spectrumCanvas.width, spectrumCanvas.height);
+
+            const margin = { left: 60, right: 20, top: 20, bottom: 40 };
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.moveTo(margin.left, margin.top);
+            ctx.lineTo(margin.left, spectrumCanvas.height - margin.bottom);
+            ctx.moveTo(margin.left, spectrumCanvas.height - margin.bottom);
+            ctx.lineTo(spectrumCanvas.width - margin.right, spectrumCanvas.height - margin.bottom);
+            ctx.stroke();
+
+            ctx.font = '12px Arial';
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            // Y軸刻度
+            const ySteps = 5;
+            for (let i = 0; i <= ySteps; i++) {
+                const y = margin.top + (spectrumCanvas.height - margin.top - margin.bottom) * (1 - i / ySteps);
+                const intensity = (maxIntensity * i / ySteps).toFixed(1);
+                
+                ctx.beginPath();
+                ctx.moveTo(margin.left - 5, y);
+                ctx.lineTo(margin.left, y);
+                ctx.stroke();
+                ctx.fillText(intensity, margin.left - 10, y);
+            }
+
+            // X軸刻度 (支援校正轉換)
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            const xSteps = 5;
+            for (let i = 0; i <= xSteps; i++) {
+                const x = margin.left + (spectrumCanvas.width - margin.left - margin.right) * (i / xSteps);
+                const pixel = Math.round(intensities.length * i / xSteps);
+                
+                ctx.beginPath();
+                ctx.moveTo(x, spectrumCanvas.height - margin.bottom);
+                ctx.lineTo(x, spectrumCanvas.height - margin.bottom + 5);
+                ctx.stroke();
+                
+                let labelText = pixel;
+                if (isCalibrated) {
+                    labelText = (pixel * calSlope + calIntercept).toFixed(1);
+                }
+                ctx.fillText(labelText, x, spectrumCanvas.height - margin.bottom + 10);
+            }
+
+            ctx.save();
+            ctx.translate(20, spectrumCanvas.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('光強度', 0, 0);
+            ctx.restore();
+
+            ctx.textAlign = 'center';
+            ctx.font = '14px Arial';
+            ctx.fillText(isCalibrated ? '波長 (nm)' : '像素位置', spectrumCanvas.width / 2, spectrumCanvas.height - 10);
+
+            // 繪製光譜線
+            ctx.beginPath();
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i < intensities.length; i++) {
+                const x = margin.left + (i / intensities.length) * (spectrumCanvas.width - margin.left - margin.right);
+                const y = spectrumCanvas.height - margin.bottom - 
+                         (intensities[i] / maxIntensity) * (spectrumCanvas.height - margin.top - margin.bottom);
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            if (!isPaused) {
+                animationFrameId = requestAnimationFrame(calculateSpectrum);
+            }
+        }
+
+        // --- 核心校正功能 ---
+        function calibratePeak() {
+            if (!currentIntensities || currentIntensities.length === 0) {
+                alert("請先框選光譜區域");
+                return;
+            }
+
+            // 尋找最大亮度的像素位置 (峰值)
+            let maxI = 0;
+            let maxVal = currentIntensities[0];
+            for (let i = 1; i < currentIntensities.length; i++) {
+                if (currentIntensities[i] > maxVal) {
+                    maxVal = currentIntensities[i];
+                    maxI = i;
+                }
+            }
+
+            // 取得使用者設定的波長
+            let wl = laserSelect.value;
+            if (wl === 'custom') wl = customWavelength.value;
+            wl = parseFloat(wl);
+
+            if (isNaN(wl)) {
+                alert("請輸入有效的波長數值");
+                return;
+            }
+
+            // 檢查是否已有相近像素點被記錄（防止在同一個光點點擊兩次不同波長）
+            const existingIdx = calPoints.findIndex(p => Math.abs(p.pixel - maxI) < 10);
+            if(existingIdx >= 0) {
+               calPoints[existingIdx].wavelength = wl; 
+            } else {
+               calPoints.push({pixel: maxI, wavelength: wl});
+            }
+
+            updateCalibrationStatus();
+            if (isPaused) calculateSpectrum(); // 暫停時強制重繪以更新 X 軸
+        }
+
+        function updateCalibrationStatus() {
+            const status = document.getElementById('calStatus');
+            if (calPoints.length < 2) {
+                isCalibrated = false;
+                status.textContent = `尚未校正 (已記錄 ${calPoints.length} 個點，需至少 2 個)`;
+                status.style.color = "#d9534f";
+            } else {
+                // 線性回歸計算 (Linear Regression)
+                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                let n = calPoints.length;
+                calPoints.forEach(p => {
+                    sumX += p.pixel;
+                    sumY += p.wavelength;
+                    sumXY += p.pixel * p.wavelength;
+                    sumX2 += p.pixel * p.pixel;
+                });
+                let denominator = (n * sumX2 - sumX * sumX);
+                
+                if (denominator === 0) {
+                    alert("校正點過於接近，請移動雷射位置後重新記錄！");
+                    calPoints.pop();
+                    updateCalibrationStatus();
+                    return;
+                }
+                
+                calSlope = (n * sumXY - sumX * sumY) / denominator;
+                calIntercept = (sumY - calSlope * sumX) / n;
+                isCalibrated = true;
+                status.textContent = `✅ 校正完成 (${n}個光源) | 公式: 波長 = ${calSlope.toFixed(3)} * px + ${calIntercept.toFixed(1)}`;
+                status.style.color = "#5cb85c";
+            }
+        }
+
+        function resetCalibration() {
+            calPoints = [];
+            isCalibrated = false;
+            updateCalibrationStatus();
+            if (isPaused) calculateSpectrum();
+        }
+
+        // --- 同步暫停功能 ---
+        function toggleSpectrum() {
+            isPaused = !isPaused;
+            pauseButton.textContent = isPaused ? '繼續光譜' : '暫停/鎖定光譜';
+            downloadButton.disabled = !isPaused;
+            captureButton.disabled = !isPaused;
+            
+            if (isPaused) {
+                video.pause(); // 凍結畫面
+            } else {
+                video.play();  // 恢復畫面
+                if (isSpectrumActive) {
+                    calculateSpectrum();
+                }
+            }
+        }
+
+        // --- 修正後的完整資料下載 ---
+        function downloadSpectrum() {
+            if (!currentIntensities || currentIntensities.length === 0) return;
+            
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            if (isCalibrated) {
+                csvContent += "Wavelength (nm),Intensity\n";
+                currentIntensities.forEach((intensity, i) => {
+                    let wl = (i * calSlope + calIntercept).toFixed(2);
+                    csvContent += `${wl},${intensity.toFixed(2)}\n`;
+                });
+            } else {
+                csvContent += "Pixel,Intensity\n";
+                currentIntensities.forEach((intensity, i) => {
+                    csvContent += `${i},${intensity.toFixed(2)}\n`;
+                });
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", isCalibrated ? "spectrum_calibrated.csv" : "spectrum_raw.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function captureScene() {
+            const combinedCanvas = document.createElement('canvas');
+            const ctx = combinedCanvas.getContext('2d');
+
+            combinedCanvas.width = Math.max(video.videoWidth, spectrumCanvas.width);
+            combinedCanvas.height = video.videoHeight + spectrumCanvas.height;
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+
+            ctx.drawImage(video, 0, 0);
+            
+            if (selectionRect) {
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(selectionRect.x, selectionRect.y, selectionRect.width, selectionRect.height);
+            }
+
+            ctx.drawImage(spectrumCanvas, 0, video.videoHeight);
+
+            const capturedItem = document.createElement('div');
+            capturedItem.className = 'captured-item';
+            captureCount++;
+
+            const img = new Image();
+            img.src = combinedCanvas.toDataURL('image/png');
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = 'X';
+            deleteBtn.onclick = function() {
+                capturedItem.remove();
+            };
+
+            capturedItem.appendChild(img);
+            capturedItem.appendChild(deleteBtn);
+            capturedContainer.appendChild(capturedItem);
+        }
+
+        function clearCaptures() {
+            capturedContainer.innerHTML = '';
+            captureCount = 0;
+        }
+
+        async function downloadAllCaptures() {
+            const captures = capturedContainer.getElementsByTagName('img');
+            if (captures.length === 0) {
+                alert('沒有可下載的擷取畫面');
+                return;
+            }
+
+            const zip = new JSZip();
+            const now = new Date();
+            const timestamp = now.getFullYear() +
+                            ('0' + (now.getMonth() + 1)).slice(-2) +
+                            ('0' + now.getDate()).slice(-2) + '_' +
+                            ('0' + now.getHours()).slice(-2) +
+                            ('0' + now.getMinutes()).slice(-2) +
+                            ('0' + now.getSeconds()).slice(-2);
+
+            Array.from(captures).forEach((img, index) => {
+                const imageData = img.src.split(',')[1];
+                zip.file(`capture_${timestamp}_${index + 1}.png`, imageData, {base64: true});
+            });
+
+            const content = await zip.generateAsync({type: 'blob'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `captures_${timestamp}.zip`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        async function startCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+
+            const [width, height] = resolutionSelect.value.split('x').map(Number);
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: width },
+                        height: { ideal: height },
+                        facingMode: "environment" // 優先使用後置鏡頭
+                    }
+                });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    setupCanvases();
+                    const videoContainer = document.querySelector('.video-container');
+                    videoContainer.addEventListener('mousedown', startDrawing);
+                    videoContainer.addEventListener('mousemove', draw);
+                    videoContainer.addEventListener('mouseup', stopDrawing);
+                    videoContainer.addEventListener('mouseleave', stopDrawing);
+                };
+            } catch (err) {
+                console.error('無法存取攝影機:', err);
+                alert('無法存取攝影機，請確認權限設定');
+            }
+        }
+    </script>
+</body>
+</html>
