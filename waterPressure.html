@@ -1054,7 +1054,7 @@
       }
       function clearChart() { chartRequested = false; setChartStatus("統計圖已清除。"); renderChart(); }
      
-      // 🌟 新增：計算最小平方法迴歸線 (Trendline)
+      // 🌟 升級版：計算最小平方法迴歸線，並回傳直線方程式
       function calculateTrendline(points) {
         if (points.length < 2) return null;
         let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
@@ -1076,10 +1076,18 @@
         const drawMinX = minX === maxX ? minX - 1 : minX - margin;
         const drawMaxX = minX === maxX ? maxX + 1 : maxX + margin;
 
-        return [
-          { x: drawMinX, y: slope * drawMinX + intercept },
-          { x: drawMaxX, y: slope * drawMaxX + intercept }
-        ];
+        // 🌟 組裝直線方程式字串 (y = mx + b)
+        const sign = intercept >= 0 ? '+' : '-';
+        // 根據數值大小決定小數位數，預設取到小數點後 4 位
+        const equation = `y = ${slope.toFixed(4)}x ${sign} ${Math.abs(intercept).toFixed(4)}`;
+
+        return {
+          points: [
+            { x: drawMinX, y: slope * drawMinX + intercept },
+            { x: drawMaxX, y: slope * drawMaxX + intercept }
+          ],
+          equation: equation // 把算好的方程式一併回傳！
+        };
       }
 
       let myChart = null; 
@@ -1116,7 +1124,7 @@
         const xLabel = xFieldDef ? (typeof xFieldDef.label === 'function' ? xFieldDef.label() : xFieldDef.label) : xKey;
         const yLabel = yFieldDef ? (typeof yFieldDef.label === 'function' ? yFieldDef.label() : yFieldDef.label) : yKey;
 
-        // 🌟 準備資料集：預設為散佈圖 (showLine: false)
+        // 預設資料集 (散佈圖)
         const datasets = [{
           label: `${yLabel} vs ${xLabel}`,
           data: chartDataPoints,
@@ -1125,27 +1133,36 @@
           borderWidth: 2,
           pointBackgroundColor: '#EA4335',
           pointRadius: 5,
-          showLine: false, // 🌟 修改這裡：取消點與點之間的連線！
+          showLine: false, 
           tension: 0 
         }];
 
-        // 🌟 如果勾選了「加入擬合線」，且數據點 >= 2，就多畫一條線
+        let currentStatusText = "統計圖已產生。";
+        let trendEquationStr = "";
+
+        // 🌟 如果勾選了擬合線，把線條畫上去，並更新狀態列文字
         if (el.trendlineToggle.checked && chartDataPoints.length >= 2) {
           const trendData = calculateTrendline(chartDataPoints);
           if (trendData) {
+            trendEquationStr = trendData.equation; // 記下方程式
             datasets.push({
               label: '線性擬合線 (Trendline)',
-              data: trendData,
+              data: trendData.points, // 使用算出來的兩個端點
               borderColor: 'rgba(255, 99, 132, 0.8)',
               borderWidth: 2,
               borderDash: [5, 5],
-              pointRadius: 0, // 線條上不畫點
-              showLine: true, // 這組資料要畫線
+              pointRadius: 0, 
+              showLine: true, 
               fill: false,
               tension: 0
             });
+            // 在圖表上方的狀態列，用搶眼的紅色顯示方程式
+            currentStatusText = `統計圖已產生。<span style="color:#d9485f; margin-left:12px; font-weight:900; background:#fff0f0; padding:4px 8px; border-radius:6px;">📈 擬合直線方程式： ${trendEquationStr}</span>`;
           }
         }
+
+        // 顯示更新後的狀態文字
+        el.chartStatus.innerHTML = currentStatusText;
 
         myChart = new Chart(ctx, {
           type: 'line', 
@@ -1160,11 +1177,13 @@
           }
         });
 
+        // 🌟 將方程式包裝進隱藏的廣播包裹，送給 AI 當作秘密武器！
         if (isSimInitialized) {
             const dataSummaryString = chartDataPoints.map(p => `(${p.x}, ${p.y})`).join(', ');
             let aiMessage = `產生了統計圖。橫軸(X)為【${xLabel}】，縱軸(Y)為【${yLabel}】。圖表上的數據點依序為：${dataSummaryString}。`;
-            if (el.trendlineToggle.checked && chartDataPoints.length >= 2) {
-                aiMessage += "學生同時勾選了「加入擬合線」，在圖表上繪製出了代表正比趨勢的虛線。";
+            
+            if (trendEquationStr !== "") {
+                aiMessage += `學生同時勾選了「加入擬合線」，在圖表上繪製出了代表趨勢的虛線，系統計算出的【直線方程式為 ${trendEquationStr}】。`;
             }
             broadcastStateToParent(aiMessage);
         }
