@@ -589,14 +589,17 @@
 
       const commonColumnKeys = ["id", "liquid", "shape", "depth", "distFromBottom", "gaugeDisplay"];
       
+// 🌟 專門派發給「統計圖」與「AI」的資料欄位定義
       const graphFields = [
         { key: "id", label: () => "編號", type: "number", get: r => r.id },
-        { key: "fluidHeight", label: () => "液面（cm）", type: "number", get: r => r.fluidHeight * 100 },
-        { key: "depth", label: () => "深度 h（cm）", type: "number", get: r => r.depth * 100 },
-        { key: "distFromBottom", label: () => "距底高度 d（cm）", type: "number", get: r => r.distFromBottom * 100 },
-        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", get: r => getCurrentDensityDisplayUnit().fromSI(r.density) },
-        { key: "gaugeDisplay", label: () => `液壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", get: r => getCurrentPressureDisplayUnit().fromPa(r.gaugePressure) },
-        { key: "absDisplay", label: () => `總壓力（${getCurrentPressureDisplayUnit().label}）`, type: "number", get: r => getCurrentPressureDisplayUnit().fromPa(r.absolutePressure) }
+        { key: "fluidHeight", label: () => "液面（cm）", type: "number", get: r => Number((r.fluidHeight * 100).toFixed(0)) },
+        { key: "depth", label: () => "深度 h（cm）", type: "number", get: r => Number((r.depth * 100).toFixed(0)) },
+        { key: "distFromBottom", label: () => "距底高度 d（cm）", type: "number", get: r => Number((r.distFromBottom * 100).toFixed(0)) },
+        { key: "densityDisplay", label: () => `密度（${getCurrentDensityDisplayUnit().label}）`, type: "number", get: r => Number(getCurrentDensityDisplayUnit().fromSI(r.density).toFixed(3)) },
+        
+        // 🌟 核心修改：在換算完單位後，強制加上 .toFixed(2) 切齊兩位小數，再轉回純數字
+        { key: "gaugeDisplay", label: () => `液壓（${getCurrentPressureDisplayUnit().label}）`, type: "number", get: r => Number(getCurrentPressureDisplayUnit().fromPa(r.gaugePressure).toFixed(2)) },
+        { key: "absDisplay", label: () => `總壓力（${getCurrentPressureDisplayUnit().label}）`, type: "number", get: r => Number(getCurrentPressureDisplayUnit().fromPa(r.absolutePressure).toFixed(2)) }
       ];
 
       const el = {
