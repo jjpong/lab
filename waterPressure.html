@@ -229,10 +229,13 @@
     .eq-tooltip.hidden { opacity: 0; pointer-events: none; }
     #meterGroup, #probeGroup, #liquidRect { cursor: help; }
 
-    /* 歸零按鈕的互動效果 */
     #zeroBtnGroup .btn-rect { transition: fill 0.2s; }
     #zeroBtnGroup:hover .btn-rect { fill: #e2e8f0; }
     #zeroBtnGroup:active .btn-rect { fill: #cbd5e1; }
+    
+    #resetBtnGroup .btn-rect { transition: fill 0.2s; }
+    #resetBtnGroup:hover .btn-rect { fill: #ffe0e0; }
+    #resetBtnGroup:active .btn-rect { fill: #ffcccc; }
     
     .modal{ position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center; padding:18px; }
     .modal-backdrop{ position:absolute; inset:0; background:rgba(18,29,51,0.48); }
@@ -393,9 +396,14 @@
               <circle cx="560" cy="103" r="6" fill="#f15b6c"></circle>
               <circle cx="543" cy="103" r="6" fill="#ffd166"></circle>
 
-              <g id="zeroBtnGroup" transform="translate(450, 206)" style="cursor:pointer;" role="button">
+              <g id="zeroBtnGroup" transform="translate(410, 206)" style="cursor:pointer;" role="button">
                 <rect width="70" height="26" rx="13" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" class="btn-rect"></rect>
                 <text x="35" y="17" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">TARE 歸零</text>
+              </g>
+
+              <g id="resetBtnGroup" transform="translate(490, 206)" style="cursor:pointer;" role="button">
+                <rect width="70" height="26" rx="13" fill="#fff0f0" stroke="#ffb3b3" stroke-width="2" class="btn-rect"></rect>
+                <text x="35" y="17" text-anchor="middle" fill="#d9485f" font-size="12" font-weight="800">解除歸零</text>
               </g>
             </g>
 
@@ -475,6 +483,9 @@
           <div class="field"><label for="chartYSelect">縱軸（Y）</label><select id="chartYSelect"></select></div>
           <button type="button" class="btn-primary" id="generateChartBtn">產生統計圖</button>
           <button type="button" class="btn-secondary" id="clearChartBtn">清除統計圖</button>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:var(--primary);">
+            <input type="checkbox" id="trendlineToggle"> 📈 加入擬合線
+          </label>
         </div>
         <div class="small chart-status" id="chartStatus"></div>
         <div id="chartCanvas" class="chart-shell"></div>
@@ -497,6 +508,7 @@
           <ul>
             <li>壓力計只會顯示單一的壓力讀數。</li>
             <li>在空氣中測量時，按下壓力計上的【TARE 歸零】按鈕，可扣除大氣壓力。</li>
+            <li>如果你需要恢復測量絕對總壓力（包含大氣壓力），請按【解除歸零】。</li>
             <li>正確歸零後，放進液體中測量到的就是純粹的「液體壓力」。</li>
           </ul>
         </div>
@@ -516,10 +528,10 @@
           </ul>
         </div>
         <div class="help-block">
-          <h3>4. 統計圖怎麼用</h3>
+          <h3>4. 統計圖與擬合線</h3>
           <ul>
-            <li>先從下方選擇橫軸與縱軸欄位。</li>
-            <li>選好之後按「產生統計圖」，圖表才會顯示。</li>
+            <li>先從下方選擇橫軸與縱軸欄位，按下「產生統計圖」即可看見數據散佈點。</li>
+            <li>勾選「📈 加入擬合線」，系統會透過最小平方法自動幫你畫出線性趨勢線，方便觀察正比關係。</li>
           </ul>
         </div>
       </div>
@@ -528,7 +540,6 @@
 
   <script>
     (() => {
-      // 內部物理計算依然維持使用公尺 (m)
       const MAX_HEIGHT = 2.0; 
       const G = 9.8;
       const ATM_PRESSURE = 101325;
@@ -627,6 +638,7 @@
         chartYSelect: document.getElementById("chartYSelect"),
         generateChartBtn: document.getElementById("generateChartBtn"),
         clearChartBtn: document.getElementById("clearChartBtn"),
+        trendlineToggle: document.getElementById("trendlineToggle"), // 🌟 綁定打勾選項
         chartStatus: document.getElementById("chartStatus"),
         chartCanvas: document.getElementById("chartCanvas"),
         simSvg: document.getElementById("simSvg"),
@@ -649,6 +661,7 @@
         meterValue: document.getElementById("meterValue"),
         meterUnit: document.getElementById("meterUnit"),
         zeroBtnGroup: document.getElementById("zeroBtnGroup"),
+        resetBtnGroup: document.getElementById("resetBtnGroup"), 
         svgTitle: document.getElementById("svgTitle"),
         svgSubTitle: document.getElementById("svgSubTitle"),
         helpBtn: document.getElementById("helpBtn"),
@@ -743,7 +756,6 @@
         return { liquid, shapeKey, shapeName: shapes[shapeKey], fluidHeight, surfaceY, depth, distFromBottom, submerged, gaugePressure, absolutePressure };
       }
 
-      // 廣播函式 (此處不再接收預設的空字串事件)
       function broadcastStateToParent(actionName) {
         if (!actionName) return; 
         try {
@@ -854,8 +866,6 @@
         el.metricAbsoluteLabel.textContent = `總壓力（${getCurrentPressureDisplayUnit().label}）`; el.metricAbsolute.textContent = formatPressureNumber(state.absolutePressure);
         
         el.customDensityWrap.classList.toggle("hidden", el.liquidSelect.value !== "custom");
-        
-        // 注意：這裡已經刪除了會瘋狂洗版 AI 的廣播
       }
 
       function attachPointerEvents() {
@@ -893,6 +903,9 @@
           } else if (targetId === "zeroBtnGroup" || e.target.closest("#zeroBtnGroup")) {
             equipmentName = "歸零按鈕";
             infoText = "【歸零按鈕 (TARE)】<br>將目前的壓力設定為 0。通常會在探頭位於空氣中時按下，以便測量純粹的液體壓力。";
+          } else if (targetId === "resetBtnGroup" || e.target.closest("#resetBtnGroup")) {
+            equipmentName = "解除歸零按鈕";
+            infoText = "【解除歸零按鈕】<br>取消歸零狀態，恢復測量並顯示真實的「絕對總壓力」（包含大氣壓力）。";
           }
 
           if (infoText) {
@@ -919,6 +932,14 @@
             broadcastStateToParent(`按下了壓力計的「歸零」按鈕`);
           }
         });
+
+        el.resetBtnGroup.addEventListener("click", () => {
+          zeroOffsetPa = 0;
+          renderSimulation();
+          if (isSimInitialized) {
+            broadcastStateToParent(`按下了壓力計的「解除歸零」按鈕，恢復顯示總壓力`);
+          }
+        });
       }
 
       function screenToSvgPoint(e) {
@@ -938,7 +959,6 @@
       }
       function startDrag(pid) { dragging = true; activePointerId = pid; document.body.classList.add("dragging"); if (el.simSvg.setPointerCapture) try { el.simSvg.setPointerCapture(pid); } catch (_) {} }
       
-      // 🌟 精準廣播：只有在拖曳真的結束時，才發送「一次」廣播
       function stopDrag(pid) { 
         if (activePointerId !== null && pid !== undefined && pid !== activePointerId) return; 
         let wasDragging = dragging;
@@ -995,23 +1015,13 @@
         };
       }
 
-function exportCsv() {
-        // 取得目前有勾選的欄位，如果沒勾選就匯出全部
+      function exportCsv() {
         const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
-        
-        // 防呆：沒有紀錄時不執行
-        if (!records.length) {
-          alert("請先將數據「加入紀錄」後才能匯出喔！");
-          return; 
-        }
-
-        // 組合 CSV 內容 (加入 \ufeff 是為了讓 Excel 打開時能正確顯示中文，避免亂碼)
+        if (!records.length) { alert("請先將數據「加入紀錄」後才能匯出喔！"); return; }
         const csv = "\ufeff" + [
           `"${sc.map(c => getColumnLabel(c)).join('","')}"`, 
           ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)
         ].join("\n");
-        
-        // 觸發下載
         const a = document.createElement("a"); 
         a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); 
         a.download = `液體壓力紀錄_${Date.now()}.csv`; 
@@ -1021,14 +1031,12 @@ function exportCsv() {
       function selectColumns(mode) {
         const targetKeys = mode === "all" ? columns.map(c => c.key) : mode === "common" ? commonColumnKeys : [];
         el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = targetKeys.includes(cb.value)); 
-        renderTable();
-        populateAxisOptions(); 
+        renderTable(); populateAxisOptions(); 
       }
 
       function populateAxisOptions() {
         const px = el.chartXSelect.value, py = el.chartYSelect.value;
         const checkedKeys = getSelectedColumns().map(c => c.key);
-        
         const availableFields = graphFields.filter(f => checkedKeys.includes(f.key));
 
         const opts = `<option value="">請選擇項目</option>` + availableFields.map(f => `<option value="${f.key}">${escapeHtml(typeof f.label === "function" ? f.label() : f.label)}</option>`).join("");
@@ -1046,6 +1054,34 @@ function exportCsv() {
       }
       function clearChart() { chartRequested = false; setChartStatus("統計圖已清除。"); renderChart(); }
      
+      // 🌟 新增：計算最小平方法迴歸線 (Trendline)
+      function calculateTrendline(points) {
+        if (points.length < 2) return null;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        let minX = Infinity, maxX = -Infinity;
+        for (let p of points) {
+          sumX += p.x; sumY += p.y;
+          sumXY += p.x * p.y; sumXX += p.x * p.x;
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+        }
+        const n = points.length;
+        const denominator = (n * sumXX - sumX * sumX);
+        if (denominator === 0) return null; 
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        
+        // 稍微把線延伸一點點看起來比較漂亮
+        const margin = (maxX - minX) * 0.05;
+        const drawMinX = minX === maxX ? minX - 1 : minX - margin;
+        const drawMaxX = minX === maxX ? maxX + 1 : maxX + margin;
+
+        return [
+          { x: drawMinX, y: slope * drawMinX + intercept },
+          { x: drawMaxX, y: slope * drawMaxX + intercept }
+        ];
+      }
+
       let myChart = null; 
 
       function renderChart() {
@@ -1080,21 +1116,40 @@ function exportCsv() {
         const xLabel = xFieldDef ? (typeof xFieldDef.label === 'function' ? xFieldDef.label() : xFieldDef.label) : xKey;
         const yLabel = yFieldDef ? (typeof yFieldDef.label === 'function' ? yFieldDef.label() : yFieldDef.label) : yKey;
 
+        // 🌟 準備資料集：預設為散佈圖 (showLine: false)
+        const datasets = [{
+          label: `${yLabel} vs ${xLabel}`,
+          data: chartDataPoints,
+          backgroundColor: 'rgba(66, 133, 244, 0.2)',
+          borderColor: '#4285F4',
+          borderWidth: 2,
+          pointBackgroundColor: '#EA4335',
+          pointRadius: 5,
+          showLine: false, // 🌟 修改這裡：取消點與點之間的連線！
+          tension: 0 
+        }];
+
+        // 🌟 如果勾選了「加入擬合線」，且數據點 >= 2，就多畫一條線
+        if (el.trendlineToggle.checked && chartDataPoints.length >= 2) {
+          const trendData = calculateTrendline(chartDataPoints);
+          if (trendData) {
+            datasets.push({
+              label: '線性擬合線 (Trendline)',
+              data: trendData,
+              borderColor: 'rgba(255, 99, 132, 0.8)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              pointRadius: 0, // 線條上不畫點
+              showLine: true, // 這組資料要畫線
+              fill: false,
+              tension: 0
+            });
+          }
+        }
+
         myChart = new Chart(ctx, {
           type: 'line', 
-          data: {
-            datasets: [{
-              label: `${yLabel} vs ${xLabel}`,
-              data: chartDataPoints,
-              backgroundColor: 'rgba(66, 133, 244, 0.2)',
-              borderColor: '#4285F4',
-              borderWidth: 2,
-              pointBackgroundColor: '#EA4335',
-              pointRadius: 5,
-              showLine: false,
-              tension: 0.1 
-            }]
-          },
+          data: { datasets: datasets },
           options: {
             responsive: true, maintainAspectRatio: false,
             scales: {
@@ -1107,48 +1162,31 @@ function exportCsv() {
 
         if (isSimInitialized) {
             const dataSummaryString = chartDataPoints.map(p => `(${p.x}, ${p.y})`).join(', ');
-            const aiMessage = `產生了統計圖。橫軸(X)為【${xLabel}】，縱軸(Y)為【${yLabel}】。圖表上的數據點依序為：${dataSummaryString}。`;
+            let aiMessage = `產生了統計圖。橫軸(X)為【${xLabel}】，縱軸(Y)為【${yLabel}】。圖表上的數據點依序為：${dataSummaryString}。`;
+            if (el.trendlineToggle.checked && chartDataPoints.length >= 2) {
+                aiMessage += "學生同時勾選了「加入擬合線」，在圖表上繪製出了代表正比趨勢的虛線。";
+            }
             broadcastStateToParent(aiMessage);
         }
       }
 
-      // ==========================================
-      // 🌟 這裡負責每一項 UI 變動時的「精準廣播」
-      // ==========================================
       el.fluidHeightRange.addEventListener("input", () => setFluidHeight(el.fluidHeightRange.value));
       el.fluidHeightRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("拉動滑桿調整了液面高度"); });
-
       el.fluidHeightNumber.addEventListener("input", () => setFluidHeight(el.fluidHeightNumber.value));
       el.fluidHeightNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("輸入數值調整了液面高度"); });
-
       el.depthRange.addEventListener("input", () => setDepth(el.depthRange.value));
       el.depthRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("拉動滑桿調整了探頭深度"); });
-
       el.depthNumber.addEventListener("input", () => setDepth(el.depthNumber.value));
       el.depthNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("輸入數值調整了探頭深度"); });
-
-      el.liquidSelect.addEventListener("change", () => { 
-        renderSimulation(); 
-        if(isSimInitialized) broadcastStateToParent(`將液體種類切換為「${el.liquidSelect.options[el.liquidSelect.selectedIndex].text}」`); 
-      });
-      
-      el.shapeSelect.addEventListener("change", () => { 
-        renderSimulation(); 
-        if(isSimInitialized) broadcastStateToParent(`將容器形狀切換為「${el.shapeSelect.options[el.shapeSelect.selectedIndex].text}」`); 
-      });
-
+      el.liquidSelect.addEventListener("change", () => { renderSimulation(); if(isSimInitialized) broadcastStateToParent(`將液體種類切換為「${el.liquidSelect.options[el.liquidSelect.selectedIndex].text}」`); });
+      el.shapeSelect.addEventListener("change", () => { renderSimulation(); if(isSimInitialized) broadcastStateToParent(`將容器形狀切換為「${el.shapeSelect.options[el.shapeSelect.selectedIndex].text}」`); });
       el.densityDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); if(isSimInitialized) broadcastStateToParent("切換了密度顯示單位"); });
       el.pressureDisplayUnit.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); if(isSimInitialized) broadcastStateToParent("切換了壓力顯示單位"); });
-      
       el.customDensity.addEventListener("input", renderSimulation);
       el.customDensity.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("更改了自訂液體的密度數值"); });
-      
       el.customDensityUnit.addEventListener("change", () => { lastCustomDensityUnit = el.customDensityUnit.value; updateCustomDensityInputMeta(); renderSimulation(); if(isSimInitialized) broadcastStateToParent("切換了自訂密度的單位"); });
 
-      el.recordBtn.addEventListener("click", () => {
-        records.push(makeRecord()); renderTable(); renderChart();
-        if (isSimInitialized) broadcastStateToParent("將當前的壓力數據加入紀錄表中");
-      });
+      el.recordBtn.addEventListener("click", () => { records.push(makeRecord()); renderTable(); renderChart(); if (isSimInitialized) broadcastStateToParent("將當前的壓力數據加入紀錄表中"); });
       el.deleteLastBtn.addEventListener("click", () => { if (!records.length) return; records.pop(); renderTable(); renderChart(); });
       el.clearBtn.addEventListener("click", () => { records = []; recordId = 1; renderTable(); renderChart(); });
       el.exportBtn.addEventListener("click", exportCsv);
@@ -1157,6 +1195,9 @@ function exportCsv() {
       el.clearColumnsBtn.addEventListener("click", () => selectColumns("none"));
       el.generateChartBtn.addEventListener("click", generateChart);
       el.clearChartBtn.addEventListener("click", clearChart);
+      
+      // 🌟 監聽擬合線開關，一打勾就即時重繪圖表！
+      el.trendlineToggle.addEventListener("change", () => { if (chartRequested) renderChart(); });
       
       el.helpBtn.addEventListener("click", () => { el.helpModal.classList.remove("hidden"); document.body.classList.add("modal-open"); });
       el.closeHelpBtn.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
