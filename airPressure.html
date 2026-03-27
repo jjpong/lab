@@ -167,7 +167,7 @@
       <div class="hero-row">
         <div>
           <h1>氣體壓力虛擬實驗</h1>
-          <p>觀察體積、溫度與氣體種類如何影響壓力。可切換「基礎/進階模式」，並自由灌氣與操作活塞。<br>⚠️ 警告：當容器內壓力超過 <b>5 大氣壓 (約 5168 gw/cm²)</b> 時，容器將會破裂！</p>
+          <p>觀察體積、溫度與氣體種類如何影響壓力。可自由選擇不同真實氣體，並進行灌抽氣與操作活塞。<br>⚠️ 警告：當容器內壓力超過 <b>5 大氣壓 (約 5168 gw/cm²)</b> 時，容器將會破裂！</p>
         </div>
         <div>
           <button type="button" class="btn-secondary help-button" id="helpBtn">操作說明</button>
@@ -180,14 +180,7 @@
         <div class="section-title"><h2>實驗設定</h2></div>
 
         <div class="control-group">
-          <h3>1. 核心模型設定</h3>
-          <div class="field">
-            <label for="engineModeSelect">運算引擎模式</label>
-            <select id="engineModeSelect">
-              <option value="ideal">基礎模式 (理想氣體 PV=nRT)</option>
-              <option value="vdw">進階模式 (凡德瓦方程式修正)</option>
-            </select>
-          </div>
+          <h3>1. 活塞狀態設定</h3>
           <div class="field">
             <label class="lock-toggle-box">
               <input type="checkbox" id="lockPistonToggle" checked> 🔒 強制鎖定活塞
@@ -200,9 +193,9 @@
           <div class="field">
             <label for="gasSelect">氣體種類</label>
             <select id="gasSelect">
-              <option value="ideal">理想氣體 (Ideal)</option>
-              <option value="he">氦氣 (He)</option>
-              <option value="n2" selected>氮氣 (N₂)</option>
+              <option value="he" selected>氦氣 (He)</option>
+              <option value="h2">氫氣 (H₂)</option>
+              <option value="n2">氮氣 (N₂)</option>
               <option value="co2">二氧化碳 (CO₂)</option>
             </select>
           </div>
@@ -475,7 +468,7 @@
         <div class="help-block">
           <h3>2. 溫壓複合感測器與流量閥</h3>
           <ul>
-            <li><b>感測器</b>：同時測量並顯示容器內的「壓力」與「溫度」。</li>
+            <li><b>感測器</b>：同時測量並顯示容器內的「壓力」與「溫度」。更換不同的真實氣體時，讀數會有微小但符合凡德瓦定律的差異！</li>
             <li><b>流量控制閥</b>：短按 <code>[➕ 灌氣]</code> 或 <code>[➖ 抽氣]</code> 可以微調，長按則進入連續灌氣/抽氣模式（按鈕會發亮鎖定），再點一下即可煞車關閉。</li>
             <li>⚠️ 小心不要讓壓力數值超過 5 大氣壓 (約 5168 gw/cm²)，否則容器會破裂！</li>
           </ul>
@@ -492,8 +485,8 @@
       const EXPLOSION_LIMIT_PA = ATM_PA * 5; 
 
       const gases = {
-        ideal: { name: "理想氣體", color: "#9ca3af", a: 0, b: 0 },
         he:    { name: "氦氣 (He)", color: "#fcd34d", a: 0.0346 * 0.101325, b: 0.0238 * 0.001 },
+        h2:    { name: "氫氣 (H₂)", color: "#93c5fd", a: 0.2444 * 0.101325, b: 0.0266 * 0.001 },
         n2:    { name: "氮氣 (N₂)", color: "#a5b4fc", a: 1.370 * 0.101325, b: 0.0387 * 0.001 },
         co2:   { name: "二氧化碳 (CO₂)", color: "#fca5a5", a: 3.658 * 0.101325, b: 0.0429 * 0.001 }
       };
@@ -537,7 +530,6 @@
 
       // --- DOM 快取 ---
       const el = {
-        engineModeSelect: document.getElementById("engineModeSelect"),
         lockPistonToggle: document.getElementById("lockPistonToggle"),
         gasSelect: document.getElementById("gasSelect"),
         pressureUnitSelect: document.getElementById("pressureUnitSelect"),
@@ -616,14 +608,12 @@
       function getSelectedGas() { return gases[el.gasSelect.value]; }
       
       function calculatePressure(n, V_m3, T_k, gas) {
-        if (el.engineModeSelect.value === "ideal" || gas.a === 0) return (n * R * T_k) / V_m3;
         const term1 = (n * R * T_k) / (V_m3 - n * gas.b);
         const term2 = gas.a * Math.pow(n, 2) / Math.pow(V_m3, 2);
         return term1 - term2;
       }
 
       function findEquilibriumVolume(P_target, T_k, n, gas) {
-        if (el.engineModeSelect.value === "ideal" || gas.a === 0) return ((n * R * T_k) / P_target) * 1000;
         let lowM3 = 0.002, highM3 = 5.0;  
         for (let i = 0; i < 40; i++) {
           let midM3 = (lowM3 + highM3) / 2;
@@ -694,7 +684,7 @@
         let needsRender = false;
 
         if (!isExploded) {
-            // 1. 氣流邏輯 (精準無慣性，但動畫方向已反轉)
+            // 1. 氣流邏輯 (精準無慣性)
             if (gasFlowDir !== 0) {
                 currentMoles += gasFlowDir * 0.015; 
                 currentMoles = Math.max(0.1, Math.min(10.0, currentMoles));
@@ -864,8 +854,9 @@
         }
       }
       el.molesRange.addEventListener("input", (e) => { el.molesNumber.value = e.target.value; setMolesFromInput(e.target.value); });
-      el.molesRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動調整了氣體莫耳數"); });
+      el.molesRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("調整了氣體莫耳數滑桿"); });
       el.molesNumber.addEventListener("input", (e) => { el.molesRange.value = e.target.value; setMolesFromInput(e.target.value); });
+      el.molesNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動輸入數值調整了氣體莫耳數"); });
 
       function setVolumeFromInput(valStr) {
         if(isExploded) return;
@@ -878,6 +869,7 @@
       el.volumeRange.addEventListener("input", (e) => { el.volumeNumber.value = e.target.value; setVolumeFromInput(e.target.value); });
       el.volumeRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("調整了容器體積滑桿"); });
       el.volumeNumber.addEventListener("input", (e) => { el.volumeRange.value = e.target.value; setVolumeFromInput(e.target.value); });
+      el.volumeNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動輸入數值調整了容器體積"); });
 
       function setTempFromInput(valStr) {
         if(isExploded) return;
@@ -890,8 +882,8 @@
       el.tempRange.addEventListener("input", (e) => { el.tempNumber.value = e.target.value; setTempFromInput(e.target.value); });
       el.tempRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("調整了活塞溫度滑桿"); });
       el.tempNumber.addEventListener("input", (e) => { el.tempRange.value = e.target.value; setTempFromInput(e.target.value); });
+      el.tempNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動輸入數值調整了活塞溫度"); });
 
-      el.engineModeSelect.addEventListener("change", () => { updatePhysicsFromState(); renderSimulation(); if(isSimInitialized) broadcastStateToParent(`切換為「${el.engineModeSelect.options[el.engineModeSelect.selectedIndex].text}」`); });
       el.lockPistonToggle.addEventListener("change", () => { 
         if(!el.lockPistonToggle.checked) {
             if(isSimInitialized) broadcastStateToParent("解鎖了活塞，活塞將自動滑動以維持 1 大氣壓");
@@ -902,8 +894,16 @@
         updatePhysicsFromState(); renderSimulation();
       });
       el.gasSelect.addEventListener("change", () => { updatePhysicsFromState(); renderSimulation(); if(isSimInitialized) broadcastStateToParent(`將氣體切換為「${el.gasSelect.options[el.gasSelect.selectedIndex].text}」`); });
-      el.pressureUnitSelect.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); });
-      el.tempUnitSelect.addEventListener("change", () => { renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); });
+      
+      el.pressureUnitSelect.addEventListener("change", () => { 
+        renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); 
+        if(isSimInitialized) broadcastStateToParent(`更改壓力單位為 ${el.pressureUnitSelect.options[el.pressureUnitSelect.selectedIndex].text}`); 
+      });
+      el.tempUnitSelect.addEventListener("change", () => { 
+        renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); 
+        if(isSimInitialized) broadcastStateToParent(`更改溫度單位為 ${el.tempUnitSelect.options[el.tempUnitSelect.selectedIndex].text}`); 
+      });
+      
       el.resetSimBtn.addEventListener("click", resetSimulation);
 
       // SVG 活塞拖曳邏輯
@@ -931,11 +931,11 @@
       }
 
       // 底部按鈕長按邏輯 (溫度)
-      el.heaterBtnGroup.addEventListener("pointerdown", () => { targetHeatingState = 1; });
+      el.heaterBtnGroup.addEventListener("pointerdown", () => { targetHeatingState = 1; if(isSimInitialized) broadcastStateToParent("使用了底部加熱按鈕"); });
       el.heaterBtnGroup.addEventListener("pointerup", () => { targetHeatingState = 0; });
       el.heaterBtnGroup.addEventListener("pointerleave", () => { targetHeatingState = 0; });
       
-      el.coolerBtnGroup.addEventListener("pointerdown", () => { targetHeatingState = -1; });
+      el.coolerBtnGroup.addEventListener("pointerdown", () => { targetHeatingState = -1; if(isSimInitialized) broadcastStateToParent("使用了底部冷卻按鈕"); });
       el.coolerBtnGroup.addEventListener("pointerup", () => { targetHeatingState = 0; });
       el.coolerBtnGroup.addEventListener("pointerleave", () => { targetHeatingState = 0; });
 
@@ -956,6 +956,8 @@
           if (dir > 0) btnEl.classList.add("active-inject");
           else btnEl.classList.add("active-bleed");
           
+          if (isSimInitialized && !isGasFlowLocked) broadcastStateToParent(`點擊了${dir > 0 ? '灌氣' : '抽氣'}閥門`);
+          
           currentMoles += dir * 0.02;
           currentMoles = Math.max(0.1, Math.min(10.0, currentMoles));
           updatePhysicsFromState(); renderSimulation();
@@ -972,6 +974,7 @@
 
       function stopFlow() {
           clearTimeout(gasFlowTimer);
+          if (isGasFlowLocked && isSimInitialized) broadcastStateToParent("停止了連續氣流模式");
           gasFlowDir = 0;
           isGasFlowLocked = false;
           el.injectBtnGroup.classList.remove("active-inject");
@@ -995,7 +998,6 @@
             type: 'SIMULATION_STATE',
             payload: {
               "學生最後的動作": actionName, 
-              "引擎模式": el.engineModeSelect.options[el.engineModeSelect.selectedIndex].text,
               "活塞狀態": el.lockPistonToggle.checked ? "鎖定 (定容)" : "活動 (定壓)",
               "氣體種類": getSelectedGas().name, 
               "莫耳數(n)": formatNum(currentMoles, 3),
@@ -1011,9 +1013,6 @@
       // --- 資料收集與圖表系統 ---
       const columns = [
         { key: "id", label: "編號", get: r => r.id },
-        { key: "time", label: "時間", get: r => r.time },
-        { key: "mode", label: "模式", get: r => r.mode },
-        { key: "lock", label: "活塞", get: r => r.lock },
         { key: "gas", label: "氣體", get: r => r.gasName },
         { key: "moles", label: "莫耳數 n (mol)", type: "number", get: r => Number(r.moles.toFixed(3)) },
         { key: "volume", label: "體積 V (L)", type: "number", get: r => Number(r.volumeL.toFixed(1)) },
@@ -1052,9 +1051,6 @@
       function makeRecord() {
         return { 
           id: recordId++, 
-          time: new Date().toLocaleTimeString("zh-TW", {hour12:false}), 
-          mode: el.engineModeSelect.options[el.engineModeSelect.selectedIndex].text,
-          lock: el.lockPistonToggle.checked ? "鎖定" : "活動",
           gasName: getSelectedGas().name,
           moles: currentMoles,
           volumeL: currentVolumeL,
@@ -1181,18 +1177,19 @@
 
       // 按鈕事件
       el.recordBtn.addEventListener("click", () => { if(!isExploded){ records.push(makeRecord()); renderTable(); renderChart(); if(isSimInitialized) broadcastStateToParent("將當前的氣體數據加入紀錄表中"); } else { alert("容器已破裂，請先重置實驗。"); }});
-      el.deleteLastBtn.addEventListener("click", () => { if (!records.length) return; records.pop(); renderTable(); renderChart(); });
-      el.clearBtn.addEventListener("click", () => { records = []; recordId = 1; renderTable(); renderChart(); });
+      el.deleteLastBtn.addEventListener("click", () => { if (!records.length) return; records.pop(); renderTable(); renderChart(); if(isSimInitialized) broadcastStateToParent("刪除了最後一筆實驗紀錄"); });
+      el.clearBtn.addEventListener("click", () => { records = []; recordId = 1; renderTable(); renderChart(); if(isSimInitialized) broadcastStateToParent("清空了全部實驗紀錄"); });
       el.exportBtn.addEventListener("click", () => {
         const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
         if (!records.length) { alert("請先記錄數據再匯出！"); return; }
         const csv = "\ufeff" + [`"${sc.map(c => getColumnLabel(c)).join('","')}"`, ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)].join("\n");
         const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = `氣體壓力紀錄_${Date.now()}.csv`; a.click();
+        if(isSimInitialized) broadcastStateToParent("匯出了實驗數據 CSV");
       });
       el.selectAllColumnsBtn.addEventListener("click", () => { el.columnCheckboxes.querySelectorAll('input').forEach(cb => cb.checked = true); renderTable(); populateAxisOptions(); });
       el.clearColumnsBtn.addEventListener("click", () => { el.columnCheckboxes.querySelectorAll('input').forEach(cb => cb.checked = false); renderTable(); populateAxisOptions(); });
       el.generateChartBtn.addEventListener("click", () => { chartRequested = true; el.chartStatus.innerHTML="統計圖已產生。"; renderChart(); });
-      el.clearChartBtn.addEventListener("click", () => { chartRequested = false; el.chartStatus.innerHTML="統計圖已清除。"; renderChart(); });
+      el.clearChartBtn.addEventListener("click", () => { chartRequested = false; el.chartStatus.innerHTML="統計圖已清除。"; renderChart(); if(isSimInitialized) broadcastStateToParent("清除了統計圖"); });
       el.trendlineToggle.addEventListener("change", () => { if (chartRequested) renderChart(); });
 
       // Help Modal 邏輯
@@ -1242,7 +1239,7 @@
       requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
       
       isSimInitialized = true; 
-      broadcastStateToParent("我們進入了熱力學實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的 BMP180 複合感測器（可同時顯示溫度與壓力）。容器右下角裝有一組『氣體流量控制閥』。學生可以透過拖曳活塞、點擊溫控或氣流控制閥，或是切換『基礎/進階』模型，來觀察氣體的熱力學動態變化。");
+      broadcastStateToParent("我們進入了熱力學實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的 BMP180 複合感測器（可同時顯示溫度與壓力）。容器右下角裝有一組『氣體流量控制閥』。學生可以透過拖曳活塞、點擊溫控或氣流控制閥，或是切換不同的真實氣體種類，來觀察氣體的熱力學動態變化。");
     })();
   </script>
 </body>
