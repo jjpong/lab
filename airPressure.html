@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗（巨觀熱力學）</title>
+  <title>氣體壓力虛擬實驗</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -249,6 +249,8 @@
       <section class="panel">
         <div class="section-title"><h2>虛擬實驗室 (巨觀視角)</h2></div>
         <div class="svg-shell" id="svgContainer">
+          <button type="button" class="btn-secondary" id="viewToggleBtn" style="position: absolute; top: 14px; right: 14px; z-index: 10; padding: 8px 12px; font-size: 0.9rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">🔬 開啟微觀視角</button>
+          <canvas id="particleCanvas" width="620" height="500" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 5; display:none;"></canvas>
           
           <div id="explosionOverlay" class="explosion-overlay">
             <h2>💥 碰！容器破裂！</h2>
@@ -488,11 +490,13 @@
       const ATM_PA = 101325; 
       const EXPLOSION_LIMIT_PA = ATM_PA * 5; 
 
+      // 加入了微觀半徑 (r) 與 視覺速度乘數 (vMultiplier，模擬質量差異)
+      // 這次更強化了質量的對比：CO2 變得更慢、更大；H2/He 變得更快、更小！
       const gases = {
-        he:    { name: "氦氣 (He)", color: "#fcd34d", a: 0.0346 * 0.101325, b: 0.0238 * 0.001 },
-        h2:    { name: "氫氣 (H₂)", color: "#93c5fd", a: 0.2444 * 0.101325, b: 0.0266 * 0.001 },
-        n2:    { name: "氮氣 (N₂)", color: "#a5b4fc", a: 1.370 * 0.101325, b: 0.0387 * 0.001 },
-        co2:   { name: "二氧化碳 (CO₂)", color: "#fca5a5", a: 3.658 * 0.101325, b: 0.0429 * 0.001 }
+        he:    { name: "氦氣 (He)", color: "#fcd34d", a: 0.0346 * 0.101325, b: 0.0238 * 0.001, r: 2.0, vMultiplier: 2.6 },
+        h2:    { name: "氫氣 (H₂)", color: "#93c5fd", a: 0.2444 * 0.101325, b: 0.0266 * 0.001, r: 1.8, vMultiplier: 3.7 },
+        n2:    { name: "氮氣 (N₂)", color: "#a5b4fc", a: 1.370 * 0.101325, b: 0.0387 * 0.001, r: 3.0, vMultiplier: 1.0 },
+        co2:   { name: "二氧化碳 (CO₂)", color: "#fca5a5", a: 3.658 * 0.101325, b: 0.0429 * 0.001, r: 4.5, vMultiplier: 0.6 }
       };
 
       const pressureUnits = {
@@ -531,6 +535,12 @@
       let isGasFlowLocked = false; 
       let gasFlowTimer = null; 
       let flowOffset = 0; 
+
+      // 微觀粒子狀態
+      let isMicroView = false;
+      let insideParticles = [];
+      let outsideParticles = [];
+      let collisionSparks = [];
 
       // --- DOM 快取 ---
       const el = {
@@ -571,6 +581,9 @@
         injectBtnGroup: document.getElementById("injectBtnGroup"),
         bleedBtnGroup: document.getElementById("bleedBtnGroup"),
         flowLine: document.getElementById("flowLine"),
+        
+        viewToggleBtn: document.getElementById("viewToggleBtn"),
+        particleCanvas: document.getElementById("particleCanvas"),
         
         meterValue: document.getElementById("meterValue"),
         meterUnit: document.getElementById("meterUnit"),
@@ -681,6 +694,129 @@
         if (isSimInitialized) broadcastStateToParent("重置了實驗容器");
       }
 
+      // --- 微觀粒子引擎 ---
+      function syncOutsideParticles() {
+          const pistonTop = 100 + ((50 - currentVolumeL) / 48) * 280;
+          // 為了維持與內部 1atm 相同的視覺密度 (大約 0.5 顆/px)，動態調整外部空氣粒子數量
+          const targetOutsideCount = Math.max(10, Math.floor((pistonTop - 10) * 0.5));
+          
+          while (outsideParticles.length < targetOutsideCount) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 4.0; // 外部空氣 (以 N2 為主) 基準速度恆定為 4.0
+              outsideParticles.push({
+                  x: 165 + Math.random() * 210,
+                  y: 10 + Math.random() * (pistonTop - 15),
+                  vx: Math.cos(angle) * speed,
+                  vy: Math.sin(angle) * speed,
+                  r: 3,
+                  color: "#94a3b8"
+              });
+          }
+          while (outsideParticles.length > targetOutsideCount) {
+              outsideParticles.pop();
+          }
+      }
+
+      function syncInsideParticles() {
+          const gas = getSelectedGas();
+          // 1 mol 對應約 60 顆粒子，最高限制 300 顆避免電腦卡頓
+          const targetCount = Math.min(300, Math.floor(currentMoles * 60));
+          const pistonTop = 100 + ((50 - currentVolumeL) / 48) * 280;
+          const pistonBottom = pistonTop + 20;
+          
+          while (insideParticles.length < targetCount) {
+              const speedBase = 4 * gas.vMultiplier * Math.sqrt(currentTempK / 298.15);
+              const angle = Math.random() * Math.PI * 2;
+              insideParticles.push({
+                  x: 165 + Math.random() * 210,
+                  y: pistonBottom + 5 + Math.random() * (390 - pistonBottom),
+                  vx: Math.cos(angle) * speedBase,
+                  vy: Math.sin(angle) * speedBase,
+                  r: gas.r,
+                  color: gas.color
+              });
+          }
+          while (insideParticles.length > targetCount) {
+              insideParticles.pop(); // 抽氣時移除粒子
+          }
+          
+          // 更新現有粒子的半徑與顏色 (應付使用者切換氣體種類)
+          insideParticles.forEach(p => {
+              p.r = gas.r; p.color = gas.color;
+          });
+      }
+
+      function renderParticles() {
+          const ctx = el.particleCanvas.getContext("2d");
+          ctx.clearRect(0, 0, 620, 500);
+          
+          const gas = getSelectedGas();
+          const pistonTop = 100 + ((50 - currentVolumeL) / 48) * 280;
+          const pistonBottom = pistonTop + 20;
+          const speedBase = 4 * gas.vMultiplier * Math.sqrt(currentTempK / 298.15);
+
+          // 1. 繪製與更新外界大氣粒子 (灰色)
+          ctx.fillStyle = "#94a3b8";
+          outsideParticles.forEach(p => {
+              // 強制修正外部粒子的速率為恆定 4.0，展現空氣作為對照組的基準動能
+              const currentSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+              if (currentSpeed > 0) {
+                  p.vx = (p.vx / currentSpeed) * 4.0;
+                  p.vy = (p.vy / currentSpeed) * 4.0;
+              }
+              p.x += p.vx; p.y += p.vy;
+              
+              // 牆壁碰撞
+              if (p.x <= 160 + p.r) { p.x = 160 + p.r; p.vx *= -1; }
+              if (p.x >= 380 - p.r) { p.x = 380 - p.r; p.vx *= -1; }
+              if (p.y <= p.r + 10) { p.y = p.r + 10; p.vy *= -1; }
+              // 活塞頂部碰撞！(產生灰色火花)
+              if (p.y >= pistonTop - p.r) { 
+                  p.y = pistonTop - p.r; 
+                  p.vy = -Math.abs(p.vy) + Math.min(0, pistonVelocity); // 若活塞往上，推動空氣
+                  collisionSparks.push({x: p.x, y: pistonTop, color: "#94a3b8", life: 1.0});
+              }
+              ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          });
+
+          // 2. 繪製與更新內部氣體粒子 (彩色)
+          insideParticles.forEach(p => {
+              // 根據溫度即時修正速率大小
+              const currentSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+              if (currentSpeed > 0) {
+                  p.vx = (p.vx / currentSpeed) * speedBase;
+                  p.vy = (p.vy / currentSpeed) * speedBase;
+              }
+              p.x += p.vx; p.y += p.vy;
+
+              // 牆壁碰撞
+              if (p.x <= 160 + p.r) { p.x = 160 + p.r; p.vx *= -1; }
+              if (p.x >= 380 - p.r) { p.x = 380 - p.r; p.vx *= -1; }
+              if (p.y >= 400 - p.r) { p.y = 400 - p.r; p.vy *= -1; }
+              // 活塞底部碰撞！(產生彩色火花)
+              if (p.y <= pistonBottom + p.r) { 
+                  p.y = pistonBottom + p.r; 
+                  // 加上活塞的移動速度，模擬真實碰撞加/減速
+                  p.vy = Math.abs(p.vy) + Math.max(0, pistonVelocity); 
+                  collisionSparks.push({x: p.x, y: pistonBottom, color: gas.color, life: 1.0});
+              }
+              ctx.fillStyle = p.color;
+              ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          });
+
+          // 3. 繪製碰撞火花漣漪
+          for (let i = collisionSparks.length - 1; i >= 0; i--) {
+              let s = collisionSparks[i];
+              ctx.strokeStyle = s.color;
+              ctx.globalAlpha = s.life;
+              ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.arc(s.x, s.y, (1 - s.life) * 15, 0, Math.PI * 2); ctx.stroke();
+              ctx.globalAlpha = 1.0;
+              s.life -= 0.15;
+              if (s.life <= 0) collisionSparks.splice(i, 1);
+          }
+      }
+
       // 阻尼動畫迴圈 (處理活塞平滑移動、加熱慣性、氣流即時控制)
       const MAX_HEAT_RATE = 0.4; const HEAT_ACCEL = 0.02;
 
@@ -749,6 +885,13 @@
             }
         }
 
+        // 啟動微觀粒子渲染
+        if (isMicroView && !isExploded) {
+            syncOutsideParticles(); // 動態同步外部 1atm 視覺密度
+            syncInsideParticles();
+            renderParticles();
+        }
+
         if (needsRender) renderSimulation();
         requestAnimationFrame(animationLoop);
       }
@@ -803,7 +946,9 @@
         el.gasRect.setAttribute("height", 300 - pistonYOffset - 20);
         el.gasRect.setAttribute("fill", gas.color);
         const density = currentMoles / currentVolumeL;
-        const opacity = Math.min(0.95, Math.max(0.05, (density / 0.0446) * 0.4));
+        
+        // ★ 如果開啟微觀視角，就把巨觀的顏色底圖變得很淡，凸顯粒子
+        const opacity = isMicroView ? 0.05 : Math.min(0.95, Math.max(0.05, (density / 0.0446) * 0.4));
         el.gasRect.setAttribute("opacity", opacity);
 
         // 4. 加熱器顏色
@@ -994,22 +1139,54 @@
       el.bleedBtnGroup.addEventListener("pointerup", () => handleFlowUpOrLeave(-1));
       el.bleedBtnGroup.addEventListener("pointerleave", () => handleFlowUpOrLeave(-1));
 
+      // 微觀視角切換邏輯
+      el.viewToggleBtn.addEventListener("click", () => {
+          isMicroView = !isMicroView;
+          if (isMicroView) {
+              el.viewToggleBtn.textContent = "👁️ 關閉微觀視角";
+              el.viewToggleBtn.classList.replace("btn-secondary", "btn-primary");
+              el.particleCanvas.style.display = "block";
+              syncOutsideParticles();
+              syncInsideParticles();
+              if(isSimInitialized) broadcastStateToParent("開啟了微觀粒子視角，開始觀察內外分子的碰撞");
+          } else {
+              el.viewToggleBtn.textContent = "🔬 開啟微觀視角";
+              el.viewToggleBtn.classList.replace("btn-primary", "btn-secondary");
+              el.particleCanvas.style.display = "none";
+              if(isSimInitialized) broadcastStateToParent("關閉了微觀粒子視角，回到巨觀觀察模式");
+          }
+          renderSimulation(); // 更新氣體背景透明度
+      });
+
       // --- 廣播系統 ---
       function broadcastStateToParent(actionName) {
         if (!actionName) return; 
         try {
+          const gas = getSelectedGas();
+          const payload = {
+            "學生最後的動作": actionName, 
+            "當前觀察視角": isMicroView ? "微觀模式 (可看見粒子與碰撞火花)" : "巨觀模式 (無粒子，僅顯示顏色深淺)",
+            "活塞狀態": el.lockPistonToggle.checked ? "鎖定 (定容)" : "活動 (定壓)",
+            "氣體種類": gas.name, 
+            "莫耳數(n)": formatNum(currentMoles, 3),
+            "體積(L)": formatNum(currentVolumeL, 1), 
+            "溫度(K)": formatNum(currentTempK, 1),
+            "壓力(Pa)": formatNum(currentPressurePa, 1), 
+            "已收集的數據筆數": records.length + " 筆"
+          };
+
+          // ★ AI 專屬外掛：當開啟微觀視角時，生動地描述畫面現況給 AI 聽
+          if (isMicroView) {
+              let weightDesc = gas.vMultiplier < 1.0 ? "質量大，視覺上較大顆且移動緩慢" : (gas.vMultiplier > 2.0 ? "質量小，視覺上極小且移動極快" : "質量與空氣相近，速度中等");
+              let tempDesc = currentTempK > 400 ? "因處於高溫，粒子移動非常劇烈" : (currentTempK < 200 ? "因處於低溫，粒子移動顯得緩慢" : "目前為室溫狀態");
+              let pressureDesc = currentPressurePa > ATM_PA ? "內部粒子撞擊活塞的激烈程度明顯大於外部大氣" : (currentPressurePa < ATM_PA ? "內部粒子撞擊活塞的激烈程度小於外部大氣" : "內外粒子撞擊活塞的總力道已達成平衡");
+              
+              payload["微觀畫面特徵 (供AI引導參考)"] = `畫面上方有固定數量、速度極快的灰色空氣粒子在持續撞擊活塞頂部。下方是 ${gas.name} 粒子，特徵為「${weightDesc}」，且${tempDesc}。觀察兩側的碰撞情況，${pressureDesc}。`;
+          }
+
           window.parent.postMessage({
             type: 'SIMULATION_STATE',
-            payload: {
-              "學生最後的動作": actionName, 
-              "活塞狀態": el.lockPistonToggle.checked ? "鎖定 (定容)" : "活動 (定壓)",
-              "氣體種類": getSelectedGas().name, 
-              "莫耳數(n)": formatNum(currentMoles, 3),
-              "體積(L)": formatNum(currentVolumeL, 1), 
-              "溫度(K)": formatNum(currentTempK, 1),
-              "壓力(Pa)": formatNum(currentPressurePa, 1), 
-              "已收集的數據筆數": records.length + " 筆"
-            }
+            payload: payload
           }, '*');
         } catch (e) { console.error("狀態廣播失敗:", e); }
       }
@@ -1239,6 +1416,7 @@
       populateColumnCheckboxes();
       populateAxisOptions();
       updatePhysicsFromState();
+      syncOutsideParticles(); // 準備好大氣粒子
       renderSimulation();
       requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
       
