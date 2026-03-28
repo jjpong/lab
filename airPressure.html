@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗</title>
+  <title>氣體壓力虛擬實驗（巨觀熱力學）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -183,7 +183,7 @@
           <h3>1. 活塞狀態設定</h3>
           <div class="field">
             <label class="lock-toggle-box">
-              <input type="checkbox" id="lockPistonToggle" checked> 🔒 強制鎖定活塞
+              <input type="checkbox" id="lockPistonToggle"> 🔒 強制鎖定活塞
             </label>
           </div>
         </div>
@@ -670,7 +670,7 @@
       function resetSimulation() {
         isExploded = false;
         el.explosionOverlay.classList.remove("active");
-        el.lockPistonToggle.checked = true;
+        el.lockPistonToggle.checked = false;
         currentVolumeL = targetVolumeL = 22.4;
         currentTempK = 298.15;
         currentHeatingRate = 0; targetHeatingState = 0;
@@ -1163,6 +1163,11 @@
         if (!actionName) return; 
         try {
           const gas = getSelectedGas();
+          const pUnit = getPUnit();
+          const tUnit = getTUnit();
+          const displayTemp = tUnit.fromK(currentTempK);
+          const displayPressure = pUnit.fromPa(currentPressurePa);
+
           const payload = {
             "學生最後的動作": actionName, 
             "當前觀察視角": isMicroView ? "微觀模式 (可看見粒子與碰撞火花)" : "巨觀模式 (無粒子，僅顯示顏色深淺)",
@@ -1170,8 +1175,8 @@
             "氣體種類": gas.name, 
             "莫耳數(n)": formatNum(currentMoles, 3),
             "體積(L)": formatNum(currentVolumeL, 1), 
-            "溫度(K)": formatNum(currentTempK, 1),
-            "壓力(Pa)": formatNum(currentPressurePa, 1), 
+            [`溫度(${tUnit.label})`]: formatNum(displayTemp, 1),
+            [`壓力(${pUnit.label})`]: formatNum(displayPressure, pUnit.decimals), 
             "已收集的數據筆數": records.length + " 筆"
           };
 
