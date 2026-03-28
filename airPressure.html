@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗（巨觀熱力學）</title>
+  <title>氣體壓力虛擬實驗</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -51,9 +51,11 @@
     }
     @media (max-width: 980px) { .top-layout { grid-template-columns: 1fr; } }
 
+    /* ★ 修改：加上 min-height: 0 允許容器被壓縮，達成左右等高 */
     .panel{
       background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
       padding: clamp(12px, 2vw, 18px); box-shadow:var(--shadow); margin-bottom:16px; width: 100%; display: flex; flex-direction: column;  
+      min-height: 0; 
     }
     .panel:last-child{ margin-bottom:0; }
 
@@ -112,8 +114,12 @@
     .lock-toggle-box:hover { background: #ffe4e8; }
     .lock-toggle-box input { transform: scale(1.3); accent-color: var(--primary); cursor: pointer; }
 
-    .svg-shell{ background:linear-gradient(180deg,#fafafa 0%,#f0f4f8 100%); border:1px solid var(--line); border-radius:18px; padding:10px; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; position: relative;}
-    svg{ width:100%; height:auto; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
+    /* ★ 修改：加上 min-height: 0 確保 SVG 外殼不超出右側面板 */
+    .svg-shell{ background:linear-gradient(180deg,#fafafa 0%,#f0f4f8 100%); border:1px solid var(--line); border-radius:18px; padding:10px; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; position: relative; min-height: 0;}
+    
+    /* ★ 修改：將高度改為 100% 並加入 max-height，讓它完美適應高度限制 */
+    svg{ width:100%; height:100%; max-width:100%; max-height:100%; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
+    
     .hidden{ display:none !important; }
 
     .sub-panel{ border:1px solid var(--line); border-radius:16px; background:#fbfdff; padding:14px; margin-bottom:14px; width: 100%; }
@@ -258,7 +264,7 @@
             <button type="button" class="btn-info" id="resetSimBtn">更換容器並重置實驗</button>
           </div>
 
-          <svg id="simSvg" viewBox="0 0 620 500" role="img" aria-label="氣體壓力模擬圖">
+          <svg id="simSvg" viewBox="0 0 620 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="氣體壓力模擬圖">
             <defs>
               <linearGradient id="meterBodyGradient" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stop-color="#344563"></stop>
@@ -287,35 +293,27 @@
 
             <rect x="0" y="0" width="620" height="500" rx="18" fill="#fafafa"></rect>
             
-            <!-- 體積刻度標示 -->
             <g id="volScaleGroup" transform="translate(130, 0)"></g>
 
             <g id="gasContainerGroup">
-              <!-- 氣體顏色填充區塊 -->
               <rect id="gasRect" x="160" y="100" width="220" height="300" fill="#a5b4fc" opacity="0.3"></rect>
               
-              <!-- 容器邊框 (U型) -->
               <path d="M 156 80 L 156 404 L 384 404 L 384 80" fill="none" stroke="#475569" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>
               
-              <!-- 加熱暈影 -->
               <rect id="heaterGlow" x="135" y="403" width="270" height="40" rx="12" fill="#f87171" opacity="0" filter="url(#glowFilter)"></rect>
 
-              <!-- 溫度加熱盤與按鈕 -->
               <rect id="heaterGroup" x="140" y="408" width="260" height="30" rx="8" fill="url(#heaterGradient)" stroke="#334155" stroke-width="3"></rect>
               
-              <!-- ❄️ 冷卻按鈕 -->
               <g id="coolerBtnGroup" class="svg-btn" transform="translate(150, 413)">
                 <rect width="60" height="20" rx="6" fill="#60a5fa" stroke="#1e3a8a" stroke-width="2"></rect>
                 <text x="30" y="14" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">❄️ 冷卻</text>
               </g>
 
-              <!-- 🔥 加熱按鈕 -->
               <g id="heaterBtnGroup" class="svg-btn" transform="translate(330, 413)">
                 <rect width="60" height="20" rx="6" fill="#f87171" stroke="#7f1d1d" stroke-width="2"></rect>
                 <text x="30" y="14" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">🔥 加熱</text>
               </g>
 
-              <!-- 活塞與鎖定圖示 -->
               <g id="pistonGroup" transform="translate(160, 100)">
                 <rect x="0" y="0" width="220" height="20" fill="#cbd5e1" stroke="#475569" stroke-width="3"></rect>
                 <rect id="pistonDragHandle" x="80" y="-15" width="60" height="15" rx="4" fill="#64748b" stroke="#334155" stroke-width="2"></rect>
@@ -327,14 +325,12 @@
                 </g>
               </g>
 
-              <!-- 即時體積箭頭標示 -->
               <g id="indicatorGroup" transform="translate(150, 120)">
                 <polygon points="0,0 -12,-8 -12,8" fill="#d9485f" stroke="#7a1428" stroke-width="2"></polygon>
                 <text id="indicatorText" x="-18" y="4" text-anchor="end" fill="#d9485f" font-size="14" font-weight="800">22.4 L</text>
               </g>
             </g>
 
-            <!-- 綜合數位感測器 -->
             <g id="meterGroup" filter="url(#softShadow)" transform="translate(420, 100)">
               <rect x="0" y="0" width="160" height="180" rx="16" fill="url(#meterBodyGradient)" stroke="#0f172a" stroke-width="3"></rect>
               <text x="80" y="24" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800" letter-spacing="1">溫壓複合感測器</text>
@@ -352,24 +348,18 @@
               <path d="M -36 90 L 0 90" fill="none" stroke="#64748b" stroke-width="6" stroke-linecap="round"></path>
             </g>
 
-            <!-- 右下角：氣體流量控制閥 -->
             <g id="gasValveGroup" transform="translate(420, 310)" filter="url(#softShadow)">
-              <!-- 連接管 -->
               <path d="M -36 40 L 0 40" fill="none" stroke="#64748b" stroke-width="8" stroke-linecap="round"></path>
-              <!-- 氣流虛線動畫 -->
               <path id="flowLine" d="M -34 40 L -2 40" fill="none" stroke="#3b82f6" stroke-width="4" stroke-dasharray="4 4" opacity="0"></path>
               
-              <!-- 控制盒本體 -->
               <rect x="0" y="0" width="160" height="90" rx="12" fill="url(#meterBodyGradient)" stroke="#0f172a" stroke-width="3"></rect>
               <text x="80" y="24" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800" letter-spacing="1">氣體流量控制閥</text>
 
-              <!-- 抽氣按鈕 -->
               <g id="bleedBtnGroup" class="svg-btn" transform="translate(15, 42)">
                 <rect width="60" height="32" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" class="btn-bg"></rect>
                 <text x="30" y="22" text-anchor="middle" fill="#475569" font-size="13" font-weight="bold">➖ 抽氣</text>
               </g>
 
-              <!-- 灌氣按鈕 -->
               <g id="injectBtnGroup" class="svg-btn" transform="translate(85, 42)">
                 <rect width="60" height="32" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" class="btn-bg"></rect>
                 <text x="30" y="22" text-anchor="middle" fill="#475569" font-size="13" font-weight="bold">➕ 灌氣</text>
@@ -381,11 +371,10 @@
       </section>
     </div>
 
-    <!-- 狀態摘要列 -->
     <section class="panel">
       <div class="section-title"><h2>即時實驗數據摘要</h2></div>
       <div class="metrics-row">
-        <div class="metric"><span class="metric-label">氣體種類</span><strong id="metricGas">氮氣 (N₂)</strong></div>
+        <div class="metric"><span class="metric-label">氣體種類</span><strong id="metricGas">氦氣 (He)</strong></div>
         <div class="metric"><span class="metric-label">莫耳數 (n)</span><strong id="metricMoles">1.000 mol</strong></div>
         <div class="metric"><span class="metric-label">體積 (V)</span><strong id="metricVolume">22.4 L</strong></div>
         <div class="metric"><span class="metric-label">溫度 (T)</span><strong id="metricTemp">25.0 °C</strong></div>
@@ -394,7 +383,6 @@
       </div>
     </section>
 
-    <!-- 數據收集區 -->
     <section class="panel">
       <div class="section-title">
         <h2>決定要紀錄哪些數據</h2>
@@ -417,7 +405,6 @@
       </div>
     </section>
 
-    <!-- 統計圖表區 -->
     <section class="panel">
       <div class="section-title">
         <h2>實驗數據紀錄與統計圖</h2>
@@ -451,7 +438,6 @@
 
   <div id="eqTooltip" class="eq-tooltip hidden"></div>
 
-  <!-- 說明彈窗 -->
   <div id="helpModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="helpBackdrop"></div>
     <div class="modal-card">
@@ -468,8 +454,8 @@
         <div class="help-block">
           <h3>1. 活塞鎖定系統 (定容 vs 定壓)</h3>
           <ul>
-            <li><b>🔒 鎖定活塞 (預設)</b>：活塞被固定，體積不變。加溫或灌氣時，內部壓力會急劇上升。</li>
-            <li><b>解鎖活塞</b>：活塞可以自由滑動以維持內外壓力平衡 ($1\text{ atm}$)。改變溫度或氣體量時，氣體會膨脹推動活塞。</li>
+            <li><b>🔒 鎖定活塞</b>：活塞被固定，體積不變。加溫或灌氣時，內部壓力會急劇上升。</li>
+            <li><b>解鎖活塞 (預設)</b>：活塞可以自由滑動以維持內外壓力平衡 ($1\text{ atm}$)。改變溫度或氣體量時，氣體會膨脹推動活塞。</li>
           </ul>
         </div>
         <div class="help-block">
@@ -491,7 +477,6 @@
       const EXPLOSION_LIMIT_PA = ATM_PA * 5; 
 
       // 加入了微觀半徑 (r) 與 視覺速度乘數 (vMultiplier，模擬質量差異)
-      // 這次更強化了質量的對比：CO2 變得更慢、更大；H2/He 變得更快、更小！
       const gases = {
         he:    { name: "氦氣 (He)", color: "#fcd34d", a: 0.0346 * 0.101325, b: 0.0238 * 0.001, r: 2.0, vMultiplier: 2.6 },
         h2:    { name: "氫氣 (H₂)", color: "#93c5fd", a: 0.2444 * 0.101325, b: 0.0266 * 0.001, r: 1.8, vMultiplier: 3.7 },
@@ -670,6 +655,7 @@
       function resetSimulation() {
         isExploded = false;
         el.explosionOverlay.classList.remove("active");
+        // ★ 修改：預設為解鎖狀態
         el.lockPistonToggle.checked = false;
         currentVolumeL = targetVolumeL = 22.4;
         currentTempK = 298.15;
@@ -770,7 +756,7 @@
               if (p.x <= 160 + p.r) { p.x = 160 + p.r; p.vx *= -1; }
               if (p.x >= 380 - p.r) { p.x = 380 - p.r; p.vx *= -1; }
               if (p.y <= p.r + 10) { p.y = p.r + 10; p.vy *= -1; }
-              // 活塞頂部碰撞！(產生灰色火花)
+              // 活塞頂部碰撞
               if (p.y >= pistonTop - p.r) { 
                   p.y = pistonTop - p.r; 
                   p.vy = -Math.abs(p.vy) + Math.min(0, pistonVelocity); // 若活塞往上，推動空氣
@@ -793,7 +779,7 @@
               if (p.x <= 160 + p.r) { p.x = 160 + p.r; p.vx *= -1; }
               if (p.x >= 380 - p.r) { p.x = 380 - p.r; p.vx *= -1; }
               if (p.y >= 400 - p.r) { p.y = 400 - p.r; p.vy *= -1; }
-              // 活塞底部碰撞！(產生彩色火花)
+              // 活塞底部碰撞
               if (p.y <= pistonBottom + p.r) { 
                   p.y = pistonBottom + p.r; 
                   // 加上活塞的移動速度，模擬真實碰撞加/減速
@@ -824,7 +810,7 @@
         let needsRender = false;
 
         if (!isExploded) {
-            // 1. 氣流邏輯 (精準無慣性)
+            // 1. 氣流邏輯
             if (gasFlowDir !== 0) {
                 currentMoles += gasFlowDir * 0.015; 
                 currentMoles = Math.max(0.1, Math.min(10.0, currentMoles));
@@ -1158,7 +1144,7 @@
           renderSimulation(); // 更新氣體背景透明度
       });
 
-      // --- 廣播系統 ---
+      // --- ★ 廣播系統 (加上動態單位讀取) ---
       function broadcastStateToParent(actionName) {
         if (!actionName) return; 
         try {
@@ -1170,7 +1156,7 @@
 
           const payload = {
             "學生最後的動作": actionName, 
-            "當前觀察視角": isMicroView ? "微觀模式 (可看見粒子與碰撞火花)" : "巨觀模式 (無粒子，僅顯示顏色深淺)",
+            "當前觀察視角": isMicroView ? "微觀模式 (可看見粒子)" : "巨觀模式 (無粒子，僅顯示顏色深淺)",
             "活塞狀態": el.lockPistonToggle.checked ? "鎖定 (定容)" : "活動 (定壓)",
             "氣體種類": gas.name, 
             "莫耳數(n)": formatNum(currentMoles, 3),
@@ -1180,7 +1166,7 @@
             "已收集的數據筆數": records.length + " 筆"
           };
 
-          // ★ AI 專屬外掛：當開啟微觀視角時，生動地描述畫面現況給 AI 聽
+          // AI 專屬外掛：當開啟微觀視角時，生動地描述畫面現況給 AI 聽
           if (isMicroView) {
               let weightDesc = gas.vMultiplier < 1.0 ? "質量大，視覺上較大顆且移動緩慢" : (gas.vMultiplier > 2.0 ? "質量小，視覺上極小且移動極快" : "質量與空氣相近，速度中等");
               let tempDesc = currentTempK > 400 ? "因處於高溫，粒子移動非常劇烈" : (currentTempK < 200 ? "因處於低溫，粒子移動顯得緩慢" : "目前為室溫狀態");
@@ -1417,6 +1403,8 @@
       window.addEventListener("click", () => { if (!el.eqTooltip.classList.contains("hidden")) el.eqTooltip.classList.add("hidden"); });
 
       // 初始化
+      // ★ 修改：預設為解鎖狀態
+      el.lockPistonToggle.checked = false;
       drawScale();
       populateColumnCheckboxes();
       populateAxisOptions();
