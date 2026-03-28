@@ -87,9 +87,10 @@
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
     .record-config-wrap{ display:grid; gap:14px; }
-    .wide-checkboxes{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
-    .check-item{ display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--line); background:#fbfdff; border-radius:12px; font-weight:600; cursor:pointer; line-height:1.45; }
-    .check-item input{ margin-top:3px; flex:0 0 auto; accent-color: var(--primary); }
+    .compact-checkboxes{ display:flex; flex-wrap:wrap; gap:8px; }
+    .check-item{ display:flex; align-items:flex-start; gap:8px; padding:8px 12px; border:1px solid var(--line); background:#fbfdff; border-radius:12px; font-weight:600; cursor:pointer; line-height:1.45; font-size:0.92rem; transition:0.2s; }
+    .check-item:hover{ background:#f0f4f8; }
+    .check-item input{ margin-top:2px; flex:0 0 auto; accent-color: var(--primary); }
     .record-toolbar{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
     .toolbar-group{ display:flex; flex-wrap:wrap; gap:8px; }
 
@@ -167,7 +168,6 @@
       <div class="hero-row">
         <div>
           <h1>氣體壓力虛擬實驗</h1>
-          <p>觀察體積、溫度與氣體種類如何影響壓力。可自由選擇不同真實氣體，並進行灌抽氣與操作活塞。<br>⚠️ 警告：當容器內壓力超過 <b>5 大氣壓 (約 5168 gw/cm²)</b> 時，容器將會破裂！</p>
         </div>
         <div>
           <button type="button" class="btn-secondary help-button" id="helpBtn">操作說明</button>
@@ -332,10 +332,10 @@
               </g>
             </g>
 
-            <!-- 綜合數位感測器 BMP180 -->
+            <!-- 綜合數位感測器 -->
             <g id="meterGroup" filter="url(#softShadow)" transform="translate(420, 100)">
               <rect x="0" y="0" width="160" height="180" rx="16" fill="url(#meterBodyGradient)" stroke="#0f172a" stroke-width="3"></rect>
-              <text x="80" y="24" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800" letter-spacing="1">BMP180 複合感測器</text>
+              <text x="80" y="24" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800" letter-spacing="1">溫壓複合感測器</text>
               
               <rect id="meterScreen" x="15" y="36" width="130" height="60" rx="8" fill="url(#screenGradient)" stroke="#d9485f" stroke-width="2"></rect>
               <text x="25" y="52" fill="#b32b45" font-size="11" font-weight="bold">PRESSURE</text>
@@ -399,7 +399,7 @@
         <span class="record-meta" id="recordCountTop">目前共 0 筆紀錄</span>
       </div>
       <div class="record-config-wrap">
-        <div id="columnCheckboxes" class="wide-checkboxes"></div>
+        <div id="columnCheckboxes" class="compact-checkboxes"></div>
         <div class="record-toolbar">
           <div class="toolbar-group">
             <button type="button" class="btn-secondary" id="selectAllColumnsBtn">全選欄位</button>
@@ -459,6 +459,11 @@
       </div>
       <div class="help-content">
         <div class="help-block">
+          <h3>🧪 實驗簡介與警告</h3>
+          <p style="margin-top: 0; line-height: 1.6;">觀察體積、溫度與氣體種類如何影響壓力。可自由選擇不同真實氣體，並進行灌抽氣與操作活塞。</p>
+          <p style="margin-bottom: 0; color: var(--danger); font-weight: bold;">⚠️ 警告：當容器內壓力超過 5 大氣壓 (約 5168 gw/cm²) 時，容器將會破裂！</p>
+        </div>
+        <div class="help-block">
           <h3>1. 活塞鎖定系統 (定容 vs 定壓)</h3>
           <ul>
             <li><b>🔒 鎖定活塞 (預設)</b>：活塞被固定，體積不變。加溫或灌氣時，內部壓力會急劇上升。</li>
@@ -470,7 +475,6 @@
           <ul>
             <li><b>感測器</b>：同時測量並顯示容器內的「壓力」與「溫度」。更換不同的真實氣體時，讀數會有微小但符合凡德瓦定律的差異！</li>
             <li><b>流量控制閥</b>：短按 <code>[➕ 灌氣]</code> 或 <code>[➖ 抽氣]</code> 可以微調，長按則進入連續灌氣/抽氣模式（按鈕會發亮鎖定），再點一下即可煞車關閉。</li>
-            <li>⚠️ 小心不要讓壓力數值超過 5 大氣壓 (約 5168 gw/cm²)，否則容器會破裂！</li>
           </ul>
         </div>
       </div>
@@ -1210,8 +1214,8 @@
           equipmentName = "底部溫控面板";
           infoText = "【底部溫控面板】<br>長按可以讓系統快速降溫或加熱。在解鎖狀態下加熱，你會看到活塞被推高喔！";
         } else if (targetId === "meterGroup" || e.target.closest("#meterGroup")) {
-          equipmentName = "BMP180 複合感測器";
-          infoText = "【BMP180 複合感測器】<br>同時顯示目前的總壓力與環境溫度。注意不要讓數值超過 5 大氣壓 (約 5168 gw/cm²)，否則會爆炸！";
+          equipmentName = "溫壓複合感測器";
+          infoText = "【溫壓複合感測器】<br>同時顯示目前的總壓力與環境溫度。注意不要讓數值超過 5 大氣壓 (約 5168 gw/cm²)，否則會爆炸！";
         } else if (targetId === "gasRect") {
           equipmentName = "氣體觀測區";
           infoText = "【氣體觀測區】<br>顏色的深淺代表氣體的「密度」(莫耳數/體積)。顏色越深代表分子越密集。";
@@ -1239,7 +1243,7 @@
       requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
       
       isSimInitialized = true; 
-      broadcastStateToParent("我們進入了熱力學實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的 BMP180 複合感測器（可同時顯示溫度與壓力）。容器右下角裝有一組『氣體流量控制閥』。學生可以透過拖曳活塞、點擊溫控或氣流控制閥，或是切換不同的真實氣體種類，來觀察氣體的熱力學動態變化。");
+      broadcastStateToParent("我們進入了熱力學實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的溫壓複合感測器（可同時顯示溫度與壓力）。容器右下角裝有一組『氣體流量控制閥』。學生可以透過拖曳活塞、點擊溫控或氣流控制閥，或是切換不同的真實氣體種類，來觀察氣體的熱力學動態變化。");
     })();
   </script>
 </body>
