@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗</title>
+  <title>氣體壓力虛擬實驗x</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -1398,32 +1398,37 @@
           el.eqTooltip.style.top = e.pageY + "px";
           el.eqTooltip.classList.remove("hidden");
           if (isSimInitialized) broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
-        }
-      });
-      window.addEventListener("click", () => { if (!el.eqTooltip.classList.contains("hidden")) el.eqTooltip.classList.add("hidden"); });
+    }
+      }); // 這裡正確關閉「右鍵選單」的監聽器
 
-      // 初始化
-      // ★ 修改：預設為解鎖狀態
+      // 點擊空白處隱藏說明
+      window.addEventListener("click", () => { 
+        if (!el.eqTooltip.classList.contains("hidden")) el.eqTooltip.classList.add("hidden"); 
+      });
+
+      // ==========================================
+      // 正確的初始化區塊 (必須獨立放在最外面！)
+      // ==========================================
       el.lockPistonToggle.checked = false;
       drawScale();
       populateColumnCheckboxes();
       populateAxisOptions();
       updatePhysicsFromState();
-      syncOutsideParticles(); // 準備好大氣粒子
+      syncOutsideParticles(); 
       renderSimulation();
-      requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
+      requestAnimationFrame(animationLoop); 
       
       isSimInitialized = true; 
 
-      // 🌟 1. 正確的開場白廣播：發送給外層
+      // 🌟 1. 發送開場白廣播給外層的 AI 系統
       broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的感測器。你可以試著拉動活塞或更換氣體，看看壓力會怎麼變化！");
-
+      
       // 🌟 2. 防呆機制：0.5 秒後把動作洗掉
       setTimeout(() => { 
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
       }, 500);
 
-    }); // 🌟 關鍵修正：這才是您原本程式碼正確的結尾括號！
+    }); // 這裡正確關閉最外層的 DOMContentLoaded 監聽器
   </script>
 </body>
 </html>
