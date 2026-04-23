@@ -1416,8 +1416,18 @@
       isSimInitialized = true; 
 isSimInitialized = true; 
       // 🌟 加上【系統開場白】的暗號標籤
-      broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的「溫度」「壓力」複合感測器。容器右下角裝有一組『氣體流量控制閥』。還可以更換不同的氣體，來看看哪些因素會影響氣體的壓力。");
-      
+    // ==========================================
+  // 🌟 新增：開場白攔截機制 (不消耗 API)
+  // ==========================================
+  var lastAction = simStateObj["學生最後的動作"] || "";
+  if (lastAction.indexOf("【系統開場白】") !== -1) {
+    // 檢查 userMessage 是否為空，或是系統預設的自動觸發詞
+    if (!userMessage || userMessage.trim() === "" || userMessage.indexOf("系統自動") !== -1) {
+      // 拔除暗號標籤後，直接當作 AI 的回覆吐給前端 (達到秒回效果！)
+      return lastAction.replace("【系統開場白】", "").trim();
+    }
+  }
+  // ========================================== 
       // 🌟 廣播後立刻把狀態重置，避免學生後續發問時，系統一直以為還在開場
       setTimeout(() => { 
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
