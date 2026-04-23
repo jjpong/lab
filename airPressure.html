@@ -1413,17 +1413,23 @@
       renderSimulation();
       requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
       
-isSimInitialized = true; 
-
-      // 🌟 1. 發送開場白廣播給外層的 AI 系統
-      broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的感測器。你可以試著拉動活塞或更換氣體，看看壓力會怎麼變化！");
-      
-      // 🌟 2. 防呆機制：0.5 秒後把動作洗掉，避免 AI 一直停在開場白狀態
+      isSimInitialized = true; 
+    // ==========================================
+  // 🌟 新增：開場白攔截機制 (不消耗 API)
+  // ==========================================
+  var lastAction = simStateObj["學生最後的動作"] || "";
+  if (lastAction.indexOf("【系統開場白】") !== -1) {
+    // 檢查 userMessage 是否為空，或是系統預設的自動觸發詞
+    if (!userMessage || userMessage.trim() === "" || userMessage.indexOf("系統自動") !== -1) {
+      // 拔除暗號標籤後，直接當作 AI 的回覆吐給前端 (達到秒回效果！)
+      return lastAction.replace("【系統開場白】", "").trim();
+    }
+  }
+  // ========================================== 
+      // 🌟 廣播後立刻把狀態重置，避免學生後續發問時，系統一直以為還在開場
       setTimeout(() => { 
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
-      }, 500);
-
-    }); // 這是用來關閉最外層 window.addEventListener 的括號
+      }, 500);    })();
   </script>
 </body>
 </html>
