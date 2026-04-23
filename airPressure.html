@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗x</title>
+  <title>氣體壓力虛擬實驗</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -1426,9 +1426,7 @@
       // 🌟 2. 防呆機制：0.5 秒後把動作洗掉
       setTimeout(() => { 
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
-      }, 500);
-
-    }); // 確保外層事件監聽器正確關閉
+      }, 500); })(); // 確保外層事件監聽器正確關閉
   </script>
 </body>
 </html>
