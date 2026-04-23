@@ -1405,27 +1405,29 @@
       // 初始化
       // ★ 修改：預設為解鎖狀態
       el.lockPistonToggle.checked = false;
+      // --- 以下為修正後的初始化結尾 ---
+      
+      // 1. 執行初始計算與渲染
       drawScale();
       populateColumnCheckboxes();
       populateAxisOptions();
-  // 1. 確保物理引擎與動畫啟動
       updatePhysicsFromState();
       syncOutsideParticles(); 
       renderSimulation();
       requestAnimationFrame(animationLoop); 
       
-      // 2. 標記初始化完成
+      // 2. 標記初始化完成 (非常重要，這決定了按鈕是否能發送狀態)
       isSimInitialized = true; 
 
-      // 3. ✅ 🌟 這是唯一需要的開場白廣播
-      broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的感測器。你可以試著拉動活塞或更換氣體，看看壓力會怎麼變化！");
+      // 3. 🌟 發送第一聲廣播 (確保 Index.html 能接殺)
+      broadcastStateToParent("【系統開場白】歡迎來到氣體壓力實驗室。桌上配備了『可鎖定活塞』與『溫控面板』的容器。你可以試著拉動活塞、加熱或灌入氣體，觀察壓力的變化！");
       
-      // 4. ✅ 🌟 0.5秒後將狀態重置（讓 AI 知道環境已就緒）
+      // 4. 🌟 0.5秒後洗掉暗號 (讓系統回歸常態操作監測)
       setTimeout(() => { 
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
       }, 500);
 
-    }); // 這是原本 window.onload 或 DOMContentLoaded 的結尾括號
+    }); // 關閉 DOMContentLoaded
   </script>
 </body>
 </html>
