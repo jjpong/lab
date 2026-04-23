@@ -1408,26 +1408,24 @@
       drawScale();
       populateColumnCheckboxes();
       populateAxisOptions();
+  // 1. 確保物理引擎與動畫啟動
       updatePhysicsFromState();
-      syncOutsideParticles(); // 準備好大氣粒子
+      syncOutsideParticles(); 
       renderSimulation();
-      requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
+      requestAnimationFrame(animationLoop); 
       
-      isSimInitialized = true; 
-      renderSimulation();
-      requestAnimationFrame(animationLoop); // 啟動阻尼動畫迴圈
-      
+      // 2. 標記初始化完成
       isSimInitialized = true; 
 
-      // ✅ 🌟 正確的開場白廣播：加在這裡！
-      broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的「溫度」「壓力」複合感測器。容器右下角裝有一組『氣體流量控制閥』。你可以試著拉動活塞或更換氣體，來看看壓力會怎麼變化！");
+      // 3. ✅ 🌟 這是唯一需要的開場白廣播
+      broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的感測器。你可以試著拉動活塞或更換氣體，看看壓力會怎麼變化！");
       
-      // ✅ 🌟 防呆機制：過 0.5 秒把暗號洗掉，避免系統一直以為在開場
+      // 4. ✅ 🌟 0.5秒後將狀態重置（讓 AI 知道環境已就緒）
       setTimeout(() => { 
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
       }, 500);
 
-    }); // 這是原本 p5.js 或 DOMContentLoaded 結尾的括號
+    }); // 這是原本 window.onload 或 DOMContentLoaded 的結尾括號
   </script>
 </body>
 </html>
