@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>氣體壓力虛擬實驗</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg:#eef4ff;
+      --panel:#ffffff;
+      --line:#d8e2f1;
+      --text:#1f2a44;
+      --muted:#5f6f8c;
+      --primary:#d9485f; 
+      --primary-2:#b32b45;
+      --success:#1f9d61;
+      --warning:#d97706;
+      --danger:#d9485f;
+      --info: #2d6cdf;
+      --soft:#fef6f7;
+      --shadow:0 12px 30px rgba(31,42,68,0.08);
+      --radius:18px;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+      background:linear-gradient(180deg,#fff5f6 0%,#f9fbff 100%);
+      color:var(--text);
+      overflow-x: hidden;
+    }
+
+    body.dragging{ cursor:ns-resize; }
+    body.modal-open{ overflow:hidden; }
+
+    .wrapper{ width: 100%; max-width:1520px; margin:0 auto; padding:18px; }
+
+    .hero{
+      background:var(--panel); border:1px solid var(--line); border-radius:24px;
+      padding:22px; box-shadow:var(--shadow); margin-bottom:16px;
+    }
+    .hero-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap: wrap; }
+    .hero h1{ margin:0 0 8px; font-size:clamp(1.5rem,3vw,2.2rem); color: var(--primary-2); }
+    .hero p{ margin:0; color:var(--muted); line-height:1.7; }
+
+    .top-layout{
+      display:grid; grid-template-columns: minmax(260px, 320px) 1fr; gap:16px; align-items:stretch; margin-bottom:16px;
+    }
+    @media (max-width: 980px) { .top-layout { grid-template-columns: 1fr; } }
+
+    .panel{
+      background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+      padding: clamp(12px, 2vw, 18px); box-shadow:var(--shadow); margin-bottom:16px; width: 100%; display: flex; flex-direction: column;  
+      min-height: 0; 
+    }
+    .panel:last-child{ margin-bottom:0; }
+
+    .section-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+    .section-title h2{ margin:0; font-size:1.15rem; }
+    .sub-title{ margin:0 0 12px; font-size:1rem; }
+
+    .record-meta{ color:var(--muted); font-weight:700; font-size:.92rem; white-space:nowrap; }
+
+    .control-group{ padding:14px; border:1px solid var(--line); border-radius:16px; background:var(--soft); margin-bottom:12px; }
+    .control-group:last-child{ margin-bottom:0; }
+    .control-group h3{ margin:0 0 12px; font-size:1rem; color: var(--primary-2); }
+
+    .field{ display:grid; gap:6px; margin-bottom:12px; }
+    .field:last-child{ margin-bottom:0; }
+    label{ font-weight:700; font-size:.95rem; }
+    .small{ font-size:.86rem; color:var(--muted); line-height:1.6; }
+
+    select, input[type="number"]{ width:100%; border:1px solid #c9d6ea; border-radius:12px; padding:10px 12px; font-size:1rem; background:#fff; color:var(--text); }
+    input[type="range"]{ width:100%; accent-color: var(--primary); }
+
+    .range-pair, .inline-pair{ display:grid; grid-template-columns:1fr 80px; gap:10px; align-items:center; }
+    @media (max-width: 480px) { .range-pair, .inline-pair { grid-template-columns: 1fr; } }
+
+    .metrics-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:stretch; width: 100%; }
+    .metric{ background:#fbfdff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; flex:1 1 130px; white-space:nowrap; }
+    .metric .metric-label{ display:block; color:var(--muted); font-size:.82rem; margin-bottom:4px; white-space:nowrap; }
+    .metric strong{ font-size:.98rem; line-height:1.2; display:block; white-space:nowrap; color: var(--primary-2); }
+    .metric.warning strong { color: var(--danger); animation: pulse 1s infinite; }
+
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    .record-config-wrap{ display:grid; gap:14px; }
+    .compact-checkboxes{ display:flex; flex-wrap:wrap; gap:8px; }
+    .check-item{ display:flex; align-items:flex-start; gap:8px; padding:8px 12px; border:1px solid var(--line); background:#fbfdff; border-radius:12px; font-weight:600; cursor:pointer; line-height:1.45; font-size:0.92rem; transition:0.2s; }
+    .check-item:hover{ background:#f0f4f8; }
+    .check-item input{ margin-top:2px; flex:0 0 auto; accent-color: var(--primary); }
+    .record-toolbar{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
+    .toolbar-group{ display:flex; flex-wrap:wrap; gap:8px; }
+
+    /* ★ 新增：目前組別輸入區 */
+    .group-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid #fde68a;
+      border-radius: 12px;
+    }
+    .group-input-wrap label {
+      font-weight: 800;
+      color: #92400e;
+      white-space: nowrap;
+      font-size: 0.98rem;
+    }
+    .group-input-wrap input[type="text"] {
+      flex: 1;
+      min-width: 180px;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      background: #fff;
+      color: var(--text);
+    }
+    .group-input-wrap input[type="text"]:focus {
+      outline: none;
+      border-color: #d97706;
+      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+    }
+    .group-input-hint {
+      font-size: 0.85rem;
+      color: #78350f;
+      line-height: 1.4;
+      flex-basis: 100%;
+    }
+
+    /* ★ 新增：組別顏色管理區 */
+    .group-manager {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #fbfdff;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .group-manager-title {
+      font-weight: 800;
+      color: var(--primary-2);
+      font-size: 0.92rem;
+    }
+    .group-color-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 4px 10px 4px 6px;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .group-color-picker {
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0;
+      background: transparent;
+    }
+    .group-color-item .group-count {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.82rem;
+    }
+
+    /* ★ 新增：表格內可編輯組別欄位 */
+    .editable-group {
+      cursor: pointer;
+      position: relative;
+      transition: background 0.15s;
+    }
+    .editable-group:hover {
+      background: #fef3c7 !important;
+    }
+    .editable-group::after {
+      content: "✎";
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #cbd5e1;
+      font-size: 0.85rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .editable-group:hover::after { opacity: 1; }
+    .editable-group .empty-group {
+      color: #cbd5e1;
+      font-style: italic;
+    }
+    .editable-group .group-tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-weight: 800;
+      color: #fff;
+      font-size: 0.88rem;
+    }
+    .group-edit-input {
+      width: 100%;
+      border: 2px solid var(--primary);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.92rem;
+      background: #fff;
+      font-family: inherit;
+    }
+
+    button{ border:none; border-radius:12px; padding:11px 14px; font-size:.95rem; font-weight:800; cursor:pointer; transition:.2s transform,.2s filter,.2s background; }
+    button:hover{ transform:translateY(-1px); filter:brightness(1.02); }
+    button:active{ transform:translateY(0); }
+    .btn-primary{ background:var(--primary); color:#fff; }
+    .btn-secondary{ background:#fceced; color:var(--primary-2); border:1px solid #ffc8d2; }
+    .btn-info{ background:var(--info); color:#fff; }
+    .btn-danger{ background:#ffecef; color:#b32b45; border:1px solid #ffc8d2; }
+    .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
+
+    .lock-toggle-box {
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        background: #fff0f0; border: 2px solid #ffc8d2; padding: 12px; border-radius: 12px;
+        cursor: pointer; font-weight: 800; color: var(--primary-2); font-size: 1.05rem;
+        transition: 0.2s; user-select: none;
+    }
+    .lock-toggle-box:hover { background: #ffe4e8; }
+    .lock-toggle-box input { transform: scale(1.3); accent-color: var(--primary); cursor: pointer; }
+
+    .svg-shell{ background:linear-gradient(180deg,#fafafa 0%,#f0f4f8 100%); border:1px solid var(--line); border-radius:18px; padding:10px; width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; position: relative; min-height: 0;}
+    
+    svg{ width:100%; height:100%; max-width:100%; max-height:100%; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
+    
+    .hidden{ display:none !important; }
+
+    .sub-panel{ border:1px solid var(--line); border-radius:16px; background:#fbfdff; padding:14px; margin-bottom:14px; width: 100%; }
+    .chart-toolbar{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; align-items:end; margin-bottom:10px; }
+    .chart-toolbar .field { margin-bottom: 0; }
+    .chart-status{ margin-bottom:12px; min-height:22px; font-weight:700; line-height: 1.8; }
+    .chart-shell{ border:1px solid var(--line); border-radius:14px; background:#fff; overflow:hidden; min-height:350px; display:flex; align-items:center; justify-content:center; }
+    
+    .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:#fff; width: 100%; -webkit-overflow-scrolling:touch; }
+    table{ width:100%; border-collapse:collapse; min-width: max-content; background:#fff; }
+    th, td{ padding:12px 14px; border-bottom:1px solid #e5edf8; text-align:left; font-size:.96rem; white-space:nowrap; }
+    th{ position:sticky; top:0; background:#fff5f6; z-index:1; color: var(--primary-2);}
+    tbody tr:nth-child(even){ background:#fcfdff; }
+    tbody tr.latest{ background:#fceced; }
+    .empty-cell{ text-align:center; color:var(--muted); padding:24px; }
+
+    .eq-tooltip { position: absolute; background: rgba(31, 42, 68, 0.95); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; max-width: 250px; pointer-events: none; z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.2); transform: translate(-50%, -100%); margin-top: -10px; transition: opacity 0.2s; }
+    .eq-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: rgba(31, 42, 68, 0.95) transparent transparent transparent; }
+    .eq-tooltip.hidden { opacity: 0; pointer-events: none; }
+    
+    #pistonGroup, #heaterBtnGroup, #coolerBtnGroup, #meterGroup, #gasRect, #injectBtnGroup, #bleedBtnGroup { cursor: help; }
+    #pistonDragHandle { cursor: ns-resize; }
+    
+    .svg-btn { cursor: pointer; }
+    .svg-btn rect { transition: fill 0.2s, filter 0.2s, stroke 0.2s; }
+    .svg-btn:hover rect { filter: brightness(0.95); }
+    .svg-btn:active rect { filter: brightness(0.85); }
+    .svg-btn.active-inject rect { fill: #fee2e2 !important; stroke: #e11d48 !important; filter: drop-shadow(0 0 8px rgba(225, 29, 72, 0.8)); }
+    .svg-btn.active-bleed rect { fill: #e0f2fe !important; stroke: #0284c7 !important; filter: drop-shadow(0 0 8px rgba(2, 132, 199, 0.8)); }
+
+    .modal{ position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center; padding:18px; }
+    .modal-backdrop{ position:absolute; inset:0; background:rgba(18,29,51,0.48); }
+    .modal-card{ position:relative; width:min(920px, 100%); max-height:calc(100vh - 40px); overflow:auto; background:#fff; border-radius:20px; padding:20px; z-index:1001; box-shadow: 0 20px 50px rgba(18,29,51,.22); }
+    .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .help-content{ display:grid; gap:14px; color:var(--text); line-height:1.75; }
+    .help-block{ border:1px solid var(--line); background:#fbfdff; border-radius:14px; padding:14px; }
+    .help-block h3{ margin:0 0 8px; font-size:1rem; color: var(--primary-2); }
+    .help-block ul{ margin:0; padding-left:1.2rem; }
+    .help-block li{ margin:4px 0; }
+    
+    .explosion-overlay { position: absolute; inset: 0; background: rgba(217, 72, 95, 0.9); border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 50; transition: opacity 0.3s; pointer-events: none; opacity: 0;}
+    .explosion-overlay.active { opacity: 1; pointer-events: auto; }
+    .explosion-overlay h2 { font-size: 3rem; margin: 0 0 10px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .explosion-overlay p { font-size: 1.2rem; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header class="hero">
+      <div class="hero-row">
+        <div>
+          <h1>氣體壓力虛擬實驗</h1>
+        </div>
+        <div>
+          <button type="button" class="btn-secondary help-button" id="helpBtn">操作說明</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="top-layout">
+      <section class="panel">
+        <div class="section-title"><h2>實驗設定</h2></div>
+
+        <div class="control-group">
+          <h3>1. 活塞狀態設定</h3>
+          <div class="field">
+            <label class="lock-toggle-box">
+              <input type="checkbox" id="lockPistonToggle"> 🔒 強制鎖定活塞
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>2. 氣體種類與單位</h3>
+          <div class="field">
+            <label for="gasSelect">氣體種類</label>
+            <select id="gasSelect">
+              <option value="he" selected>氦氣 (He)</option>
+              <option value="h2">氫氣 (H₂)</option>
+              <option value="n2">氮氣 (N₂)</option>
+              <option value="co2">二氧化碳 (CO₂)</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="inline-pair">
+              <div>
+                <label for="pressureUnitSelect">壓力單位</label>
+                <select id="pressureUnitSelect">
+                  <option value="gw_cm2" selected>gw/cm²</option>
+                  <option value="atm">atm</option>
+                  <option value="pa">Pa</option>
+                </select>
+              </div>
+              <div>
+                <label for="tempUnitSelect">溫度單位</label>
+                <select id="tempUnitSelect">
+                  <option value="celsius" selected>°C</option>
+                  <option value="kelvin">K</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h3>3. 實驗變數微調</h3>
+          <div class="field">
+            <label for="molesRange">氣體量 n (莫耳 mol)</label>
+            <div class="range-pair">
+              <input id="molesRange" type="range" min="0.1" max="10.0" step="0.01" value="1.0">
+              <input id="molesNumber" type="number" inputmode="decimal" min="0.1" max="10.0" step="0.01" value="1.00">
+            </div>
+          </div>
+          <div class="field">
+            <label for="volumeRange">容器體積 V (公升 L)</label>
+            <div class="range-pair">
+              <input id="volumeRange" type="range" min="2" max="50" step="0.1" value="22.4">
+              <input id="volumeNumber" type="number" inputmode="decimal" min="2" max="50" step="0.1" value="22.4">
+            </div>
+          </div>
+          <div class="field">
+            <label for="tempRange">活塞溫度 T (°C)</label>
+            <div class="range-pair">
+              <input id="tempRange" type="range" min="-100" max="300" step="1" value="25">
+              <input id="tempNumber" type="number" inputmode="decimal" min="-100" max="300" step="1" value="25">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title"><h2>虛擬實驗室</h2></div>
+        <div class="svg-shell" id="svgContainer">
+          <button type="button" class="btn-secondary" id="viewToggleBtn" style="position: absolute; top: 14px; right: 14px; z-index: 10; padding: 8px 12px; font-size: 0.9rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">🔬 開啟微觀視角</button>
+          <canvas id="particleCanvas" width="620" height="500" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 5; display:none;"></canvas>
+          
+          <div id="explosionOverlay" class="explosion-overlay">
+            <h2>💥 碰！容器破裂！</h2>
+            <p>壓力超過了容器所能承受的極限 (5 atm)。</p>
+            <button type="button" class="btn-info" id="resetSimBtn">更換容器並重置實驗</button>
+          </div>
+
+          <svg id="simSvg" viewBox="0 0 620 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="氣體壓力模擬圖">
+            <defs>
+              <linearGradient id="meterBodyGradient" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#344563"></stop>
+                <stop offset="100%" stop-color="#1f2a44"></stop>
+              </linearGradient>
+              <linearGradient id="screenGradient" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#ffeef0"></stop>
+                <stop offset="100%" stop-color="#ffccd5"></stop>
+              </linearGradient>
+              <linearGradient id="screenBlue" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#eef5ff"></stop>
+                <stop offset="100%" stop-color="#d8e2f1"></stop>
+              </linearGradient>
+              <linearGradient id="heaterGradient" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#cbd5e1" id="heaterColorTop"></stop>
+                <stop offset="100%" stop-color="#94a3b8" id="heaterColorBot"></stop>
+              </linearGradient>
+              <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.18"></feDropShadow>
+              </filter>
+              <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+              </filter>
+            </defs>
+
+            <rect x="0" y="0" width="620" height="500" rx="18" fill="#fafafa"></rect>
+            
+            <g id="volScaleGroup" transform="translate(130, 0)"></g>
+
+            <g id="gasContainerGroup">
+              <rect id="gasRect" x="160" y="100" width="220" height="300" fill="#a5b4fc" opacity="0.3"></rect>
+              
+              <path d="M 156 80 L 156 404 L 384 404 L 384 80" fill="none" stroke="#475569" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>
+              
+              <rect id="heaterGlow" x="135" y="403" width="270" height="40" rx="12" fill="#f87171" opacity="0" filter="url(#glowFilter)"></rect>
+
+              <rect id="heaterGroup" x="140" y="408" width="260" height="30" rx="8" fill="url(#heaterGradient)" stroke="#334155" stroke-width="3"></rect>
+              
+              <g id="coolerBtnGroup" class="svg-btn" transform="translate(150, 413)">
+                <rect width="60" height="20" rx="6" fill="#60a5fa" stroke="#1e3a8a" stroke-width="2"></rect>
+                <text x="30" y="14" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">❄️ 冷卻</text>
+              </g>
+
+              <g id="heaterBtnGroup" class="svg-btn" transform="translate(330, 413)">
+                <rect width="60" height="20" rx="6" fill="#f87171" stroke="#7f1d1d" stroke-width="2"></rect>
+                <text x="30" y="14" text-anchor="middle" fill="#ffffff" font-size="12" font-weight="bold">🔥 加熱</text>
+              </g>
+
+              <g id="pistonGroup" transform="translate(160, 100)">
+                <rect x="0" y="0" width="220" height="20" fill="#cbd5e1" stroke="#475569" stroke-width="3"></rect>
+                <rect id="pistonDragHandle" x="80" y="-15" width="60" height="15" rx="4" fill="#64748b" stroke="#334155" stroke-width="2"></rect>
+                <g id="lockPins" fill="#d9485f" stroke="#7a1428" stroke-width="2">
+                  <rect x="-8" y="2" width="16" height="16" rx="4"></rect>
+                  <circle cx="0" cy="10" r="3" fill="#fff"></circle>
+                  <rect x="212" y="2" width="16" height="16" rx="4"></rect>
+                  <circle cx="220" cy="10" r="3" fill="#fff"></circle>
+                </g>
+              </g>
+
+              <g id="indicatorGroup" transform="translate(150, 120)">
+                <polygon points="0,0 -12,-8 -12,8" fill="#d9485f" stroke="#7a1428" stroke-width="2"></polygon>
+                <text id="indicatorText" x="-18" y="4" text-anchor="end" fill="#d9485f" font-size="14" font-weight="800">22.4 L</text>
+              </g>
+            </g>
+
+            <g id="meterGroup" filter="url(#softShadow)" transform="translate(420, 100)">
+              <rect x="0" y="0" width="160" height="180" rx="16" fill="url(#meterBodyGradient)" stroke="#0f172a" stroke-width="3"></rect>
+              <text x="80" y="24" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800" letter-spacing="1">溫壓複合感測器</text>
+              
+              <rect id="meterScreen" x="15" y="36" width="130" height="60" rx="8" fill="url(#screenGradient)" stroke="#d9485f" stroke-width="2"></rect>
+              <text x="25" y="52" fill="#b32b45" font-size="11" font-weight="bold">PRESSURE</text>
+              <text id="meterValue" x="140" y="76" text-anchor="end" fill="#7a1428" font-size="24" font-weight="900" font-family="ui-monospace, monospace">1033.6</text>
+              <text id="meterUnit" x="140" y="90" text-anchor="end" fill="#b32b45" font-size="12" font-weight="800">gw/cm²</text>
+              
+              <rect x="15" y="106" width="130" height="60" rx="8" fill="url(#screenBlue)" stroke="#2d6cdf" stroke-width="2"></rect>
+              <text x="25" y="122" fill="#1749a5" font-size="11" font-weight="bold">TEMP</text>
+              <text id="thermoValue" x="140" y="146" text-anchor="end" fill="#0f2b60" font-size="24" font-weight="900" font-family="ui-monospace, monospace">25.0</text>
+              <text id="thermoUnit" x="140" y="160" text-anchor="end" fill="#1749a5" font-size="12" font-weight="800">°C</text>
+              
+              <path d="M -36 90 L 0 90" fill="none" stroke="#64748b" stroke-width="6" stroke-linecap="round"></path>
+            </g>
+
+            <g id="gasValveGroup" transform="translate(420, 310)" filter="url(#softShadow)">
+              <path d="M -36 40 L 0 40" fill="none" stroke="#64748b" stroke-width="8" stroke-linecap="round"></path>
+              <path id="flowLine" d="M -34 40 L -2 40" fill="none" stroke="#3b82f6" stroke-width="4" stroke-dasharray="4 4" opacity="0"></path>
+              
+              <rect x="0" y="0" width="160" height="90" rx="12" fill="url(#meterBodyGradient)" stroke="#0f172a" stroke-width="3"></rect>
+              <text x="80" y="24" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800" letter-spacing="1">氣體流量控制閥</text>
+
+              <g id="bleedBtnGroup" class="svg-btn" transform="translate(15, 42)">
+                <rect width="60" height="32" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" class="btn-bg"></rect>
+                <text x="30" y="22" text-anchor="middle" fill="#475569" font-size="13" font-weight="bold">➖ 抽氣</text>
+              </g>
+
+              <g id="injectBtnGroup" class="svg-btn" transform="translate(85, 42)">
+                <rect width="60" height="32" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" class="btn-bg"></rect>
+                <text x="30" y="22" text-anchor="middle" fill="#475569" font-size="13" font-weight="bold">➕ 灌氣</text>
+              </g>
+            </g>
+
+          </svg>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="section-title"><h2>即時實驗數據摘要</h2></div>
+      <div class="metrics-row">
+        <div class="metric"><span class="metric-label">氣體種類</span><strong id="metricGas">氦氣 (He)</strong></div>
+        <div class="metric"><span class="metric-label">莫耳數 (n)</span><strong id="metricMoles">1.000 mol</strong></div>
+        <div class="metric"><span class="metric-label">體積 (V)</span><strong id="metricVolume">22.4 L</strong></div>
+        <div class="metric"><span class="metric-label">溫度 (T)</span><strong id="metricTemp">25.0 °C</strong></div>
+        <div class="metric"><span class="metric-label">氣體密度 (n/V)</span><strong id="metricDensity">0.045 mol/L</strong></div>
+        <div class="metric" id="metricPressureCard"><span class="metric-label" id="metricPressureLabel">壓力 (P)</span><strong id="metricPressure">1033.6 gw/cm²</strong></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">
+        <h2>決定要紀錄哪些數據</h2>
+        <span class="record-meta" id="recordCountTop">目前共 0 筆紀錄</span>
+      </div>
+      <div class="record-config-wrap">
+        <div id="columnCheckboxes" class="compact-checkboxes"></div>
+
+        <!-- ★ 新增：目前組別輸入區 -->
+        <div class="group-input-wrap">
+          <label for="currentGroupInput">🏷️ 目前組別：</label>
+          <input type="text" id="currentGroupInput" placeholder="例如：20度組、固定溫度組（可留空）" maxlength="20">
+          <button type="button" class="btn-secondary" id="clearCurrentGroupBtn" style="padding:6px 12px; font-size:0.85rem;">清除</button>
+          <div class="group-input-hint">💡 在這裡輸入組別名稱後，之後加入的紀錄都會歸到這組。空白則歸為未分組（表格中顯示空白）。你也可以直接點擊表格中的「組別」欄位修改。</div>
+        </div>
+
+        <div class="record-toolbar">
+          <div class="toolbar-group">
+            <button type="button" class="btn-secondary" id="selectAllColumnsBtn">全選欄位</button>
+            <button type="button" class="btn-secondary" id="clearColumnsBtn">清空欄位</button>
+          </div>
+          <div class="toolbar-group">
+            <button type="button" class="btn-primary" id="recordBtn">加入紀錄</button>
+            <button type="button" class="btn-secondary" id="deleteLastBtn">刪除最後一筆</button>
+            <button type="button" class="btn-danger" id="clearBtn">清空全部</button>
+            <button type="button" class="btn-success" id="exportBtn">匯出數據</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">
+        <h2>實驗數據紀錄與統計圖</h2>
+        <span class="record-meta" id="recordCountBottom">目前共 0 筆紀錄</span>
+      </div>
+      <div class="sub-panel">
+        <h3 class="sub-title">實驗數據紀錄表</h3>
+        <div class="table-wrap">
+          <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sub-panel">
+        <h3 class="sub-title">數據統計圖</h3>
+
+        <!-- ★ 新增：組別顏色管理 -->
+        <div class="group-manager" id="groupManager"></div>
+
+        <div class="chart-toolbar">
+          <div class="field"><label for="chartXSelect">橫軸（X）</label><select id="chartXSelect"></select></div>
+          <div class="field"><label for="chartYSelect">縱軸（Y）</label><select id="chartYSelect"></select></div>
+          <button type="button" class="btn-primary" id="generateChartBtn">產生統計圖</button>
+          <button type="button" class="btn-secondary" id="clearChartBtn">清除統計圖</button>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:var(--primary);">
+            <input type="checkbox" id="trendlineToggle"> 📈 加入擬合線
+          </label>
+        </div>
+        <div class="small chart-status" id="chartStatus"></div>
+        <div id="chartCanvas" class="chart-shell"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="eqTooltip" class="eq-tooltip hidden"></div>
+
+  <div id="helpModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="helpBackdrop"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="helpTitle">使用說明</h2>
+        <button type="button" class="btn-secondary" id="closeHelpBtn">關閉</button>
+      </div>
+      <div class="help-content">
+        <div class="help-block">
+          <h3>🧪 實驗簡介與警告</h3>
+          <p style="margin-top: 0; line-height: 1.6;">觀察體積、溫度與氣體種類如何影響壓力。可自由選擇不同真實氣體，並進行灌抽氣與操作活塞。</p>
+          <p style="margin-bottom: 0; color: var(--danger); font-weight: bold;">⚠️ 警告：當容器內壓力超過 5 大氣壓 (約 5168 gw/cm²) 時，容器將會破裂！</p>
+        </div>
+        <div class="help-block">
+          <h3>1. 活塞鎖定系統 (定容 vs 定壓)</h3>
+          <ul>
+            <li><b>🔒 鎖定活塞</b>：活塞被固定，體積不變。加溫或灌氣時，內部壓力會急劇上升。</li>
+            <li><b>解鎖活塞 (預設)</b>：活塞可以自由滑動以維持內外壓力平衡 ($1\text{ atm}$)。改變溫度或氣體量時，氣體會膨脹推動活塞。</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <h3>2. 溫壓複合感測器與流量閥</h3>
+          <ul>
+            <li><b>感測器</b>：同時測量並顯示容器內的「壓力」與「溫度」。更換不同的真實氣體時，讀數會有微小但符合凡德瓦定律的差異！</li>
+            <li><b>流量控制閥</b>：短按 <code>[➕ 灌氣]</code> 或 <code>[➖ 抽氣]</code> 可以微調，長按則進入連續灌氣/抽氣模式（按鈕會發亮鎖定），再點一下即可煞車關閉。</li>
+          </ul>
+        </div>
+        <div class="help-block">
+          <h3>3. ★ 實驗組別與分組分析（新功能）</h3>
+          <ul>
+            <li><b>輸入目前組別</b>：在「加入紀錄」上方的黃色輸入框輸入組別名稱（例如「20度」、「固定體積組」），之後加入的紀錄都會歸到這組。</li>
+            <li><b>表格直接編輯</b>：可以點擊表格中的「組別」欄位來修改某筆紀錄的組別歸屬。</li>
+            <li><b>分組統計圖</b>：產生統計圖時，不同組別會用不同顏色顯示，並可分別擬合直線。顏色可在圖表上方的小色塊手動調整。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // --- 物理常數 ---
+      const R = 8.314; 
+      const ATM_PA = 101325; 
+      const EXPLOSION_LIMIT_PA = ATM_PA * 5; 
+
+      const gases = {
+        he:    { name: "氦氣 (He)", color: "#fcd34d", a: 0.0346 * 0.101325, b: 0.0238 * 0.001, r: 2.0, vMultiplier: 2.6 },
+        h2:    { name: "氫氣 (H₂)", color: "#93c5fd", a: 0.2444 * 0.101325, b: 0.0266 * 0.001, r: 1.8, vMultiplier: 3.7 },
+        n2:    { name: "氮氣 (N₂)", color: "#a5b4fc", a: 1.370 * 0.101325, b: 0.0387 * 0.001, r: 3.0, vMultiplier: 1.0 },
+        co2:   { name: "二氧化碳 (CO₂)", color: "#fca5a5", a: 3.658 * 0.101325, b: 0.0429 * 0.001, r: 4.5, vMultiplier: 0.6 }
+      };
+
+      const pressureUnits = {
+        pa:     { label: "Pa", decimals: 1, fromPa: v => v },
+        atm:    { label: "atm", decimals: 3, fromPa: v => v / ATM_PA },
+        gw_cm2: { label: "gw/cm²", decimals: 1, fromPa: v => v / 98.0665 } 
+      };
+
+      const tempUnits = {
+        celsius: { label: "°C", decimals: 1, fromK: k => k - 273.15, toK: c => c + 273.15 },
+        kelvin:  { label: "K", decimals: 1, fromK: k => k, toK: k => k }
+      };
+
+      // --- 核心狀態 ---
+      let records = []; let recordId = 1;
+      let chartRequested = false; let chartStatusText = "";
+      let isSimInitialized = false;
+      let isExploded = false;
+
+      let currentMoles = 1.0;     
+      let currentVolumeL = 22.4;  
+      let targetVolumeL = 22.4;   
+      let currentTempK = 298.15;  
+      let currentPressurePa = ATM_PA; 
+
+      // 互動狀態
+      let dragging = false; 
+      let targetHeatingState = 0; 
+      let currentHeatingRate = 0; 
+      let pistonVelocity = 0;
+      
+      // 氣流閥控制狀態
+      let gasFlowDir = 0; 
+      let isGasFlowLocked = false; 
+      let gasFlowTimer = null; 
+      let flowOffset = 0; 
+
+      // 微觀粒子狀態
+      let isMicroView = false;
+      let insideParticles = [];
+      let outsideParticles = [];
+      let collisionSparks = [];
+
+      // ★ 新增：分組系統狀態
+      let currentGroupName = "";  // 當前預設組別名稱（學生正在輸入）
+      let groupColors = {};       // { "第一組": "#d9485f", ... }
+      let groupingActionTimer = null;
+      const GROUPING_BROADCAST_DELAY = 30000; // 30 秒
+
+      // 預設色盤（自動分配）
+      const DEFAULT_COLORS = [
+        "#d9485f", "#2d6cdf", "#1f9d61", "#d97706", 
+        "#8b5cf6", "#0891b2", "#db2777", "#65a30d",
+        "#dc2626", "#9333ea", "#0d9488", "#ea580c"
+      ];
+
+      // --- DOM 快取 ---
+      const el = {
+        lockPistonToggle: document.getElementById("lockPistonToggle"),
+        gasSelect: document.getElementById("gasSelect"),
+        pressureUnitSelect: document.getElementById("pressureUnitSelect"),
+        tempUnitSelect: document.getElementById("tempUnitSelect"),
+        molesRange: document.getElementById("molesRange"),
+        molesNumber: document.getElementById("molesNumber"),
+        volumeRange: document.getElementById("volumeRange"),
+        volumeNumber: document.getElementById("volumeNumber"),
+        tempRange: document.getElementById("tempRange"),
+        tempNumber: document.getElementById("tempNumber"),
+        
+        metricGas: document.getElementById("metricGas"),
+        metricMoles: document.getElementById("metricMoles"),
+        metricVolume: document.getElementById("metricVolume"),
+        metricTemp: document.getElementById("metricTemp"),
+        metricDensity: document.getElementById("metricDensity"),
+        metricPressureLabel: document.getElementById("metricPressureLabel"),
+        metricPressure: document.getElementById("metricPressure"),
+        metricPressureCard: document.getElementById("metricPressureCard"),
+        
+        volScaleGroup: document.getElementById("volScaleGroup"),
+        gasRect: document.getElementById("gasRect"),
+        pistonGroup: document.getElementById("pistonGroup"),
+        pistonDragHandle: document.getElementById("pistonDragHandle"),
+        lockPins: document.getElementById("lockPins"),
+        indicatorGroup: document.getElementById("indicatorGroup"),
+        indicatorText: document.getElementById("indicatorText"),
+        
+        heaterGroup: document.getElementById("heaterGroup"),
+        heaterGlow: document.getElementById("heaterGlow"),
+        heaterColorTop: document.getElementById("heaterColorTop"),
+        heaterColorBot: document.getElementById("heaterColorBot"),
+        coolerBtnGroup: document.getElementById("coolerBtnGroup"),
+        heaterBtnGroup: document.getElementById("heaterBtnGroup"),
+        injectBtnGroup: document.getElementById("injectBtnGroup"),
+        bleedBtnGroup: document.getElementById("bleedBtnGroup"),
+        flowLine: document.getElementById("flowLine"),
+        
+        viewToggleBtn: document.getElementById("viewToggleBtn"),
+        particleCanvas: document.getElementById("particleCanvas"),
+        
+        meterValue: document.getElementById("meterValue"),
+        meterUnit: document.getElementById("meterUnit"),
+        meterScreen: document.getElementById("meterScreen"),
+        thermoValue: document.getElementById("thermoValue"),
+        thermoUnit: document.getElementById("thermoUnit"),
+        simSvg: document.getElementById("simSvg"),
+        
+        explosionOverlay: document.getElementById("explosionOverlay"),
+        resetSimBtn: document.getElementById("resetSimBtn"),
+        
+        // ★ 新增分組相關 DOM
+        currentGroupInput: document.getElementById("currentGroupInput"),
+        clearCurrentGroupBtn: document.getElementById("clearCurrentGroupBtn"),
+        groupManager: document.getElementById("groupManager"),
+
+        recordBtn: document.getElementById("recordBtn"),
+        deleteLastBtn: document.getElementById("deleteLastBtn"),
+        clearBtn: document.getElementById("clearBtn"),
+        exportBtn: document.getElementById("exportBtn"),
+        columnCheckboxes: document.getElementById("columnCheckboxes"),
+        selectAllColumnsBtn: document.getElementById("selectAllColumnsBtn"),
+        clearColumnsBtn: document.getElementById("clearColumnsBtn"),
+        recordCountTop: document.getElementById("recordCountTop"),
+        recordCountBottom: document.getElementById("recordCountBottom"),
+        tableHead: document.getElementById("tableHead"),
+        tableBody: document.getElementById("tableBody"),
+        chartXSelect: document.getElementById("chartXSelect"),
+        chartYSelect: document.getElementById("chartYSelect"),
+        generateChartBtn: document.getElementById("generateChartBtn"),
+        clearChartBtn: document.getElementById("clearChartBtn"),
+        trendlineToggle: document.getElementById("trendlineToggle"),
+        chartStatus: document.getElementById("chartStatus"),
+        chartCanvas: document.getElementById("chartCanvas"),
+        
+        helpBtn: document.getElementById("helpBtn"),
+        helpModal: document.getElementById("helpModal"),
+        closeHelpBtn: document.getElementById("closeHelpBtn"),
+        helpBackdrop: document.getElementById("helpBackdrop"),
+        eqTooltip: document.getElementById("eqTooltip")
+      };
+
+      // --- 物理引擎 ---
+      function getSelectedGas() { return gases[el.gasSelect.value]; }
+      
+      function calculatePressure(n, V_m3, T_k, gas) {
+        const term1 = (n * R * T_k) / (V_m3 - n * gas.b);
+        const term2 = gas.a * Math.pow(n, 2) / Math.pow(V_m3, 2);
+        return term1 - term2;
+      }
+
+      function findEquilibriumVolume(P_target, T_k, n, gas) {
+        let lowM3 = 0.002, highM3 = 5.0;  
+        for (let i = 0; i < 40; i++) {
+          let midM3 = (lowM3 + highM3) / 2;
+          let P_calc = calculatePressure(n, midM3, T_k, gas);
+          if (P_calc > P_target) lowM3 = midM3; 
+          else highM3 = midM3;
+        }
+        return ((lowM3 + highM3) / 2) * 1000; 
+      }
+
+      function updatePhysicsFromState() {
+        if (isExploded) return;
+        const gas = getSelectedGas();
+        const isLocked = el.lockPistonToggle.checked;
+
+        if (isLocked || dragging) {
+            targetVolumeL = currentVolumeL;
+            currentPressurePa = calculatePressure(currentMoles, currentVolumeL * 0.001, currentTempK, gas);
+        } else {
+            let vEq = findEquilibriumVolume(ATM_PA, currentTempK, currentMoles, gas);
+            targetVolumeL = Math.max(2, Math.min(50, vEq)); 
+            if (vEq >= 50 && Math.abs(currentVolumeL - 50) < 0.1) {
+                currentPressurePa = calculatePressure(currentMoles, 50 * 0.001, currentTempK, gas);
+            } else {
+                currentPressurePa = calculatePressure(currentMoles, currentVolumeL * 0.001, currentTempK, gas);
+            }
+        }
+        if (currentPressurePa > EXPLOSION_LIMIT_PA) triggerExplosion();
+      }
+
+      function triggerExplosion() {
+        isExploded = true;
+        el.explosionOverlay.classList.add("active");
+        if (isSimInitialized) broadcastStateToParent("⚠️ 實驗發生爆炸：壓力超過容器極限 (5 atm)！");
+      }
+
+      function resetSimulation() {
+        isExploded = false;
+        el.explosionOverlay.classList.remove("active");
+        el.lockPistonToggle.checked = false;
+        currentVolumeL = targetVolumeL = 22.4;
+        currentTempK = 298.15;
+        currentHeatingRate = 0; targetHeatingState = 0;
+        pistonVelocity = 0;
+        
+        clearTimeout(gasFlowTimer);
+        gasFlowDir = 0; isGasFlowLocked = false;
+        el.injectBtnGroup.classList.remove("active-inject");
+        el.bleedBtnGroup.classList.remove("active-bleed");
+        el.flowLine.setAttribute("opacity", "0");
+        
+        currentMoles = 1.0;
+        
+        el.volumeRange.value = el.volumeNumber.value = 22.4;
+        el.tempRange.value = el.tempNumber.value = 25;
+        el.molesRange.value = el.molesNumber.value = 1.0;
+        
+        updatePhysicsFromState();
+        renderSimulation();
+        if (isSimInitialized) broadcastStateToParent("重置了實驗容器");
+      }
+
+      // --- 微觀粒子引擎 ---
+      function syncOutsideParticles() {
+          const pistonTop = 100 + ((50 - currentVolumeL) / 48) * 280;
+          const targetOutsideCount = Math.max(10, Math.floor((pistonTop - 10) * 0.5));
+          
+          while (outsideParticles.length < targetOutsideCount) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 4.0;
+              outsideParticles.push({
+                  x: 165 + Math.random() * 210,
+                  y: 10 + Math.random() * (pistonTop - 15),
+                  vx: Math.cos(angle) * speed,
+                  vy: Math.sin(angle) * speed,
+                  r: 3,
+                  color: "#94a3b8"
+              });
+          }
+          while (outsideParticles.length > targetOutsideCount) {
+              outsideParticles.pop();
+          }
+      }
+
+      function syncInsideParticles() {
+          const gas = getSelectedGas();
+          const targetCount = Math.min(300, Math.floor(currentMoles * 60));
+          const pistonTop = 100 + ((50 - currentVolumeL) / 48) * 280;
+          const pistonBottom = pistonTop + 20;
+          
+          while (insideParticles.length < targetCount) {
+              const speedBase = 4 * gas.vMultiplier * Math.sqrt(currentTempK / 298.15);
+              const angle = Math.random() * Math.PI * 2;
+              insideParticles.push({
+                  x: 165 + Math.random() * 210,
+                  y: pistonBottom + 5 + Math.random() * (390 - pistonBottom),
+                  vx: Math.cos(angle) * speedBase,
+                  vy: Math.sin(angle) * speedBase,
+                  r: gas.r,
+                  color: gas.color
+              });
+          }
+          while (insideParticles.length > targetCount) {
+              insideParticles.pop();
+          }
+          
+          insideParticles.forEach(p => {
+              p.r = gas.r; p.color = gas.color;
+          });
+      }
+
+      function renderParticles() {
+          const ctx = el.particleCanvas.getContext("2d");
+          ctx.clearRect(0, 0, 620, 500);
+          
+          const gas = getSelectedGas();
+          const pistonTop = 100 + ((50 - currentVolumeL) / 48) * 280;
+          const pistonBottom = pistonTop + 20;
+          const speedBase = 4 * gas.vMultiplier * Math.sqrt(currentTempK / 298.15);
+
+          ctx.fillStyle = "#94a3b8";
+          outsideParticles.forEach(p => {
+              const currentSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+              if (currentSpeed > 0) {
+                  p.vx = (p.vx / currentSpeed) * 4.0;
+                  p.vy = (p.vy / currentSpeed) * 4.0;
+              }
+              p.x += p.vx; p.y += p.vy;
+              
+              if (p.x <= 160 + p.r) { p.x = 160 + p.r; p.vx *= -1; }
+              if (p.x >= 380 - p.r) { p.x = 380 - p.r; p.vx *= -1; }
+              if (p.y <= p.r + 10) { p.y = p.r + 10; p.vy *= -1; }
+              if (p.y >= pistonTop - p.r) { 
+                  p.y = pistonTop - p.r; 
+                  p.vy = -Math.abs(p.vy) + Math.min(0, pistonVelocity);
+                  collisionSparks.push({x: p.x, y: pistonTop, color: "#94a3b8", life: 1.0});
+              }
+              ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          });
+
+          insideParticles.forEach(p => {
+              const currentSpeed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+              if (currentSpeed > 0) {
+                  p.vx = (p.vx / currentSpeed) * speedBase;
+                  p.vy = (p.vy / currentSpeed) * speedBase;
+              }
+              p.x += p.vx; p.y += p.vy;
+
+              if (p.x <= 160 + p.r) { p.x = 160 + p.r; p.vx *= -1; }
+              if (p.x >= 380 - p.r) { p.x = 380 - p.r; p.vx *= -1; }
+              if (p.y >= 400 - p.r) { p.y = 400 - p.r; p.vy *= -1; }
+              if (p.y <= pistonBottom + p.r) { 
+                  p.y = pistonBottom + p.r; 
+                  p.vy = Math.abs(p.vy) + Math.max(0, pistonVelocity); 
+                  collisionSparks.push({x: p.x, y: pistonBottom, color: gas.color, life: 1.0});
+              }
+              ctx.fillStyle = p.color;
+              ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+          });
+
+          for (let i = collisionSparks.length - 1; i >= 0; i--) {
+              let s = collisionSparks[i];
+              ctx.strokeStyle = s.color;
+              ctx.globalAlpha = s.life;
+              ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.arc(s.x, s.y, (1 - s.life) * 15, 0, Math.PI * 2); ctx.stroke();
+              ctx.globalAlpha = 1.0;
+              s.life -= 0.15;
+              if (s.life <= 0) collisionSparks.splice(i, 1);
+          }
+      }
+
+      const MAX_HEAT_RATE = 0.4; const HEAT_ACCEL = 0.02;
+
+      function animationLoop() {
+        let needsRender = false;
+
+        if (!isExploded) {
+            if (gasFlowDir !== 0) {
+                currentMoles += gasFlowDir * 0.015; 
+                currentMoles = Math.max(0.1, Math.min(10.0, currentMoles));
+                updatePhysicsFromState();
+                needsRender = true;
+
+                flowOffset += gasFlowDir * 1.5; 
+                el.flowLine.setAttribute("stroke-dashoffset", flowOffset);
+                el.flowLine.setAttribute("opacity", "1");
+                el.flowLine.setAttribute("stroke", gasFlowDir > 0 ? "#ef4444" : "#3b82f6");
+            } else if (el.flowLine.getAttribute("opacity") !== "0") {
+                el.flowLine.setAttribute("opacity", "0");
+            }
+
+            if (targetHeatingState !== 0 || Math.abs(currentHeatingRate) > 0.01) {
+                let targetRate = targetHeatingState * MAX_HEAT_RATE;
+                currentHeatingRate += (targetRate - currentHeatingRate) * HEAT_ACCEL;
+
+                if (Math.abs(currentHeatingRate) < 0.01 && targetHeatingState === 0) {
+                    currentHeatingRate = 0;
+                }
+
+                if (currentHeatingRate !== 0) {
+                    let tc = tempUnits.celsius.fromK(currentTempK) + currentHeatingRate;
+                    tc = Math.max(-100, Math.min(300, tc));
+                    currentTempK = tempUnits.celsius.toK(tc);
+
+                    const glowOpacity = Math.abs(currentHeatingRate) / MAX_HEAT_RATE;
+                    el.heaterGlow.setAttribute("opacity", glowOpacity * 0.85);
+                    el.heaterGlow.setAttribute("fill", currentHeatingRate > 0 ? "#f87171" : "#60a5fa");
+
+                    updatePhysicsFromState();
+                    needsRender = true;
+                }
+            } else if (el.heaterGlow.getAttribute("opacity") !== "0") {
+                el.heaterGlow.setAttribute("opacity", "0");
+            }
+
+            if (!dragging && !el.lockPistonToggle.checked) {
+                let accel = (targetVolumeL - currentVolumeL) * 0.015;
+                pistonVelocity = (pistonVelocity + accel) * 0.88;
+                
+                if (Math.abs(targetVolumeL - currentVolumeL) > 0.05 || Math.abs(pistonVelocity) > 0.01) {
+                    currentVolumeL += pistonVelocity;
+                    updatePhysicsFromState();
+                    needsRender = true;
+                } else if (currentVolumeL !== targetVolumeL) {
+                    currentVolumeL = targetVolumeL;
+                    pistonVelocity = 0;
+                    updatePhysicsFromState();
+                    needsRender = true;
+                }
+            } else {
+                pistonVelocity = 0;
+            }
+        }
+
+        if (isMicroView && !isExploded) {
+            syncOutsideParticles();
+            syncInsideParticles();
+            renderParticles();
+        }
+
+        if (needsRender) renderSimulation();
+        requestAnimationFrame(animationLoop);
+      }
+
+      // --- 渲染系統 ---
+      function getPUnit() { return pressureUnits[el.pressureUnitSelect.value]; }
+      function getTUnit() { return tempUnits[el.tempUnitSelect.value]; }
+      function formatNum(val, decimals) { return Number(val).toFixed(decimals); }
+
+      function drawScale() {
+        let svg = '';
+        for(let v=5; v<=50; v+=5) {
+            let y = 100 + ((50 - v) / 48) * 280 + 20; 
+            svg += `<line x1="26" y1="${y}" x2="18" y2="${y}" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>`;
+            svg += `<text x="10" y="${y+4}" text-anchor="end" fill="#64748b" font-size="12" font-weight="800">${v}</text>`;
+        }
+        el.volScaleGroup.innerHTML = svg;
+      }
+
+      function renderSimulation() {
+        const gas = getSelectedGas();
+        const tC = tempUnits.celsius.fromK(currentTempK);
+        const pUnit = getPUnit();
+        const tUnit = getTUnit();
+        const isLocked = el.lockPistonToggle.checked;
+
+        if (document.activeElement !== el.volumeRange && document.activeElement !== el.volumeNumber && !dragging) {
+            el.volumeRange.value = currentVolumeL.toFixed(1);
+            el.volumeNumber.value = currentVolumeL.toFixed(1);
+        }
+        if (document.activeElement !== el.tempRange && document.activeElement !== el.tempNumber && targetHeatingState === 0) {
+            el.tempRange.value = tC.toFixed(0);
+            el.tempNumber.value = tC.toFixed(0);
+        }
+        if (document.activeElement !== el.molesRange && document.activeElement !== el.molesNumber && gasFlowDir === 0) {
+            el.molesRange.value = currentMoles.toFixed(2);
+            el.molesNumber.value = currentMoles.toFixed(2);
+        }
+
+        const pistonYOffset = ((50 - currentVolumeL) / 48) * 280;
+        el.pistonGroup.setAttribute("transform", `translate(160, ${100 + pistonYOffset})`);
+        el.lockPins.style.display = isLocked ? "block" : "none";
+        
+        const indicatorY = 100 + pistonYOffset + 20;
+        el.indicatorGroup.setAttribute("transform", `translate(145, ${indicatorY})`);
+        el.indicatorText.textContent = `${currentVolumeL.toFixed(1)} L`;
+
+        el.gasRect.setAttribute("y", 100 + pistonYOffset + 20);
+        el.gasRect.setAttribute("height", 300 - pistonYOffset - 20);
+        el.gasRect.setAttribute("fill", gas.color);
+        const density = currentMoles / currentVolumeL;
+        
+        const opacity = isMicroView ? 0.05 : Math.min(0.95, Math.max(0.05, (density / 0.0446) * 0.4));
+        el.gasRect.setAttribute("opacity", opacity);
+
+        let topColor = "#cbd5e1", botColor = "#94a3b8";
+        if (tC > 25) {
+          const r = Math.min(255, 200 + (tC - 25) * 0.5);
+          topColor = `rgb(${r}, 100, 100)`; botColor = `rgb(${r-30}, 70, 70)`;
+        } else if (tC < 25) {
+          const b = Math.min(255, 200 + (25 - tC));
+          topColor = `rgb(100, 150, ${b})`; botColor = `rgb(70, 120, ${b-30})`;
+        }
+        el.heaterColorTop.setAttribute("stop-color", topColor);
+        el.heaterColorBot.setAttribute("stop-color", botColor);
+
+        const displayPressure = isExploded ? 0 : pUnit.fromPa(currentPressurePa);
+        el.meterValue.textContent = isExploded ? "ERR" : formatNum(displayPressure, pUnit.decimals);
+        el.meterUnit.textContent = pUnit.label;
+        
+        if (currentPressurePa > ATM_PA * 4 && !isExploded) {
+          el.meterScreen.setAttribute("stroke", "#dc2626");
+          el.meterValue.setAttribute("fill", "#dc2626");
+          el.metricPressureCard.classList.add("warning");
+        } else {
+          el.meterScreen.setAttribute("stroke", "#d9485f");
+          el.meterValue.setAttribute("fill", "#7a1428");
+          el.metricPressureCard.classList.remove("warning");
+        }
+
+        const displayTemp = tUnit.fromK(currentTempK);
+        el.thermoValue.textContent = formatNum(displayTemp, 1);
+        el.thermoUnit.textContent = tUnit.label;
+
+        el.metricGas.textContent = gas.name;
+        el.metricMoles.textContent = `${formatNum(currentMoles, 3)} mol`;
+        el.metricVolume.textContent = `${formatNum(currentVolumeL, 1)} L`;
+        el.metricTemp.textContent = `${formatNum(displayTemp, 1)} ${tUnit.label}`;
+        el.metricDensity.textContent = `${formatNum(density, 3)} mol/L`;
+        el.metricPressureLabel.textContent = `壓力 (${pUnit.label})`;
+        el.metricPressure.textContent = isExploded ? "破裂" : `${formatNum(displayPressure, pUnit.decimals)} ${pUnit.label}`;
+      }
+
+      // --- 事件綁定 ---
+
+      function setMolesFromInput(valStr) {
+        if(isExploded) return;
+        let val = parseFloat(valStr);
+        if(val >= 0.1 && val <= 10.0) { 
+            currentMoles = val; 
+            updatePhysicsFromState(); renderSimulation();
+        }
+      }
+      el.molesRange.addEventListener("input", (e) => { el.molesNumber.value = e.target.value; setMolesFromInput(e.target.value); });
+      el.molesRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("調整了氣體莫耳數滑桿"); });
+      el.molesNumber.addEventListener("input", (e) => { el.molesRange.value = e.target.value; setMolesFromInput(e.target.value); });
+      el.molesNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動輸入數值調整了氣體莫耳數"); });
+
+      function setVolumeFromInput(valStr) {
+        if(isExploded) return;
+        let val = parseFloat(valStr);
+        if(val >= 2 && val <= 50) { 
+            currentVolumeL = targetVolumeL = val; 
+            updatePhysicsFromState(); renderSimulation();
+        }
+      }
+      el.volumeRange.addEventListener("input", (e) => { el.volumeNumber.value = e.target.value; setVolumeFromInput(e.target.value); });
+      el.volumeRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("調整了容器體積滑桿"); });
+      el.volumeNumber.addEventListener("input", (e) => { el.volumeRange.value = e.target.value; setVolumeFromInput(e.target.value); });
+      el.volumeNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動輸入數值調整了容器體積"); });
+
+      function setTempFromInput(valStr) {
+        if(isExploded) return;
+        let val = parseFloat(valStr);
+        if(val >= -100 && val <= 300) { 
+            currentTempK = tempUnits.celsius.toK(val); 
+            updatePhysicsFromState(); renderSimulation();
+        }
+      }
+      el.tempRange.addEventListener("input", (e) => { el.tempNumber.value = e.target.value; setTempFromInput(e.target.value); });
+      el.tempRange.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("調整了活塞溫度滑桿"); });
+      el.tempNumber.addEventListener("input", (e) => { el.tempRange.value = e.target.value; setTempFromInput(e.target.value); });
+      el.tempNumber.addEventListener("change", () => { if(isSimInitialized) broadcastStateToParent("手動輸入數值調整了活塞溫度"); });
+
+      el.lockPistonToggle.addEventListener("change", () => { 
+        if(!el.lockPistonToggle.checked) {
+            if(isSimInitialized) broadcastStateToParent("解鎖了活塞，活塞將自動滑動以維持 1 大氣壓");
+        } else {
+            targetVolumeL = currentVolumeL; 
+            if(isSimInitialized) broadcastStateToParent("鎖定了活塞，容器轉為定容狀態");
+        }
+        updatePhysicsFromState(); renderSimulation();
+      });
+      el.gasSelect.addEventListener("change", () => { updatePhysicsFromState(); renderSimulation(); if(isSimInitialized) broadcastStateToParent(`將氣體切換為「${el.gasSelect.options[el.gasSelect.selectedIndex].text}」`); });
+      
+      el.pressureUnitSelect.addEventListener("change", () => { 
+        renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); 
+        if(isSimInitialized) broadcastStateToParent(`更改壓力單位為 ${el.pressureUnitSelect.options[el.pressureUnitSelect.selectedIndex].text}`); 
+      });
+      el.tempUnitSelect.addEventListener("change", () => { 
+        renderSimulation(); renderTable(); populateAxisOptions(); renderChart(); 
+        if(isSimInitialized) broadcastStateToParent(`更改溫度單位為 ${el.tempUnitSelect.options[el.tempUnitSelect.selectedIndex].text}`); 
+      });
+      
+      el.resetSimBtn.addEventListener("click", resetSimulation);
+
+      // SVG 活塞拖曳邏輯
+      let startY = 0; let startV = 0;
+      el.pistonGroup.addEventListener("pointerdown", (e) => {
+        if(isExploded) return;
+        dragging = true; startY = e.clientY; startV = currentVolumeL;
+        document.body.classList.add("dragging");
+        el.pistonGroup.setPointerCapture(e.pointerId);
+      });
+      el.pistonGroup.addEventListener("pointermove", (e) => {
+        if(!dragging) return;
+        const deltaV = -(e.clientY - startY) * (48 / 280); 
+        currentVolumeL = Math.min(50, Math.max(2, startV + deltaV));
+        updatePhysicsFromState(); renderSimulation();
+      });
+      el.pistonGroup.addEventListener("pointerup", endDrag);
+      el.pistonGroup.addEventListener("pointercancel", endDrag);
+      function endDrag(){ 
+        if(!dragging) return;
+        dragging = false; document.body.classList.remove("dragging"); 
+        if(el.lockPistonToggle.checked) targetVolumeL = currentVolumeL; 
+        updatePhysicsFromState(); renderSimulation(); 
+        if(isSimInitialized) broadcastStateToParent("在畫面上拖曳活塞改變了體積");
+      }
+
+      el.heaterBtnGroup.addEventListener("pointerdown", () => { targetHeatingState = 1; if(isSimInitialized) broadcastStateToParent("使用了底部加熱按鈕"); });
+      el.heaterBtnGroup.addEventListener("pointerup", () => { targetHeatingState = 0; });
+      el.heaterBtnGroup.addEventListener("pointerleave", () => { targetHeatingState = 0; });
+      
+      el.coolerBtnGroup.addEventListener("pointerdown", () => { targetHeatingState = -1; if(isSimInitialized) broadcastStateToParent("使用了底部冷卻按鈕"); });
+      el.coolerBtnGroup.addEventListener("pointerup", () => { targetHeatingState = 0; });
+      el.coolerBtnGroup.addEventListener("pointerleave", () => { targetHeatingState = 0; });
+
+      function handleFlowDown(dir, btnEl) {
+          if (isExploded) return;
+          
+          if (isGasFlowLocked && gasFlowDir === dir) {
+              stopFlow(); return;
+          }
+          if (isGasFlowLocked && gasFlowDir !== dir) {
+              stopFlow();
+          }
+
+          gasFlowDir = dir;
+          
+          if (dir > 0) btnEl.classList.add("active-inject");
+          else btnEl.classList.add("active-bleed");
+          
+          if (isSimInitialized && !isGasFlowLocked) broadcastStateToParent(`點擊了${dir > 0 ? '灌氣' : '抽氣'}閥門`);
+          
+          currentMoles += dir * 0.02;
+          currentMoles = Math.max(0.1, Math.min(10.0, currentMoles));
+          updatePhysicsFromState(); renderSimulation();
+
+          gasFlowTimer = setTimeout(() => {
+              isGasFlowLocked = true;
+              if (isSimInitialized) broadcastStateToParent(`進入連續${dir > 0 ? '灌' : '抽'}氣模式`);
+          }, 500);
+      }
+
+      function handleFlowUpOrLeave(dir) {
+          if (!isGasFlowLocked && gasFlowDir === dir) stopFlow();
+      }
+
+      function stopFlow() {
+          clearTimeout(gasFlowTimer);
+          if (isGasFlowLocked && isSimInitialized) broadcastStateToParent("停止了連續氣流模式");
+          gasFlowDir = 0;
+          isGasFlowLocked = false;
+          el.injectBtnGroup.classList.remove("active-inject");
+          el.bleedBtnGroup.classList.remove("active-bleed");
+          el.flowLine.setAttribute("opacity", "0");
+      }
+
+      el.injectBtnGroup.addEventListener("pointerdown", () => handleFlowDown(1, el.injectBtnGroup));
+      el.injectBtnGroup.addEventListener("pointerup", () => handleFlowUpOrLeave(1));
+      el.injectBtnGroup.addEventListener("pointerleave", () => handleFlowUpOrLeave(1));
+
+      el.bleedBtnGroup.addEventListener("pointerdown", () => handleFlowDown(-1, el.bleedBtnGroup));
+      el.bleedBtnGroup.addEventListener("pointerup", () => handleFlowUpOrLeave(-1));
+      el.bleedBtnGroup.addEventListener("pointerleave", () => handleFlowUpOrLeave(-1));
+
+      el.viewToggleBtn.addEventListener("click", () => {
+          isMicroView = !isMicroView;
+          if (isMicroView) {
+              el.viewToggleBtn.textContent = "👁️ 關閉微觀視角";
+              el.viewToggleBtn.classList.replace("btn-secondary", "btn-primary");
+              el.particleCanvas.style.display = "block";
+              syncOutsideParticles();
+              syncInsideParticles();
+              if(isSimInitialized) broadcastStateToParent("開啟了微觀粒子視角，開始觀察內外分子的碰撞");
+          } else {
+              el.viewToggleBtn.textContent = "🔬 開啟微觀視角";
+              el.viewToggleBtn.classList.replace("btn-primary", "btn-secondary");
+              el.particleCanvas.style.display = "none";
+              if(isSimInitialized) broadcastStateToParent("關閉了微觀粒子視角，回到巨觀觀察模式");
+          }
+          renderSimulation();
+      });
+
+      // --- ★ 廣播系統 (即時操作) ---
+      function broadcastStateToParent(actionName) {
+        if (!actionName) return; 
+        try {
+          const gas = getSelectedGas();
+          const pUnit = getPUnit();
+          const tUnit = getTUnit();
+          const displayTemp = tUnit.fromK(currentTempK);
+          const displayPressure = pUnit.fromPa(currentPressurePa);
+
+          const payload = {
+            "學生最後的動作": actionName, 
+            "當前觀察視角": isMicroView ? "微觀模式 (可看見粒子)" : "巨觀模式 (無粒子，僅顯示顏色深淺)",
+            "活塞狀態": el.lockPistonToggle.checked ? "鎖定 (定容)" : "活動 (定壓)",
+            "氣體種類": gas.name, 
+            "莫耳數(n)": formatNum(currentMoles, 3),
+            "體積(L)": formatNum(currentVolumeL, 1), 
+            [`溫度(${tUnit.label})`]: formatNum(displayTemp, 1),
+            [`壓力(${pUnit.label})`]: formatNum(displayPressure, pUnit.decimals), 
+            "已收集的數據筆數": records.length + " 筆",
+            "目前組別輸入框內容": currentGroupName || "(空白)"
+          };
+
+          if (isMicroView) {
+              let weightDesc = gas.vMultiplier < 1.0 ? "質量大，視覺上較大顆且移動緩慢" : (gas.vMultiplier > 2.0 ? "質量小，視覺上極小且移動極快" : "質量與空氣相近，速度中等");
+              let tempDesc = currentTempK > 400 ? "因處於高溫，粒子移動非常劇烈" : (currentTempK < 200 ? "因處於低溫，粒子移動顯得緩慢" : "目前為室溫狀態");
+              let pressureDesc = currentPressurePa > ATM_PA ? "內部粒子撞擊活塞的激烈程度明顯大於外部大氣" : (currentPressurePa < ATM_PA ? "內部粒子撞擊活塞的激烈程度小於外部大氣" : "內外粒子撞擊活塞的總力道已達成平衡");
+              
+              payload["微觀畫面特徵 (供AI引導參考)"] = `畫面上方有固定數量、速度極快的灰色空氣粒子在持續撞擊活塞頂部。下方是 ${gas.name} 粒子，特徵為「${weightDesc}」，且${tempDesc}。觀察兩側的碰撞情況，${pressureDesc}。`;
+          }
+
+          window.parent.postMessage({
+            type: 'SIMULATION_STATE',
+            payload: payload
+          }, '*');
+        } catch (e) { console.error("狀態廣播失敗:", e); }
+      }
+
+      // ========================================
+      // ★ 新增：分組總結廣播系統（30 秒防抖）
+      // ========================================
+      function scheduleGroupingBroadcast() {
+        if (!isSimInitialized) return;
+        if (groupingActionTimer) clearTimeout(groupingActionTimer);
+        groupingActionTimer = setTimeout(() => {
+          broadcastGroupingSummary();
+          groupingActionTimer = null;
+        }, GROUPING_BROADCAST_DELAY);
+      }
+
+      function broadcastGroupingSummary() {
+        try {
+          if (records.length === 0) return; // 沒有紀錄就不廣播
+
+          const tUnit = getTUnit();
+          const pUnit = getPUnit();
+
+          // 依 group 分組
+          const grouped = {};
+          records.forEach(r => {
+            const key = (r.group || "").trim();
+            const displayKey = key === "" ? "未分組" : key;
+            if (!grouped[displayKey]) grouped[displayKey] = [];
+            grouped[displayKey].push(r);
+          });
+
+          const namedGroupCount = Object.keys(grouped).filter(k => k !== "未分組").length;
+          
+          // 若完全沒命名過任何組別，不廣播
+          if (namedGroupCount === 0) return;
+
+          const groupSummary = Object.keys(grouped).map(groupName => {
+            const recs = grouped[groupName];
+
+            const rangeDesc = (valueGetter, decimals, unit) => {
+              const values = recs.map(valueGetter);
+              const min = Math.min(...values);
+              const max = Math.max(...values);
+              if (Math.abs(max - min) < Math.pow(10, -decimals)) {
+                return `${min.toFixed(decimals)} ${unit} (固定)`;
+              }
+              return `${min.toFixed(decimals)} ~ ${max.toFixed(decimals)} ${unit} (有變化)`;
+            };
+
+            const gasTypes = [...new Set(recs.map(r => r.gasName))];
+
+            return {
+              "組別名稱": groupName,
+              "筆數": recs.length,
+              "該組氣體種類": gasTypes.length === 1 ? `${gasTypes[0]} (固定)` : `${gasTypes.join("、")} (有變化)`,
+              "莫耳數 n": rangeDesc(r => r.moles, 3, "mol"),
+              "體積 V": rangeDesc(r => r.volumeL, 1, "L"),
+              "溫度 T": rangeDesc(r => tUnit.fromK(r.tempK), 1, tUnit.label),
+              "壓力 P": rangeDesc(r => pUnit.fromPa(r.pressurePa), pUnit.decimals, pUnit.label)
+            };
+          });
+
+          const payload = {
+            "訊息類型": "學生分組策略總結 (30秒靜置後自動觸發)",
+            "目前總紀錄數": records.length,
+            "已命名組別數": namedGroupCount,
+            "組別清單": groupSummary,
+            "給AI或老師的評估提示": "請檢視每組內『(固定)』與『(有變化)』的變因分布。理想的分組應該讓同組內的『控制變因』保持固定，只有一個『操作變因』在變化。若某組內多個變因都在變動，可能代表學生對『控制變因』的概念尚未掌握，可給予引導。"
+          };
+
+          window.parent.postMessage({
+            type: 'GROUPING_SUMMARY',
+            payload: payload
+          }, '*');
+        } catch (e) {
+          console.error("分組總結廣播失敗:", e);
+        }
+      }
+
+      // ========================================
+      // ★ 新增：組別顏色管理
+      // ========================================
+      function assignGroupColor(groupName) {
+        if (!groupName || groupName === "") return "#94a3b8"; // 未分組用灰色
+        if (groupColors[groupName]) return groupColors[groupName];
+        const usedColors = Object.values(groupColors);
+        let picked = DEFAULT_COLORS.find(c => !usedColors.includes(c));
+        if (!picked) picked = DEFAULT_COLORS[Object.keys(groupColors).length % DEFAULT_COLORS.length];
+        groupColors[groupName] = picked;
+        return picked;
+      }
+
+      function getUniqueNamedGroups() {
+        const groups = new Set();
+        records.forEach(r => {
+          const g = (r.group || "").trim();
+          if (g !== "") groups.add(g);
+        });
+        return Array.from(groups);
+      }
+
+      function renderGroupManager() {
+        const groups = getUniqueNamedGroups();
+        if (groups.length === 0) {
+          el.groupManager.innerHTML = '<span class="small" style="color:#94a3b8;">尚無組別。在上方「目前組別」輸入框輸入名稱後加入紀錄，即可在此管理各組顏色。</span>';
+          return;
+        }
+
+        const counts = {};
+        records.forEach(r => {
+          const g = (r.group || "").trim();
+          if (g !== "") counts[g] = (counts[g] || 0) + 1;
+        });
+
+        let html = '<span class="group-manager-title">🎨 組別顏色（可點擊修改）：</span>';
+        groups.forEach(g => {
+          const color = assignGroupColor(g);
+          html += `<div class="group-color-item">
+            <input type="color" value="${color}" data-group="${escapeAttr(g)}" class="group-color-picker" title="點擊修改顏色" />
+            <span>${escapeHtml(g)}</span>
+            <span class="group-count">(${counts[g]} 筆)</span>
+          </div>`;
+        });
+        el.groupManager.innerHTML = html;
+
+        el.groupManager.querySelectorAll('.group-color-picker').forEach(picker => {
+          picker.addEventListener('input', (e) => {
+            const groupName = e.target.dataset.group;
+            groupColors[groupName] = e.target.value;
+            renderChart();
+          });
+          picker.addEventListener('change', (e) => {
+            const groupName = e.target.dataset.group;
+            if (isSimInitialized) broadcastStateToParent(`將組別「${groupName}」的顏色修改為 ${e.target.value}`);
+          });
+        });
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+      }
+      function escapeAttr(s) {
+        return String(s).replace(/"/g, '&quot;');
+      }
+
+      // --- 資料收集與圖表系統 ---
+      const columns = [
+        { key: "id", label: "編號", get: r => r.id },
+        { key: "group", label: "組別", get: r => r.group || "" },
+        { key: "gas", label: "氣體", get: r => r.gasName },
+        { key: "moles", label: "莫耳數 n (mol)", type: "number", get: r => Number(r.moles.toFixed(3)) },
+        { key: "volume", label: "體積 V (L)", type: "number", get: r => Number(r.volumeL.toFixed(1)) },
+        { key: "tempDisplay", label: () => `溫度 T (${getTUnit().label})`, type: "number", get: r => Number(getTUnit().fromK(r.tempK).toFixed(1)) },
+        { key: "density", label: "密度 (mol/L)", type: "number", get: r => Number((r.moles / r.volumeL).toFixed(4)) },
+        { key: "pressureDisplay", label: () => `壓力 P (${getPUnit().label})`, type: "number", get: r => Number(getPUnit().fromPa(r.pressurePa).toFixed(getPUnit().decimals)) }
+      ];
+
+      const defaultCheckKeys = ["id", "group", "gas", "moles", "volume", "tempDisplay", "pressureDisplay"];
+      const graphFields = columns.filter(c => c.type === "number");
+
+      function populateColumnCheckboxes() {
+        el.columnCheckboxes.innerHTML = columns.map(col => `<label class="check-item"><input type="checkbox" value="${col.key}" ${defaultCheckKeys.includes(col.key) ? "checked" : ""}><span data-col-label="${col.key}"></span></label>`).join("");
+        updateColumnCheckboxLabels();
+        el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(input => {
+          input.addEventListener("change", () => { renderTable(); populateAxisOptions(); });
+        });
+      }
+
+      function getColumnLabel(col) { return typeof col.label === "function" ? col.label() : col.label; }
+      function updateColumnCheckboxLabels() { columns.forEach(col => { const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`); if (ls) ls.textContent = getColumnLabel(col); }); }
+      function getSelectedColumns() { const checked = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')].map(i => i.value); return columns.filter(c => checked.includes(c.key)); }
+      
+      function renderTable() {
+        updateColumnCheckboxLabels(); 
+        const countText = `目前共 ${records.length} 筆紀錄`;
+        el.recordCountTop.textContent = el.recordCountBottom.textContent = countText;
+        
+        const sc = getSelectedColumns();
+        if (!sc.length) { el.tableHead.innerHTML = ""; el.tableBody.innerHTML = `<tr><td class="empty-cell">請先勾選要顯示的欄位。</td></tr>`; return; }
+        el.tableHead.innerHTML = `<tr>${sc.map(col => `<th>${getColumnLabel(col)}</th>`).join("")}</tr>`;
+        if (!records.length) { el.tableBody.innerHTML = `<tr><td class="empty-cell" colspan="${sc.length}">尚無紀錄。</td></tr>`; return; }
+
+        el.tableBody.innerHTML = records.map((r, i) => {
+          const rowClass = i === records.length - 1 ? "latest" : "";
+          return `<tr class="${rowClass}">${sc.map(col => {
+            if (col.key === "group") {
+              const groupVal = r.group || "";
+              const color = groupVal ? assignGroupColor(groupVal) : null;
+              const content = groupVal 
+                ? `<span class="group-tag" style="background:${color}">${escapeHtml(groupVal)}</span>`
+                : `<span class="empty-group">—</span>`;
+              return `<td class="editable-group" data-record-id="${r.id}">${content}</td>`;
+            }
+            return `<td>${col.get(r)}</td>`;
+          }).join("")}</tr>`;
+        }).join("");
+
+        // 綁定表格組別編輯
+        el.tableBody.querySelectorAll('.editable-group').forEach(cell => {
+          cell.addEventListener('click', () => startEditGroupCell(cell));
+        });
+      }
+
+      function startEditGroupCell(cell) {
+        const recordId = parseInt(cell.dataset.recordId);
+        const record = records.find(r => r.id === recordId);
+        if (!record) return;
+
+        const oldValue = record.group || "";
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldValue;
+        input.maxLength = 20;
+        input.className = 'group-edit-input';
+        input.placeholder = '輸入組別名稱（空白=未分組）';
+
+        cell.innerHTML = '';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        let finished = false;
+        function finishEdit(save) {
+          if (finished) return;
+          finished = true;
+          if (save) {
+            const newValue = input.value.trim();
+            if (newValue !== oldValue) {
+              record.group = newValue;
+              if (newValue) assignGroupColor(newValue);
+              renderTable();
+              renderGroupManager();
+              renderChart();
+              if (isSimInitialized) {
+                if (oldValue === "" && newValue !== "") {
+                  broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄歸類到「${newValue}」組`);
+                } else if (newValue === "") {
+                  broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄從「${oldValue}」組改為未分組`);
+                } else {
+                  broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄從「${oldValue}」改為「${newValue}」組`);
+                }
+              }
+              scheduleGroupingBroadcast();
+            } else {
+              renderTable();
+            }
+          } else {
+            renderTable();
+          }
+        }
+
+        input.addEventListener('blur', () => finishEdit(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); }
+          if (e.key === 'Escape') { e.preventDefault(); finishEdit(false); }
+        });
+      }
+
+      function makeRecord() {
+        return { 
+          id: recordId++, 
+          group: currentGroupName.trim(),   // ★ 新增
+          gasName: getSelectedGas().name,
+          moles: currentMoles,
+          volumeL: currentVolumeL,
+          tempK: currentTempK,
+          pressurePa: currentPressurePa
+        };
+      }
+
+      function populateAxisOptions() {
+        const px = el.chartXSelect.value, py = el.chartYSelect.value;
+        const checkedKeys = getSelectedColumns().map(c => c.key);
+        const availableFields = graphFields.filter(f => checkedKeys.includes(f.key));
+
+        const opts = `<option value="">請選擇項目</option>` + availableFields.map(f => `<option value="${f.key}">${getColumnLabel(f)}</option>`).join("");
+        el.chartXSelect.innerHTML = el.chartYSelect.innerHTML = opts;
+        
+        if (availableFields.some(f => f.key === px)) el.chartXSelect.value = px;
+        if (availableFields.some(f => f.key === py)) el.chartYSelect.value = py;
+      }
+
+      // --- Chart.js 繪圖邏輯 ---
+      let myChart = null; 
+
+      function calculateTrendline(points) {
+        if (points.length < 2) return null;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        let minX = Infinity, maxX = -Infinity;
+        for (let p of points) {
+          sumX += p.x; sumY += p.y;
+          sumXY += p.x * p.y; sumXX += p.x * p.x;
+          if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        }
+        const n = points.length;
+        const denominator = (n * sumXX - sumX * sumX);
+        if (denominator === 0) return null; 
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+        
+        const margin = (maxX - minX) * 0.05;
+        const drawMinX = minX === maxX ? minX - 1 : minX - margin;
+        const drawMaxX = minX === maxX ? maxX + 1 : maxX + margin;
+
+        const sign = intercept >= 0 ? '+' : '-';
+        const equation = `y = ${slope.toPrecision(4)}x ${sign} ${Math.abs(intercept).toPrecision(4)}`;
+
+        return { points: [{ x: drawMinX, y: slope * drawMinX + intercept }, { x: drawMaxX, y: slope * drawMaxX + intercept }], equation };
+      }
+
+      function hexToRgba(hex, alpha) {
+        const h = hex.replace('#', '');
+        const r = parseInt(h.substring(0, 2), 16);
+        const g = parseInt(h.substring(2, 4), 16);
+        const b = parseInt(h.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function renderChart() {
+        const xKey = el.chartXSelect.value; 
+        const yKey = el.chartYSelect.value;
+        
+        if (!chartRequested || !xKey || !yKey) {
+          if (myChart) { myChart.destroy(); myChart = null; }
+          el.chartCanvas.innerHTML = '<div style="color:#888; text-align:center; padding: 20px;">請選擇橫軸與縱軸，並按下「產生統計圖」。</div>';
+          return;
+        }
+
+        const xField = graphFields.find(f => f.key === xKey);
+        const yField = graphFields.find(f => f.key === yKey);
+        if (!xField || !yField) return;
+
+        // ★ 依 group 分組資料
+        const groupedData = {};
+        records.forEach(record => {
+          const groupKey = (record.group || "").trim();
+          const displayKey = groupKey === "" ? "未分組" : groupKey;
+          if (!groupedData[displayKey]) groupedData[displayKey] = [];
+          const x = parseFloat(xField.get(record));
+          const y = parseFloat(yField.get(record));
+          if (!isNaN(x) && !isNaN(y)) {
+            groupedData[displayKey].push({ x, y, _origGroup: groupKey });
+          }
+        });
+
+        const groupNames = Object.keys(groupedData).filter(g => groupedData[g].length > 0);
+        
+        if (groupNames.length === 0) {
+          if (myChart) { myChart.destroy(); myChart = null; }
+          el.chartCanvas.innerHTML = '<div style="color:red; text-align:center; padding: 20px;">目前選擇的座標軸沒有有效的數據點。</div>'; 
+          return;
+        }
+
+        // ★ 建立多組 dataset
+        const datasets = [];
+        const trendlineInfos = [];
+
+        groupNames.forEach(groupName => {
+          const origKey = groupedData[groupName][0]._origGroup;
+          const color = origKey === "" ? "#94a3b8" : assignGroupColor(origKey);
+
+          datasets.push({
+            label: groupName,
+            data: groupedData[groupName],
+            backgroundColor: hexToRgba(color, 0.6),
+            borderColor: color,
+            pointBackgroundColor: color,
+            pointBorderColor: '#1f2a44',
+            pointBorderWidth: 1,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            showLine: false,  // ★ 點與點不連線
+            tension: 0
+          });
+
+          if (el.trendlineToggle.checked && groupedData[groupName].length >= 2) {
+            const trendData = calculateTrendline(groupedData[groupName]);
+            if (trendData) {
+              trendlineInfos.push({ group: groupName, color: color, equation: trendData.equation });
+              datasets.push({
+                label: `${groupName} 擬合線`,
+                data: trendData.points,
+                backgroundColor: 'transparent',
+                borderColor: color,
+                borderWidth: 2.5,
+                borderDash: [6, 5],
+                pointRadius: 0,
+                pointHitRadius: 0,
+                showLine: true,
+                fill: false,
+                tension: 0,
+                _isTrendline: true
+              });
+            }
+          }
+        });
+
+        el.chartCanvas.innerHTML = '<canvas id="pressureChart"></canvas>';
+        const ctx = document.getElementById('pressureChart').getContext('2d');
+        
+        const xLabel = getColumnLabel(xField);
+        const yLabel = getColumnLabel(yField);
+
+        // ★ 狀態訊息（多組擬合線時逐行顯示）
+        let statusParts = [`統計圖已產生（共 ${groupNames.length} 組）。`];
+        if (trendlineInfos.length > 0) {
+          statusParts.push("<br>");
+          trendlineInfos.forEach(t => {
+            statusParts.push(
+              `<span style="display:inline-block; margin:4px 6px 0 0; color:#fff; background:${t.color}; padding:4px 10px; border-radius:6px; font-weight:900;">📈 ${escapeHtml(t.group)}: ${t.equation}</span>`
+            );
+          });
+        }
+        el.chartStatus.innerHTML = statusParts.join("");
+
+        myChart = new Chart(ctx, {
+          type: 'line', 
+          data: { datasets: datasets },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+              x: { type: 'linear', position: 'bottom', title: { display: true, text: xLabel, font: { size: 14, weight: 'bold' } } },
+              y: { title: { display: true, text: yLabel, font: { size: 14, weight: 'bold' } } }
+            },
+            plugins: { 
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  filter: (item) => !item.text || !item.text.includes('擬合線'),
+                  font: { weight: 'bold' }
+                }
+              },
+              tooltip: { 
+                callbacks: { 
+                  label: function(context) { 
+                    return `${context.dataset.label}: (${context.parsed.x}, ${context.parsed.y})`; 
+                  } 
+                } 
+              } 
+            }
+          }
+        });
+      }
+
+      // 按鈕事件
+      el.recordBtn.addEventListener("click", () => { 
+        if(!isExploded){ 
+          const rec = makeRecord();
+          records.push(rec);
+          if (rec.group) assignGroupColor(rec.group);
+          renderTable(); 
+          renderGroupManager();
+          renderChart(); 
+          if(isSimInitialized) {
+            if (rec.group) {
+              broadcastStateToParent(`加入一筆紀錄到「${rec.group}」組`);
+              scheduleGroupingBroadcast();
+            } else {
+              broadcastStateToParent("將當前的氣體數據加入紀錄表中（未指定組別）");
+            }
+          }
+        } else { 
+          alert("容器已破裂，請先重置實驗。"); 
+        }
+      });
+      
+      el.deleteLastBtn.addEventListener("click", () => { 
+        if (!records.length) return; 
+        const removed = records.pop(); 
+        renderTable(); 
+        renderGroupManager();
+        renderChart(); 
+        if(isSimInitialized) broadcastStateToParent(`刪除了最後一筆實驗紀錄${removed.group ? `（原屬「${removed.group}」組）` : ""}`); 
+        if (removed.group) scheduleGroupingBroadcast();
+      });
+      
+      el.clearBtn.addEventListener("click", () => { 
+        records = []; 
+        recordId = 1; 
+        groupColors = {};  // ★ 清空組別顏色也一起清空
+        renderTable(); 
+        renderGroupManager();
+        renderChart(); 
+        if (groupingActionTimer) { clearTimeout(groupingActionTimer); groupingActionTimer = null; }
+        if(isSimInitialized) broadcastStateToParent("清空了全部實驗紀錄與分組"); 
+      });
+      
+      el.exportBtn.addEventListener("click", () => {
+        const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
+        if (!records.length) { alert("請先記錄數據再匯出！"); return; }
+        const csv = "\ufeff" + [`"${sc.map(c => getColumnLabel(c)).join('","')}"`, ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)].join("\n");
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = `氣體壓力紀錄_${Date.now()}.csv`; a.click();
+        if(isSimInitialized) broadcastStateToParent("匯出了實驗數據 CSV");
+      });
+      
+      el.selectAllColumnsBtn.addEventListener("click", () => { el.columnCheckboxes.querySelectorAll('input').forEach(cb => cb.checked = true); renderTable(); populateAxisOptions(); });
+      el.clearColumnsBtn.addEventListener("click", () => { el.columnCheckboxes.querySelectorAll('input').forEach(cb => cb.checked = false); renderTable(); populateAxisOptions(); });
+      
+      el.generateChartBtn.addEventListener("click", () => { 
+        chartRequested = true; 
+        renderChart(); 
+        if (isSimInitialized) {
+          const xLabel = el.chartXSelect.options[el.chartXSelect.selectedIndex]?.text || "";
+          const yLabel = el.chartYSelect.options[el.chartYSelect.selectedIndex]?.text || "";
+          const namedGroups = getUniqueNamedGroups();
+          let msg = `產生了氣體統計圖。橫軸為【${xLabel}】，縱軸為【${yLabel}】。`;
+          if (namedGroups.length > 0) msg += `目前共分 ${namedGroups.length} 組：${namedGroups.join("、")}。`;
+          if (el.trendlineToggle.checked) msg += " 已加入各組擬合線。";
+          broadcastStateToParent(msg);
+        }
+      });
+      el.clearChartBtn.addEventListener("click", () => { chartRequested = false; el.chartStatus.innerHTML="統計圖已清除。"; renderChart(); if(isSimInitialized) broadcastStateToParent("清除了統計圖"); });
+      el.trendlineToggle.addEventListener("change", () => { if (chartRequested) renderChart(); });
+
+      // ★ 新增：目前組別輸入框事件
+      el.currentGroupInput.addEventListener("input", (e) => {
+        currentGroupName = e.target.value;
+      });
+      el.currentGroupInput.addEventListener("change", (e) => {
+        currentGroupName = e.target.value.trim();
+        e.target.value = currentGroupName;
+        if (isSimInitialized && currentGroupName) {
+          broadcastStateToParent(`設定「目前組別」為「${currentGroupName}」，之後加入的紀錄都會歸入此組`);
+        } else if (isSimInitialized && currentGroupName === "") {
+          broadcastStateToParent("清空了「目前組別」設定，之後加入的紀錄將為未分組");
+        }
+      });
+      el.clearCurrentGroupBtn.addEventListener("click", () => {
+        el.currentGroupInput.value = "";
+        currentGroupName = "";
+        if (isSimInitialized) broadcastStateToParent("清空了「目前組別」輸入框");
+      });
+
+      // Help Modal 邏輯
+      el.helpBtn.addEventListener("click", () => { el.helpModal.classList.remove("hidden"); document.body.classList.add("modal-open"); });
+      el.closeHelpBtn.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
+      el.helpBackdrop.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
+
+      // 右鍵 tooltip 邏輯
+      el.simSvg.addEventListener("contextmenu", (e) => {
+        e.preventDefault(); 
+        let infoText = "", equipmentName = "";
+        const targetId = e.target.id || (e.target.parentElement && e.target.parentElement.id);
+
+        if (targetId === "pistonGroup" || targetId === "pistonDragHandle" || targetId === "lockPins") {
+          equipmentName = "可動活塞";
+          infoText = "【可動活塞】<br>上下拖曳可以改變容器的體積。如果選擇『解鎖』，放開後活塞會自動滑動直到內外壓力平衡。";
+        } else if (targetId === "heaterGroup" || targetId === "coolerBtnGroup" || targetId === "heaterBtnGroup") {
+          equipmentName = "底部溫控面板";
+          infoText = "【底部溫控面板】<br>長按可以讓系統快速降溫或加熱。在解鎖狀態下加熱，你會看到活塞被推高喔！";
+        } else if (targetId === "meterGroup" || e.target.closest("#meterGroup")) {
+          equipmentName = "溫壓複合感測器";
+          infoText = "【溫壓複合感測器】<br>同時顯示目前的總壓力與環境溫度。注意不要讓數值超過 5 大氣壓 (約 5168 gw/cm²)，否則會爆炸！";
+        } else if (targetId === "gasRect") {
+          equipmentName = "氣體觀測區";
+          infoText = "【氣體觀測區】<br>顏色的深淺代表氣體的「密度」(莫耳數/體積)。顏色越深代表分子越密集。";
+        } else if (targetId === "gasValveGroup" || targetId === "injectBtnGroup" || targetId === "bleedBtnGroup") {
+          equipmentName = "氣體流量控制閥";
+          infoText = "【氣體流量控制閥】<br>按住 ➕ 灌氣 或 ➖ 抽氣 按鈕可以平滑地調整容器內的氣體量 (莫耳數)。";
+        }
+
+        if (infoText) {
+          el.eqTooltip.innerHTML = infoText;
+          el.eqTooltip.style.left = e.pageX + "px";
+          el.eqTooltip.style.top = e.pageY + "px";
+          el.eqTooltip.classList.remove("hidden");
+          if (isSimInitialized) broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
+        }
+      });
+
+      window.addEventListener("click", () => { 
+        if (!el.eqTooltip.classList.contains("hidden")) el.eqTooltip.classList.add("hidden"); 
+      });
+
+      // ==========================================
+      // 初始化
+      // ==========================================
+      el.lockPistonToggle.checked = false;
+      drawScale();
+      populateColumnCheckboxes();
+      populateAxisOptions();
+      updatePhysicsFromState();
+      syncOutsideParticles(); 
+      renderSimulation();
+      renderTable();
+      renderGroupManager();  // ★ 初始化組別管理區
+      requestAnimationFrame(animationLoop); 
+      
+      isSimInitialized = true; 
+
+      broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的感測器。你可以試著拉動活塞或更換氣體，看看壓力會怎麼變化！提醒學生：這次多了『實驗組別』功能，可以在『加入紀錄』上方的黃色輸入框輸入組別名稱（例如『20度組』），之後的紀錄就會歸入那一組，方便比較不同條件下的曲線差異。");
+      
+      setTimeout(() => { 
+        if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
+      }, 500); 
+    })();
+  </script>
+</body>
+</html>
