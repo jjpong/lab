@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗</title>
+  <title>氣體壓力虛擬實驗x</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -1420,7 +1420,7 @@
       
       isSimInitialized = true; 
 
-      // 🌟 1. 發送開場白廣播給外層的 AI 系統
+// 🌟 1. 發送開場白廣播給外層
       broadcastStateToParent("【系統開場白】我們進入了氣體壓力實驗室。實驗桌上有一個配備了『可鎖定活塞』與『底部溫控面板』的氣體容器，並連接了一台精密的感測器。你可以試著拉動活塞或更換氣體，看看壓力會怎麼變化！");
       
       // 🌟 2. 防呆機制：0.5 秒後把動作洗掉
@@ -1428,7 +1428,7 @@
         if(isSimInitialized) broadcastStateToParent("觀察實驗室環境中"); 
       }, 500);
 
-    }); ()// 這裡正確關閉最外層的 DOMContentLoaded 監聽器
+    }); // 確保外層事件監聽器正確關閉
   </script>
 </body>
 </html>
