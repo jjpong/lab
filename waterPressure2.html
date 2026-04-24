@@ -800,7 +800,7 @@ window.parent.postMessage({
     reading: readingStr,
 
     // === 🌟 給 index 顯示的精簡 log（優先使用）===
-    "log摘要": `液體：${state.liquid.name}；深度：${depthStr} cm；讀數：${readingStr}`,
+"log摘要": `液體：${state.liquid.name}；深度：${depthStr} cm；讀數：${readingStr}；液面：${state.fluidHeightCm.toFixed(0)} cm；容器：${state.shapeName}；密度：${densityGCm3(state.liquid.density).toFixed(3)} g/cm³；筆數：${records.length}`,
 
     // === 完整中文欄位（給 AI 閱讀）===
     "學生最後的動作": actionName,
