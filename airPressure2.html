@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣體壓力虛擬實驗2.0</title>
+  <title>氣體壓力虛擬實驗2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
@@ -220,6 +220,19 @@
       color: #fff;
       box-shadow: 0 4px 12px rgba(217, 72, 95, 0.3);
     }
+#submitReportBtn {
+  background: linear-gradient(135deg, #2d6cdf 0%, #1749a5 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(45, 108, 223, 0.3);
+}
+#submitReportBtn:hover {
+  box-shadow: 0 6px 16px rgba(45, 108, 223, 0.4);
+}
+#submitReportBtn:disabled {
+  background: #22c55e;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
     .btn-record-main:hover{
       box-shadow: 0 6px 16px rgba(217, 72, 95, 0.4);
     }
@@ -288,6 +301,25 @@
     tbody tr:nth-child(even){ background:#fcfdff; }
     tbody tr.latest{ background:#fceced; }
     .empty-cell{ text-align:center; color:var(--muted); padding:24px; }
+#reportText {
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid #c9d6ea;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.7;
+  background: #fff;
+  color: var(--text);
+  resize: vertical;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#reportText:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(217, 72, 95, 0.15);
+}
 
     .row-delete-btn{
       background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;
@@ -736,13 +768,25 @@
               </label>
             </div>
             <div class="small chart-status" id="chartStatus"></div>
-            <div id="chartCanvas" class="chart-shell"></div>
-          </div>
+<div id="chartCanvas" class="chart-shell"></div>
+        </div>
 
-          <div class="danger-zone">
-            <button type="button" class="btn-success" id="exportBtn">💾 匯出數據 (CSV)</button>
-            <button type="button" class="btn-danger" id="clearBtn">🗑️ 清空全部紀錄</button>
-          </div>
+        <!-- 新增：實驗觀察與結論 -->
+        <div class="sub-panel">
+          <h3 class="sub-title">📝 實驗觀察與結論</h3>
+          <p class="small" style="margin:0 0 10px;">請用自己的話記錄你觀察到的現象、發現的規律與結論。按下「下載實驗報告」時，這段文字會連同數據一起匯出。</p>
+          <textarea id="reportText" placeholder="例如：
+1. 我發現當體積變小時，壓力會...
+2. 當溫度從 25°C 升到 100°C 時，壓力變化是...
+3. 比較氦氣和二氧化碳，我發現...
+4. 我的結論是..."></textarea>
+        </div>
+
+<div class="danger-zone">
+    <button type="button" class="btn-primary" id="submitReportBtn">📤 送出報告和AI討論</button>
+    <button type="button" class="btn-success" id="exportBtn">💾 下載實驗報告 (CSV)</button>
+    <button type="button" class="btn-danger" id="clearBtn">🗑️ 清空全部紀錄</button>
+  </div>
         </div>
       </div>
     </section>
@@ -957,6 +1001,10 @@
         recordBtn: document.getElementById("recordBtn"),
         clearBtn: document.getElementById("clearBtn"),
         exportBtn: document.getElementById("exportBtn"),
+reportText: document.getElementById("reportText"),  
+submitReportBtn: document.getElementById("submitReportBtn"),   
+
+
         columnCheckboxes: document.getElementById("columnCheckboxes"),
         selectAllColumnsBtn: document.getElementById("selectAllColumnsBtn"),
         clearColumnsBtn: document.getElementById("clearColumnsBtn"),
@@ -1871,7 +1919,7 @@
               "目前總紀錄數": records.length,
               "已命名組別數": namedGroupCount,
               "組別清單": groupSummary,
-              "給AI或老師的評估提示": "請檢視每組內『(固定)』與『(有變化)』的變因分布。理想的分組應該讓同組內的『控制變因』保持固定，只有一個『操作變因』在變化。"
+              "給AI夥伴的評估提示": "請檢視每組內『(固定)』與『(有變化)』的變因分布。理想的分組應該讓同組內的『控制變因』保持固定，只有一個『操作變因』在變化。"
             }
           }, '*');
         } catch (e) { console.error("分組總結廣播失敗:", e); }
@@ -2297,13 +2345,173 @@
         if(isSimInitialized) broadcastStateToParent("清空了全部實驗紀錄與分組"); 
       });
       
-      el.exportBtn.addEventListener("click", () => {
-        const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
-        if (!records.length) { alert("請先記錄數據再匯出！"); return; }
-        const csv = "\ufeff" + [`"${sc.map(c => getColumnLabel(c)).join('","')}"`, ...records.map(r => `"${sc.map(c => String(c.get(r)).replace(/"/g, '""')).join('","')}"`)].join("\n");
-        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); a.download = `氣體壓力紀錄_${Date.now()}.csv`; a.click();
-        if(isSimInitialized) broadcastStateToParent("匯出了實驗數據 CSV");
-      });
+el.exportBtn.addEventListener("click", () => {
+  const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
+  if (!records.length) { 
+    alert("請先記錄至少一筆數據再下載報告！"); 
+    return; 
+  }
+
+  // 取得學生填寫的觀察與結論
+  const observationText = (el.reportText.value || "").trim();
+
+  // 取得下載時間
+  const now = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  // CSV 逃脫函式
+  const esc = s => `"${String(s).replace(/"/g, '""')}"`;
+
+  // === 組合 CSV 內容 ===
+  const lines = [];
+
+  // 報告標頭
+  lines.push(esc("🧪 氣體壓力虛擬實驗 — 實驗報告"));
+  lines.push(esc(`下載時間：${timeStr}`));
+  lines.push(esc(`本次紀錄筆數：${records.length} 筆`));
+  lines.push("");  // 空行
+
+  // 學生觀察與結論
+  lines.push(esc("【學生觀察與結論】"));
+  if (observationText) {
+    // 依換行拆成多行，每一行都包成一個 CSV cell
+    observationText.split(/\r?\n/).forEach(line => {
+      lines.push(esc(line));
+    });
+  } else {
+    lines.push(esc("（學生未填寫觀察與結論）"));
+  }
+  lines.push("");  // 空行
+
+  // 數據表格標頭
+  lines.push(esc("【實驗數據紀錄】"));
+  lines.push(sc.map(c => esc(getColumnLabel(c))).join(","));
+
+  // 數據列
+  records.forEach(r => {
+    lines.push(sc.map(c => esc(c.get(r))).join(","));
+  });
+
+  // 加 BOM 讓 Excel 正確顯示中文
+  const csv = "\ufeff" + lines.join("\n");
+
+  // 產生檔名（包含日期）
+  const fileDate = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  a.download = `氣體壓力實驗報告_${fileDate}.csv`;
+  a.click();
+
+  if (isSimInitialized) {
+    broadcastStateToParent(
+      `下載了實驗報告（共 ${records.length} 筆數據${observationText ? `，並寫了約 ${observationText.length} 字的觀察結論` : "，但未填寫觀察結論"}）`
+    );
+  }
+});
+// === 送出報告給老師 ===
+el.submitReportBtn.addEventListener("click", () => {
+  const observationText = (el.reportText.value || "").trim();
+
+  // 檢查 1：沒數據就不能送
+  if (!records.length) {
+    alert("請先記錄至少一筆數據再送出報告！");
+    return;
+  }
+
+  // 檢查 2：沒寫觀察時要二次確認
+  if (!observationText) {
+    if (!confirm("你還沒填寫「實驗觀察與結論」喔！\n確定要直接送出報告和AI夥伴討論嗎？")) {
+      el.reportText.focus();
+      return;
+    }
+  }
+
+  // === 整理數據摘要 ===
+  const tUnit = getTUnit();
+  const pUnit = getPUnit();
+
+  // 依組別整理
+  const grouped = {};
+  records.forEach(r => {
+    const key = (r.group || "").trim() || "未分組";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({
+      "編號": r.id,
+      "氣體": r.gasName,
+      "莫耳數(mol)": Number(r.moles.toFixed(3)),
+      "體積(L)": Number(r.volumeL.toFixed(1)),
+      [`溫度(${tUnit.label})`]: Number(tUnit.fromK(r.tempK).toFixed(1)),
+      [`壓力(${pUnit.label})`]: Number(pUnit.fromPa(r.pressurePa).toFixed(pUnit.decimals))
+    });
+  });
+
+  // 產生每組的變因摘要（哪些固定、哪些變化）
+  const groupAnalysis = Object.keys(grouped).map(groupName => {
+    const recs = records.filter(r => 
+      ((r.group || "").trim() || "未分組") === groupName
+    );
+    const rangeDesc = (getter, decimals, unit) => {
+      const vals = recs.map(getter);
+      const min = Math.min(...vals), max = Math.max(...vals);
+      if (Math.abs(max - min) < Math.pow(10, -decimals)) {
+        return `${min.toFixed(decimals)} ${unit}（固定）`;
+      }
+      return `${min.toFixed(decimals)} ~ ${max.toFixed(decimals)} ${unit}（有變化）`;
+    };
+    const gasTypes = [...new Set(recs.map(r => r.gasName))];
+    return {
+      "組別": groupName,
+      "筆數": recs.length,
+      "氣體種類": gasTypes.length === 1 ? `${gasTypes[0]}（固定）` : `${gasTypes.join("、")}（有變化）`,
+      "莫耳數 n": rangeDesc(r => r.moles, 3, "mol"),
+      "體積 V": rangeDesc(r => r.volumeL, 1, "L"),
+      "溫度 T": rangeDesc(r => tUnit.fromK(r.tempK), 1, tUnit.label),
+      "壓力 P": rangeDesc(r => pUnit.fromPa(r.pressurePa), pUnit.decimals, pUnit.label)
+    };
+  });
+
+  // === 廣播完整報告 ===
+  try {
+    window.parent.postMessage({
+      type: 'STUDENT_REPORT_SUBMITTED',
+      payload: {
+        "訊息類型": "🎓 學生正式送出實驗報告（請AI夥伴針對此報告給予回饋）",
+        "送出時間": new Date().toLocaleString('zh-TW'),
+        "學生的觀察與結論（全文）": observationText || "（學生未填寫觀察結論）",
+        "觀察字數": observationText.length,
+        "數據總筆數": records.length,
+        "目前使用的單位": {
+          "壓力": pUnit.label,
+          "溫度": tUnit.label
+        },
+        "各組變因分析": groupAnalysis,
+        "完整數據（依組別）": grouped,
+        "給AI老師的提示": "這份報告是學生在一輪實驗後的完整思考。請優先針對『學生的觀察與結論』給予回饋，檢查：(1)是否有描述觀察到的現象、(2)是否嘗試歸納規律、(3)描述是否符合數據事實、(4)分組設計是否合理（同組內應該只有一個變因在變）。請用鼓勵且具體的方式引導學生思考，和學生討論。"
+      }
+    }, '*');
+
+    // 同時用一般狀態廣播通知一次（供不監聽新類型的接收端）
+    if (isSimInitialized) {
+      broadcastStateToParent(
+        `📤 學生正式送出了實驗報告給老師（${records.length} 筆數據，${observationText.length} 字觀察結論）`
+      );
+    }
+
+    // 視覺回饋
+    const originalText = el.submitReportBtn.textContent;
+    el.submitReportBtn.textContent = "✅ 已送出！AI夥伴會回覆你";
+    el.submitReportBtn.disabled = true;
+    setTimeout(() => {
+      el.submitReportBtn.textContent = originalText;
+      el.submitReportBtn.disabled = false;
+    }, 3000);
+
+  } catch (e) {
+    console.error("送出報告失敗:", e);
+    alert("送出失敗，請再試一次。");
+  }
+});
       
       el.selectAllColumnsBtn.addEventListener("click", () => { 
         el.columnCheckboxes.querySelectorAll('input').forEach(cb => cb.checked = true); 
