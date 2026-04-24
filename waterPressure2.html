@@ -781,31 +781,40 @@
   }
 
   // 廣播
-  function broadcastStateToParent(actionName){
-    if (!actionName) return;
-    try {
-      const state = getCurrentState();
-      const pUnit = getPUnit();
-      const displayedPa = state.absolutePressure - zeroOffsetPa;
-      window.parent.postMessage({
-        type: 'SIMULATION_STATE',
-        payload: {
-          "學生最後的動作": actionName,
-          "目前介面階段": getPhaseDescription(),
-          "液體種類": state.liquid.name,
-          "液體密度": `${densityGCm3(state.liquid.density).toFixed(3)} g/cm³`,
-          "容器形狀": state.shapeName,
-          "液面高度(cm)": state.fluidHeightCm.toFixed(0),
-          "探頭所在深度(cm)": state.submerged ? state.depthCm.toFixed(0) : "0 (未浸入液體)",
-          "探頭距底高度(cm)": state.distFromBottomCm.toFixed(0),
-          "壓力計顯示讀數": `${pUnit.fromPa(displayedPa).toFixed(pUnit.decimals)} ${pUnit.label}`,
-          "歸零狀態": Math.abs(zeroOffsetPa) < 1 ? "未歸零（顯示絕對總壓）" : `已歸零（扣除 ${pUnit.fromPa(zeroOffsetPa).toFixed(pUnit.decimals)} ${pUnit.label}）`,
-          "已收集的數據筆數": records.length + " 筆",
-          "目前組別輸入框內容": currentGroupName || "(空白)"
-        }
-      }, '*');
-    } catch(e){ console.error("狀態廣播失敗:", e); }
-  }
+function broadcastStateToParent(actionName){
+  if (!actionName) return;
+  try {
+    const state = getCurrentState();
+    const pUnit = getPUnit();
+    const displayedPa = state.absolutePressure - zeroOffsetPa;
+    const readingStr = `${pUnit.fromPa(displayedPa).toFixed(pUnit.decimals)} ${pUnit.label}`;
+    const depthStr = state.submerged ? state.depthCm.toFixed(0) : "0";
+
+    window.parent.postMessage({
+      type: 'SIMULATION_STATE',
+      payload: {
+        // === 英文欄位（給後台 console.log 使用）===
+        action: actionName,
+        liquid: state.liquid.name,
+        depth: depthStr,
+        reading: readingStr,
+        // === 中文欄位（給 AI 閱讀使用，完整資訊）===
+        "學生最後的動作": actionName,
+        "目前介面階段": getPhaseDescription(),
+        "液體種類": state.liquid.name,
+        "液體密度": `${densityGCm3(state.liquid.density).toFixed(3)} g/cm³`,
+        "容器形狀": state.shapeName,
+        "液面高度(cm)": state.fluidHeightCm.toFixed(0),
+        "探頭所在深度(cm)": state.submerged ? state.depthCm.toFixed(0) : "0 (未浸入液體)",
+        "探頭距底高度(cm)": state.distFromBottomCm.toFixed(0),
+        "壓力計顯示讀數": readingStr,
+        "歸零狀態": Math.abs(zeroOffsetPa) < 1 ? "未歸零（顯示絕對總壓）" : `已歸零（扣除 ${pUnit.fromPa(zeroOffsetPa).toFixed(pUnit.decimals)} ${pUnit.label}）`,
+        "已收集的數據筆數": records.length + " 筆",
+        "目前組別輸入框內容": currentGroupName || "(空白)"
+      }
+    }, '*');
+  } catch(e){ console.error("狀態廣播失敗:", e); }
+}
   function getPhaseDescription(){
     const settingsOpen = !el.settingsPanel.classList.contains("collapsed");
     const dataPanelOpen = el.dataPanelWrap.classList.contains("open");
