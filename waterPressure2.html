@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>液體壓力虛擬實驗</title>
+<meta name="x-poe-datastore-behavior" content="local_only">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root{
+    --panel:#fff; --line:#d8e2f1; --text:#1f2a44; --muted:#5f6f8c;
+    --primary:#2d6cdf; --primary-2:#1749a5;
+    --success:#1f9d61; --warning:#d97706; --danger:#d9485f; --info:#2d6cdf;
+    --soft:#eaf1ff; --shadow:0 12px 30px rgba(31,42,68,0.08); --radius:18px;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+        background:linear-gradient(180deg,#eff5ff 0%,#f9fbff 100%); color:var(--text); overflow-x:hidden; }
+  body.dragging{ cursor:grabbing; }
+  body.modal-open{ overflow:hidden; }
+  .wrapper{ width:100%; max-width:1600px; margin:0 auto; padding:12px; }
+
+  .hero{ background:var(--panel); border:1px solid var(--line); border-radius:20px;
+         padding:16px 22px; box-shadow:var(--shadow); margin-bottom:12px; }
+  .hero-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .hero h1{ margin:0; font-size:clamp(1.3rem,2.5vw,1.8rem); color:var(--primary-2); }
+
+  .panel{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+          padding:clamp(12px,2vw,16px); box-shadow:var(--shadow); width:100%; margin-bottom:12px; }
+  .experiment-panel{ position:relative; padding:12px; }
+
+  /* 可收合面板 */
+  .collapsible .panel-header{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+                              cursor:pointer; user-select:none; padding:2px 0; }
+  .collapsible .panel-header h2{ margin:0; font-size:1.05rem; flex:1; color:var(--primary-2); }
+  .collapsible .panel-header .header-hint{ font-size:0.82rem; color:var(--muted); font-weight:600; white-space:nowrap; }
+  .collapsible .collapse-btn{ background:#f1f5f9; border:1px solid var(--line); width:28px; height:28px;
+                              border-radius:8px; display:flex; align-items:center; justify-content:center;
+                              padding:0; font-size:0.85rem; color:var(--muted); flex-shrink:0; transition:transform 0.3s; }
+  .collapsible.collapsed .collapse-btn{ transform:rotate(-90deg); }
+  .collapsible > .panel-body{ max-height:3000px; overflow:hidden;
+                              transition:max-height 0.35s ease, opacity 0.25s, padding-top 0.25s;
+                              padding-top:14px; opacity:1; }
+  .collapsible.collapsed > .panel-body{ max-height:0; opacity:0; padding-top:0; }
+
+  .field{ display:grid; gap:6px; }
+  label{ font-weight:700; font-size:.9rem; }
+  .small{ font-size:.86rem; color:var(--muted); line-height:1.6; }
+  select, input[type="number"], input[type="text"]{ width:100%; border:1px solid #c9d6ea; border-radius:10px;
+    padding:7px 10px; font-size:0.92rem; background:#fff; color:var(--text); }
+
+  .compact-checkboxes{ display:flex; flex-wrap:wrap; gap:6px; }
+  .check-item{ display:flex; align-items:flex-start; gap:6px; padding:6px 10px; border:1px solid var(--line);
+               background:#fbfdff; border-radius:10px; font-weight:600; cursor:pointer;
+               line-height:1.4; font-size:0.85rem; transition:0.2s; }
+  .check-item:hover{ background:#eaf1ff; }
+  .check-item input{ margin-top:2px; flex:0 0 auto; accent-color:var(--primary); }
+  .column-actions{ display:flex; gap:8px; margin-top:10px; }
+  .column-actions button{ padding:7px 14px; font-size:0.85rem; }
+
+  .bottom-strip{ display:grid; grid-template-columns:minmax(320px,2fr) minmax(260px,1fr); gap:12px; margin-bottom:12px; }
+  @media (max-width:900px){ .bottom-strip{ grid-template-columns:1fr; } }
+
+  .record-control{ border:2px solid #93c5fd;
+                   background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);
+                   display:flex; flex-direction:column; gap:10px; }
+  .group-input-wrap{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .group-input-wrap label{ font-weight:800; color:#1e40af; white-space:nowrap; font-size:0.92rem; }
+  .group-input-wrap input[type="text"]{ flex:1; min-width:140px; border:1px solid #93c5fd; border-radius:8px;
+                                        padding:7px 10px; font-size:0.92rem; background:#fff; }
+  .group-input-wrap input[type="text"]:focus{ outline:none; border-color:#2563eb;
+                                              box-shadow:0 0 0 3px rgba(37,99,235,0.15); }
+  .group-input-wrap .mini-btn{ padding:6px 10px; font-size:0.82rem; background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+  .record-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .btn-record-main{ flex:1; min-width:140px; padding:12px 14px; font-size:1rem; font-weight:900;
+                    background:linear-gradient(135deg,#2d6cdf 0%,#1749a5 100%); color:#fff;
+                    box-shadow:0 4px 12px rgba(45,108,223,0.3); }
+  .btn-record-main:hover{ box-shadow:0 6px 16px rgba(45,108,223,0.4); }
+  .record-count{ color:#1e40af; font-weight:800; font-size:0.9rem; white-space:nowrap;
+                 padding:4px 12px; background:#dbeafe; border-radius:8px; border:1px solid #93c5fd; }
+
+  #submitReportBtn{ background:linear-gradient(135deg,#1f9d61 0%,#127a4a 100%); color:#fff;
+                    box-shadow:0 4px 12px rgba(31,157,97,0.3); }
+  #submitReportBtn:hover{ box-shadow:0 6px 16px rgba(31,157,97,0.4); }
+  #submitReportBtn:disabled{ background:#22c55e; cursor:not-allowed; opacity:0.9; }
+
+  .data-panel-wrap{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+                    box-shadow:var(--shadow); overflow:hidden; margin-bottom:12px; }
+  .data-panel-toggle{ width:100%; display:flex; align-items:center; justify-content:space-between;
+                      padding:16px 22px; background:linear-gradient(135deg,#eaf1ff 0%,#f8fbff 100%);
+                      border:none; cursor:pointer; font-size:1.05rem; font-weight:800;
+                      color:var(--primary-2); transition:background 0.2s; }
+  .data-panel-toggle:hover{ background:linear-gradient(135deg,#dbeafe 0%,#eaf1ff 100%); }
+  .data-panel-toggle .toggle-icon{ transition:transform 0.3s; font-size:0.9rem; }
+  .data-panel-wrap.open .data-panel-toggle .toggle-icon{ transform:rotate(180deg); }
+  .data-panel-content{ max-height:0; overflow:hidden; transition:max-height 0.5s ease; }
+  .data-panel-wrap.open .data-panel-content{ max-height:6000px; }
+  .data-panel-inner{ padding:18px; }
+
+  button{ border:none; border-radius:10px; padding:9px 14px; font-size:.92rem; font-weight:800;
+          cursor:pointer; transition:.2s transform,.2s filter,.2s background; }
+  button:hover{ transform:translateY(-1px); filter:brightness(1.02); }
+  button:active{ transform:translateY(0); }
+  .btn-primary{ background:var(--primary); color:#fff; }
+  .btn-secondary{ background:#eaf1ff; color:var(--primary-2); border:1px solid #cfe0ff; }
+  .btn-info{ background:var(--info); color:#fff; }
+  .btn-danger{ background:#ffecef; color:#b32b45; border:1px solid #ffc8d2; }
+  .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
+  .btn-reset-all{ background:#fff; color:#1749a5; border:2px solid #2d6cdf; font-weight:800; }
+  .btn-reset-all:hover{ background:#eaf1ff; }
+
+  .svg-shell{ background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%);
+              border:1px solid var(--line); border-radius:14px; padding:8px;
+              width:100%; max-width:1100px; margin:0 auto;
+              display:flex; align-items:center; justify-content:center;
+              position:relative; aspect-ratio:620/500; max-height:calc(100vh - 160px); overflow:hidden; }
+  svg{ width:100%; height:100%; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .hidden{ display:none !important; }
+
+  .sub-panel{ border:1px solid var(--line); border-radius:14px; background:#fbfdff; padding:14px; margin-bottom:14px; }
+  .sub-panel:last-child{ margin-bottom:0; }
+  .sub-title{ margin:0 0 12px; font-size:1rem; color:var(--primary-2); }
+
+  .chart-toolbar{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; align-items:end; margin-bottom:10px; }
+  .chart-status{ margin-bottom:12px; min-height:22px; font-weight:700; line-height:1.8; }
+  .chart-shell{ border:1px solid var(--line); border-radius:14px; background:#fff;
+                overflow:hidden; min-height:350px; display:flex; align-items:center; justify-content:center; }
+
+  .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:#fff; }
+  table{ width:100%; border-collapse:collapse; min-width:max-content; background:#fff; }
+  th, td{ padding:10px 14px; border-bottom:1px solid #e5edf8; text-align:left; font-size:.92rem; white-space:nowrap; }
+  th{ position:sticky; top:0; background:#eaf1ff; z-index:1; color:var(--primary-2); }
+  tbody tr:nth-child(even){ background:#fcfdff; }
+  tbody tr.latest{ background:#eaf1ff; }
+  .empty-cell{ text-align:center; color:var(--muted); padding:24px; }
+
+  #reportText{ width:100%; min-height:180px; border:1px solid #c9d6ea; border-radius:10px;
+               padding:12px; font-size:0.95rem; font-family:inherit; line-height:1.7;
+               background:#fff; color:var(--text); resize:vertical;
+               transition:border-color 0.15s, box-shadow 0.15s; }
+  #reportText:focus{ outline:none; border-color:var(--primary);
+                     box-shadow:0 0 0 3px rgba(45,108,223,0.15); }
+
+  .row-delete-btn{ background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;
+                   padding:4px 10px; font-size:0.9rem; border-radius:6px; cursor:pointer; font-weight:700; }
+  .row-delete-btn:hover{ background:#fecaca; filter:none; }
+
+  .danger-zone{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+                padding-top:12px; border-top:1px dashed var(--line); margin-top:12px; }
+
+  .group-manager{ display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+                  padding:10px 14px; background:#fbfdff; border:1px dashed var(--line);
+                  border-radius:12px; margin-bottom:12px; }
+  .group-manager-title{ font-weight:800; color:var(--primary-2); font-size:0.92rem; }
+  .group-color-item{ display:flex; align-items:center; gap:6px; background:#fff;
+                     border:1px solid var(--line); border-radius:8px; padding:4px 10px 4px 6px;
+                     font-size:0.9rem; font-weight:700; }
+  .group-color-picker{ width:26px; height:26px; border:none; border-radius:4px;
+                       cursor:pointer; padding:0; background:transparent; }
+  .group-color-item .group-count{ color:var(--muted); font-weight:500; font-size:0.82rem; }
+
+  .editable-group{ cursor:pointer; position:relative; transition:background 0.15s; }
+  .editable-group:hover{ background:#dbeafe !important; }
+  .editable-group::after{ content:"✎"; position:absolute; right:6px; top:50%;
+                          transform:translateY(-50%); color:#cbd5e1; font-size:0.85rem;
+                          opacity:0; transition:opacity 0.2s; }
+  .editable-group:hover::after{ opacity:1; }
+  .editable-group .empty-group{ color:#cbd5e1; font-style:italic; }
+  .editable-group .group-tag{ display:inline-block; padding:2px 10px; border-radius:12px;
+                              font-weight:800; color:#fff; font-size:0.88rem; }
+  .group-edit-input{ width:100%; border:2px solid var(--primary); border-radius:6px;
+                     padding:4px 8px; font-size:0.92rem; background:#fff; font-family:inherit; }
+
+  .eq-tooltip{ position:absolute; background:rgba(31,42,68,0.95); color:#fff;
+               padding:12px 16px; border-radius:12px; font-size:0.95rem; line-height:1.5;
+               max-width:250px; pointer-events:none; z-index:1000;
+               box-shadow:0 8px 24px rgba(0,0,0,0.2); transform:translate(-50%,-100%);
+               margin-top:-10px; transition:opacity 0.2s; }
+  .eq-tooltip::after{ content:''; position:absolute; top:100%; left:50%; margin-left:-6px;
+                      border-width:6px; border-style:solid;
+                      border-color:rgba(31,42,68,0.95) transparent transparent transparent; }
+  .eq-tooltip.hidden{ opacity:0; pointer-events:none; }
+
+  #meterGroup, #probeGroup, #liquidRect, #fillFaucetGroup, #drainFaucetGroup,
+  #changeLiquidBtn, #changeShapeBtn{ cursor:help; }
+  .svg-btn{ cursor:pointer; }
+  .svg-btn rect{ transition:fill 0.2s, filter 0.2s, stroke 0.2s; }
+  .svg-btn:hover rect{ filter:brightness(0.95); }
+  .svg-btn.active-fill rect{ fill:#bfdbfe !important; stroke:#1e40af !important;
+                             filter:drop-shadow(0 0 8px rgba(59,130,246,0.8)); }
+  .svg-btn.active-drain rect{ fill:#fecaca !important; stroke:#b91c1c !important;
+                              filter:drop-shadow(0 0 8px rgba(220,38,38,0.8)); }
+  #pressureUnitBtn, #zeroBtnGroup, #resetBtnGroup{ cursor:pointer; }
+
+  .liquid-popup, .shape-popup{ position:absolute; width:220px; background:#fff;
+                               border:2px solid var(--primary); border-radius:12px;
+                               padding:12px; box-shadow:0 12px 28px rgba(0,0,0,0.2);
+                               z-index:25; animation:popupIn 0.18s ease-out; }
+  .liquid-popup{ top:55px; left:12px; }
+  .shape-popup{ top:55px; right:12px; }
+  @keyframes popupIn{ from{ opacity:0; transform:translateY(8px) scale(0.96); }
+                      to{ opacity:1; transform:translateY(0) scale(1); } }
+  .popup-title{ font-weight:800; color:var(--primary-2); margin-bottom:10px; text-align:center;
+                font-size:0.92rem; padding-bottom:8px; border-bottom:1px dashed #93c5fd; }
+  .liquid-option-btn, .shape-option-btn{ display:block; width:100%; padding:8px 12px; margin-bottom:6px;
+                                         background:#eff6ff; border:1px solid #93c5fd; color:#1e40af;
+                                         border-radius:8px; font-weight:700; font-size:0.9rem;
+                                         cursor:pointer; text-align:left; transition:0.15s; }
+  .liquid-option-btn:last-child, .shape-option-btn:last-child{ margin-bottom:0; }
+  .liquid-option-btn:hover, .shape-option-btn:hover{ background:#dbeafe; transform:translateX(2px); }
+  .liquid-option-btn.active, .shape-option-btn.active{ background:#2d6cdf; color:#fff;
+                                                       border-color:#1749a5; box-shadow:0 2px 6px rgba(45,108,223,0.3); }
+  .custom-density-wrap{ display:none; padding:10px; background:#f0f9ff;
+                        border:1px dashed #60a5fa; border-radius:8px; margin-top:6px; }
+  .custom-density-wrap.expanded{ display:block; }
+  .custom-density-wrap label{ font-size:0.82rem; color:#1e40af; font-weight:700; display:block; margin-bottom:6px; }
+  .custom-density-wrap input{ width:100%; padding:6px 8px; border:1px solid #93c5fd;
+                              border-radius:6px; font-size:0.9rem; margin-bottom:8px; }
+  .custom-density-wrap button{ width:100%; padding:8px; background:#2d6cdf; color:#fff;
+                               border:none; border-radius:6px; font-weight:700; cursor:pointer; }
+
+  .modal{ position:fixed; inset:0; z-index:999; display:flex; align-items:center; justify-content:center; padding:18px; }
+  .modal-backdrop{ position:absolute; inset:0; background:rgba(18,29,51,0.48); }
+  .modal-card{ position:relative; width:min(920px,100%); max-height:calc(100vh - 40px); overflow:auto;
+               background:#fff; border-radius:20px; padding:20px; z-index:1001;
+               box-shadow:0 20px 50px rgba(18,29,51,.22); }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .help-content{ display:grid; gap:14px; line-height:1.75; }
+  .help-block{ border:1px solid var(--line); background:#fbfdff; border-radius:14px; padding:14px; }
+  .help-block h3{ margin:0 0 8px; font-size:1rem; color:var(--primary-2); }
+  .help-block ul{ margin:0; padding-left:1.2rem; }
+  .help-block li{ margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header class="hero">
+    <div class="hero-row">
+      <div><h1>液體壓力虛擬實驗</h1></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn-secondary" id="helpBtn">操作說明</button>
+        <button type="button" class="btn-reset-all" id="resetAllBtn">🔄 一鍵重置</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel experiment-panel">
+    <div class="svg-shell" id="svgShell">
+      <div id="liquidPopup" class="liquid-popup hidden">
+        <div class="popup-title">🧪 更換液體</div>
+        <p class="small" style="margin:0 0 8px; color:#b91c1c; font-size:0.78rem;">⚠️ 更換液體會清空目前的水槽。</p>
+        <button type="button" class="liquid-option-btn" data-liquid="water">水 (1.000 g/cm³)</button>
+        <button type="button" class="liquid-option-btn" data-liquid="saltwater">鹽水 (1.030 g/cm³)</button>
+        <button type="button" class="liquid-option-btn" data-liquid="oil">植物油 (0.920 g/cm³)</button>
+        <button type="button" class="liquid-option-btn" data-liquid="alcohol">酒精 (0.789 g/cm³)</button>
+        <button type="button" class="liquid-option-btn" data-liquid="glycerin">甘油 (1.260 g/cm³)</button>
+        <button type="button" class="liquid-option-btn" data-liquid="mercury">水銀 (13.534 g/cm³)</button>
+        <button type="button" class="liquid-option-btn" data-liquid="custom">🧪 自訂液體</button>
+        <div class="custom-density-wrap" id="customDensityWrap">
+          <label for="customDensityInput">輸入密度 (g/cm³)：0.1 ~ 20</label>
+          <input type="number" id="customDensityInput" min="0.1" max="20" step="0.01" value="1.000">
+          <button type="button" id="applyCustomDensityBtn">套用自訂密度</button>
+        </div>
+      </div>
+
+      <div id="shapePopup" class="shape-popup hidden">
+        <div class="popup-title">📐 容器形狀</div>
+        <button type="button" class="shape-option-btn" data-shape="straight">直筒形</button>
+        <button type="button" class="shape-option-btn" data-shape="topWide">上寬下窄</button>
+        <button type="button" class="shape-option-btn" data-shape="bottomWide">上窄下寬</button>
+        <button type="button" class="shape-option-btn" data-shape="bulged">中間較寬</button>
+      </div>
+
+      <svg id="simSvg" viewBox="0 0 620 500" preserveAspectRatio="none" role="img" aria-label="液體壓力模擬圖">
+        <defs>
+          <clipPath id="containerClip"><path id="clipPathShape"></path></clipPath>
+          <linearGradient id="meterBodyGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#344563"/><stop offset="100%" stop-color="#253247"/>
+          </linearGradient>
+          <linearGradient id="screenGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#d9fff0"/><stop offset="100%" stop-color="#9df1cb"/>
+          </linearGradient>
+          <linearGradient id="faucetGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#64748b"/><stop offset="100%" stop-color="#334155"/>
+          </linearGradient>
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.18"/>
+          </filter>
+        </defs>
+        <rect x="0" y="0" width="620" height="500" rx="18" fill="#f8fbff"/>
+
+        <g id="scaleGroup"></g>
+
+        <g clip-path="url(#containerClip)">
+          <rect id="liquidRect" x="60" y="250" width="300" height="180" fill="#5da9ff" opacity="0.88"/>
+        </g>
+        <path id="containerOutline" fill="none" stroke="#233350" stroke-width="4" stroke-linejoin="round"/>
+        <line id="surfaceLine" x1="125" y1="250" x2="295" y2="250" stroke="#2d6cdf" stroke-width="3"/>
+
+        <line id="depthLine" x1="200" y1="250" x2="200" y2="322" stroke="#e5546d" stroke-width="3" stroke-dasharray="8 6"/>
+        <line id="depthTopTick" x1="190" y1="250" x2="210" y2="250" stroke="#e5546d" stroke-width="3"/>
+        <line id="depthBottomTick" x1="190" y1="322" x2="210" y2="322" stroke="#e5546d" stroke-width="3"/>
+        <line id="bottomDistLine" x1="200" y1="322" x2="200" y2="430" stroke="#1f9d61" stroke-width="3" stroke-dasharray="8 6"/>
+        <line id="bottomDistTopTick" x1="190" y1="322" x2="210" y2="322" stroke="#1f9d61" stroke-width="3"/>
+        <line id="bottomDistBottomTick" x1="190" y1="430" x2="210" y2="430" stroke="#1f9d61" stroke-width="3"/>
+
+        <path id="gaugeCable" d="" fill="none" stroke="#42526e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path id="gaugeCableHighlight" d="" fill="none" stroke="#92a0b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+
+        <g id="meterGroup" filter="url(#softShadow)">
+          <rect x="390" y="82" width="190" height="158" rx="24" fill="url(#meterBodyGradient)" stroke="#162033" stroke-width="2"/>
+          <rect x="410" y="116" width="150" height="84" rx="14" fill="url(#screenGradient)" stroke="#56b48b" stroke-width="2"/>
+          <text x="485" y="104" text-anchor="middle" fill="#eef5ff" font-size="14" font-weight="800">數位壓力計</text>
+          <text x="485" y="140" text-anchor="middle" fill="#1f5b45" font-size="12" font-weight="800">壓力讀數</text>
+          <text id="meterValue" x="485" y="172" text-anchor="middle" fill="#103d2f" font-size="26" font-weight="900" font-family="ui-monospace, monospace">0.00</text>
+          <g id="pressureUnitBtn">
+            <rect x="437" y="179" width="96" height="16" rx="3" fill="rgba(255,255,255,0.15)" stroke="#56b48b" stroke-width="1" stroke-dasharray="2 2" opacity="0.8"/>
+            <text id="meterUnit" x="485" y="191" text-anchor="middle" fill="#1f5b45" font-size="12" font-weight="800">gw/cm²</text>
+          </g>
+          <circle cx="413" cy="224" r="7" fill="#121b2d" stroke="#8594ac" stroke-width="2"/>
+          <circle cx="560" cy="103" r="6" fill="#f15b6c"/>
+          <circle cx="543" cy="103" r="6" fill="#ffd166"/>
+          <g id="zeroBtnGroup" transform="translate(410, 206)" class="svg-btn">
+            <rect width="70" height="26" rx="13" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+            <text x="35" y="17" text-anchor="middle" fill="#334155" font-size="12" font-weight="800">TARE 歸零</text>
+          </g>
+          <g id="resetBtnGroup" transform="translate(490, 206)" class="svg-btn">
+            <rect width="70" height="26" rx="13" fill="#fff0f0" stroke="#ffb3b3" stroke-width="2"/>
+            <text x="35" y="17" text-anchor="middle" fill="#d9485f" font-size="12" font-weight="800">解除歸零</text>
+          </g>
+        </g>
+
+        <g id="probeGroup" transform="translate(200 322)">
+          <circle cx="0" cy="0" r="28" fill="transparent"/>
+          <line x1="0" y1="-34" x2="0" y2="-12" stroke="#3d4a64" stroke-width="8" stroke-linecap="round"/>
+          <line x1="0" y1="-34" x2="0" y2="-12" stroke="#a9b5c7" stroke-width="3" stroke-linecap="round" opacity="0.82"/>
+          <circle cx="0" cy="0" r="18" fill="#ff7c8e" opacity="0.18"/>
+          <circle cx="0" cy="0" r="10" fill="#e5546d" stroke="#ffffff" stroke-width="3"/>
+          <circle cx="0" cy="0" r="3.5" fill="#ffffff"/>
+        </g>
+
+        <!-- 灌液體水龍頭（頂部） -->
+        <g id="fillFaucetGroup">
+          <rect x="196" y="0" width="14" height="12" fill="url(#faucetGradient)" stroke="#1e293b" stroke-width="1.5"/>
+          <g id="fillBtn" class="svg-btn">
+            <rect x="168" y="12" width="72" height="30" rx="6" fill="#3b82f6" stroke="#1e3a8a" stroke-width="2.5"/>
+            <text x="204" y="31" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">💧 灌液體</text>
+          </g>
+          <rect x="196" y="42" width="14" height="18" fill="url(#faucetGradient)" stroke="#1e293b" stroke-width="1.5"/>
+          <path d="M 194 60 L 212 60 L 210 66 L 196 66 Z" fill="#334155" stroke="#1e293b" stroke-width="1"/>
+          <line id="fillStream" x1="203" y1="66" x2="203" y2="82" stroke="#5da9ff" stroke-width="5" stroke-dasharray="5 3" opacity="0"/>
+        </g>
+
+        <!-- 更換液體按鈕（左邊） -->
+        <g id="changeLiquidBtn" class="svg-btn">
+          <rect x="15" y="12" width="140" height="48" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+          <text x="85" y="32" text-anchor="middle" fill="#92400e" font-size="12" font-weight="bold">🔄 更換液體</text>
+          <text id="liquidInfoText" x="85" y="49" text-anchor="middle" fill="#78350f" font-size="10" font-weight="bold">水 · 1.000 g/cm³</text>
+        </g>
+
+        <!-- 容器形狀按鈕（右邊） -->
+        <g id="changeShapeBtn" class="svg-btn">
+          <rect x="255" y="12" width="130" height="48" rx="8" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2"/>
+          <text x="320" y="32" text-anchor="middle" fill="#3730a3" font-size="12" font-weight="bold">📐 容器形狀</text>
+          <text id="shapeInfoText" x="320" y="49" text-anchor="middle" fill="#4338ca" font-size="10" font-weight="bold">直筒形</text>
+        </g>
+
+        <!-- 排液體水龍頭（底部） -->
+        <g id="drainFaucetGroup">
+          <rect x="196" y="430" width="14" height="12" fill="url(#faucetGradient)" stroke="#1e293b" stroke-width="1.5"/>
+          <g id="drainBtn" class="svg-btn">
+            <rect x="168" y="442" width="72" height="30" rx="6" fill="#ef4444" stroke="#7f1d1d" stroke-width="2.5"/>
+            <text x="204" y="461" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">🚿 排液體</text>
+          </g>
+          <rect x="196" y="472" width="14" height="18" fill="url(#faucetGradient)" stroke="#1e293b" stroke-width="1.5"/>
+          <path d="M 194 490 L 212 490 L 210 496 L 196 496 Z" fill="#334155" stroke="#1e293b" stroke-width="1"/>
+          <line id="drainStream" x1="203" y1="496" x2="203" y2="500" stroke="#5da9ff" stroke-width="5" stroke-dasharray="5 3" opacity="0"/>
+        </g>
+
+        <text id="depthText" x="218" y="290" fill="#a62f46" font-size="16" font-weight="700">h = 60 cm</text>
+        <text id="bottomDistText" x="218" y="378" fill="#127a4a" font-size="16" font-weight="700">d = 60 cm</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="panel collapsible collapsed" id="settingsPanel">
+    <header class="panel-header" data-toggle="settings">
+      <h2>🎚️ 數值微調（直接輸入精確數字）</h2>
+      <span class="header-hint">通常不需要，點此展開</span>
+      <button class="collapse-btn" type="button">▼</button>
+    </header>
+    <div class="panel-body">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="field">
+          <label for="fluidHeightNumber">液面高度 (cm)</label>
+          <input id="fluidHeightNumber" type="number" min="0" max="200" step="1" value="120">
+        </div>
+        <div class="field">
+          <label for="depthNumber">測量深度 (cm)</label>
+          <input id="depthNumber" type="number" min="0" max="200" step="1" value="60">
+        </div>
+      </div>
+      <p class="small" style="margin:10px 0 0;">💡 一般操作直接在實驗區的水龍頭或探頭上操作即可。</p>
+    </div>
+  </section>
+
+  <div class="bottom-strip">
+    <section class="panel collapsible" id="columnsPanel">
+      <header class="panel-header" data-toggle="columns">
+        <h2>📋 紀錄欄位設定</h2>
+        <span class="header-hint" id="columnsHint">已選 7 欄</span>
+        <button class="collapse-btn" type="button">▼</button>
+      </header>
+      <div class="panel-body">
+        <div id="columnCheckboxes" class="compact-checkboxes"></div>
+        <div class="column-actions">
+          <button type="button" class="btn-secondary" id="selectAllColumnsBtn">全選</button>
+          <button type="button" class="btn-secondary" id="clearColumnsBtn">清空</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel record-control">
+      <div class="group-input-wrap">
+        <label for="currentGroupInput">🏷️ 目前組別：</label>
+        <input type="text" id="currentGroupInput" placeholder="例：水組（可留空）" maxlength="20">
+        <button type="button" class="mini-btn" id="clearCurrentGroupBtn">清除</button>
+      </div>
+      <div class="record-actions">
+        <button type="button" class="btn-record-main" id="recordBtn">➕ 加入紀錄</button>
+        <span class="record-count" id="recordCountCenter">共 0 筆紀錄</span>
+      </div>
+    </section>
+  </div>
+
+  <section class="data-panel-wrap" id="dataPanelWrap">
+    <button type="button" class="data-panel-toggle" id="dataPanelToggle">
+      <span>
+        <span id="dataPanelLabel">📈 打開實驗記錄簿</span>
+        <span id="dataPanelCount" style="color:var(--muted); font-weight:700; margin-left:8px;">（共 0 筆）</span>
+      </span>
+      <span class="toggle-icon">▼</span>
+    </button>
+    <div class="data-panel-content" id="dataPanelContent">
+      <div class="data-panel-inner">
+        <div class="sub-panel">
+          <h3 class="sub-title">實驗數據紀錄表</h3>
+          <div class="table-wrap">
+            <table>
+              <thead id="tableHead"></thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="sub-panel">
+          <h3 class="sub-title">數據統計圖</h3>
+          <div class="group-manager" id="groupManager"></div>
+          <div class="chart-toolbar">
+            <div class="field"><label for="chartXSelect">橫軸（X）</label><select id="chartXSelect"></select></div>
+            <div class="field"><label for="chartYSelect">縱軸（Y）</label><select id="chartYSelect"></select></div>
+            <button type="button" class="btn-primary" id="generateChartBtn">產生統計圖</button>
+            <button type="button" class="btn-secondary" id="clearChartBtn">清除統計圖</button>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:bold; color:var(--primary);">
+              <input type="checkbox" id="trendlineToggle"> 📈 加入擬合線
+            </label>
+          </div>
+          <div class="small chart-status" id="chartStatus"></div>
+          <div id="chartCanvas" class="chart-shell"></div>
+        </div>
+
+        <div class="sub-panel">
+          <h3 class="sub-title">📝 實驗觀察與結論</h3>
+          <p class="small" style="margin:0 0 10px;">請用自己的話記錄你觀察到的現象、發現的規律與結論。按下「下載實驗數據」或「與AI討論」時，這段文字會一併送出。</p>
+          <textarea id="reportText" placeholder="例如：
+1. 我發現當深度變深時，壓力會...
+2. 比較不同液體（水 vs 甘油 vs 水銀），發現...
+3. 改變容器形狀後，相同深度的壓力...
+4. 我的結論是..."></textarea>
+        </div>
+
+        <div class="danger-zone">
+          <button type="button" id="submitReportBtn">📤 與AI討論（AI情境）</button>
+          <button type="button" class="btn-success" id="exportBtn">💾 下載實驗數據與討論</button>
+          <button type="button" class="btn-danger" id="clearBtn">🗑️ 清空全部紀錄</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="eqTooltip" class="eq-tooltip hidden"></div>
+
+<div id="helpModal" class="modal hidden">
+  <div class="modal-backdrop" id="helpBackdrop"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>使用說明</h2>
+      <button type="button" class="btn-secondary" id="closeHelpBtn">關閉</button>
+    </div>
+    <div class="help-content">
+      <div class="help-block">
+        <h3>🧪 實驗簡介</h3>
+        <p style="margin-top:0; line-height:1.6;">本實驗可以測量不同液體、不同深度、不同容器形狀下的液體壓力。透過數據紀錄與統計圖比較，可以發現液體壓力的規律（深度、密度、容器形狀的影響）。</p>
+      </div>
+      <div class="help-block">
+        <h3>💧 灌液體 / 🚿 排液體（水龍頭）</h3>
+        <ul>
+          <li><b>💧 灌液體</b>：按住不放，液體會從上方水龍頭流下，液面上升；放開即停止。</li>
+          <li><b>🚿 排液體</b>：按住不放，液體會從下方水龍頭流出，液面下降；放開即停止。</li>
+          <li><b>🔄 更換液體</b>：點擊後選擇其他液體。⚠️ 更換液體會清空水槽，請再用灌液體按鈕重新裝入。</li>
+          <li><b>🧪 自訂液體</b>：在液體選單中點「自訂液體」，展開輸入框後輸入 0.1 ~ 20 g/cm³ 的密度。</li>
+        </ul>
+      </div>
+      <div class="help-block">
+        <h3>📐 容器形狀</h3>
+        <ul>
+          <li>點擊右上角「📐 容器形狀」按鈕可切換：直筒形、上寬下窄、上窄下寬、中間較寬。</li>
+          <li>更換形狀不會清空液體（液面高度會保留）。</li>
+        </ul>
+      </div>
+      <div class="help-block">
+        <h3>📏 壓力計操作</h3>
+        <ul>
+          <li>拖曳紅色探頭可以改變測量的位置（在液體中或液面上方皆可）。</li>
+          <li><b>TARE 歸零</b>：在空氣中按下可扣除大氣壓，讀數變成 0。放進液體中，讀到的就是純粹的液體壓力。</li>
+          <li><b>解除歸零</b>：取消歸零狀態，顯示絕對總壓力。</li>
+          <li><b>切換單位</b>：點擊壓力計上的單位文字（有淡虛線框），循環切換 gw/cm² → Pa → kPa → kgw/m² → kgw/cm²。</li>
+        </ul>
+      </div>
+      <div class="help-block">
+        <h3>🏷️ 組別、紀錄與 AI 討論</h3>
+        <ul>
+          <li><b>目前組別</b>：加入紀錄前可先輸入組別名稱，之後加入的紀錄會自動歸類到該組，不同組用不同顏色。</li>
+          <li><b>加入紀錄</b>：把當下的數據存進表格。展開底部「實驗記錄簿」可查看。</li>
+          <li><b>📝 實驗觀察與結論</b>：在數據面板底部輸入你的觀察與發現。</li>
+          <li><b>📤 與AI討論</b>：按下後會把你的觀察文字 + 所有數據送給 AI 夥伴，請他針對你的報告給予回饋。</li>
+          <li><b>💾 下載實驗數據</b>：會下載一份 CSV，包含報告標題、時間、你的觀察結論與完整數據表。</li>
+          <li><b>🔄 一鍵重置</b>：清除所有東西並重新開始，恢復到剛打開網頁的狀態。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const MAX_HEIGHT_CM = 200;
+  const G = 9.8;
+  const ATM_PRESSURE = 101325;
+  const GEOM = { viewW:620, viewH:500, yTop:70, yBottom:430, scaleX:58, meterPortX:413, meterPortY:224 };
+  const PX_PER_CM = (GEOM.yBottom - GEOM.yTop) / MAX_HEIGHT_CM;
+  const FILL_RATE = 0.8;
+  const DRAIN_RATE = 0.8;
+
+  const liquids = {
+    water:     { name:"水",      density:1000,  color:"#5da9ff" },
+    saltwater: { name:"鹽水",    density:1030,  color:"#4da3de" },
+    oil:       { name:"植物油",  density:920,   color:"#d9b35b" },
+    alcohol:   { name:"酒精",    density:789,   color:"#9a8df1" },
+    glycerin:  { name:"甘油",    density:1260,  color:"#78c28d" },
+    mercury:   { name:"水銀",    density:13534, color:"#b7bec8" },
+    custom:    { name:"自訂液體", density:1000, color:"#7f90ff" }
+  };
+  const shapes = { straight:"直筒形", topWide:"上寬下窄", bottomWide:"上窄下寬", bulged:"中間較寬" };
+  const pressureUnits = {
+    gw_cm2: { label:"gw/cm²", decimals:2, fromPa:v => v/(10*G) },
+    pa:     { label:"Pa",     decimals:0, fromPa:v => v },
+    kpa:    { label:"kPa",    decimals:3, fromPa:v => v/1000 },
+    kgw_m2: { label:"kgw/m²", decimals:2, fromPa:v => v/G },
+    kgw_cm2:{ label:"kgw/cm²",decimals:5, fromPa:v => v/(10000*G) }
+  };
+  const pressureOrder = ["gw_cm2","pa","kpa","kgw_m2","kgw_cm2"];
+  const DEFAULT_COLORS = ["#d9485f","#2d6cdf","#1f9d61","#d97706","#8b5cf6","#0891b2","#db2777","#65a30d","#dc2626","#9333ea","#0d9488","#ea580c"];
+
+  // 狀態
+  let currentLiquidKey = "water";
+  let customDensitySI = 1000;
+  let currentShape = "straight";
+  let currentPressureUnit = "gw_cm2";
+  let fluidHeightCm = 120;
+  let probeAbsY = 322;
+  let probeRatio = 0.5;
+  let fillFlowDir = 0, drainFlowDir = 0;
+  let zeroOffsetPa = 0;
+  let records = [], recordId = 1;
+  let currentGroupName = "";
+  let groupColors = {};
+  let chartRequested = false;
+  let isSimInitialized = false;
+  let myChart = null;
+  let dragging = false, activePointerId = null;
+  let groupingActionTimer = null;
+  const GROUPING_BROADCAST_DELAY = 30000;
+  let streamOffset = 0;
+
+  const el = {};
+  ["helpBtn","resetAllBtn","settingsPanel","fluidHeightNumber","depthNumber",
+   "simSvg","svgShell","scaleGroup","clipPathShape","containerOutline","liquidRect","surfaceLine",
+   "depthLine","depthTopTick","depthBottomTick","depthText",
+   "bottomDistLine","bottomDistTopTick","bottomDistBottomTick","bottomDistText",
+   "gaugeCable","gaugeCableHighlight","probeGroup","meterGroup",
+   "meterValue","meterUnit","pressureUnitBtn","zeroBtnGroup","resetBtnGroup",
+   "fillBtn","fillStream","drainBtn","drainStream",
+   "changeLiquidBtn","changeShapeBtn","liquidInfoText","shapeInfoText",
+   "liquidPopup","shapePopup","customDensityWrap","customDensityInput","applyCustomDensityBtn",
+   "currentGroupInput","clearCurrentGroupBtn","recordBtn","recordCountCenter",
+   "columnsPanel","columnsHint","columnCheckboxes","selectAllColumnsBtn","clearColumnsBtn",
+   "dataPanelWrap","dataPanelToggle","dataPanelLabel","dataPanelCount",
+   "tableHead","tableBody","groupManager",
+   "chartXSelect","chartYSelect","generateChartBtn","clearChartBtn","trendlineToggle","chartStatus","chartCanvas",
+   "reportText","submitReportBtn","exportBtn","clearBtn",
+   "helpModal","closeHelpBtn","helpBackdrop","eqTooltip"
+  ].forEach(id => el[id] = document.getElementById(id));
+
+  // 工具函式
+  const clamp = (v,lo,hi) => Math.min(hi, Math.max(lo, v));
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const escapeAttr = s => String(s).replace(/"/g, '&quot;');
+  const densityGCm3 = d => d / 1000;
+  const getPUnit = () => pressureUnits[currentPressureUnit];
+  const getCurrentLiquid = () => {
+    const base = liquids[currentLiquidKey];
+    if (currentLiquidKey === "custom") return { key:"custom", name:"自訂液體", density:customDensitySI, color:base.color };
+    return { key:currentLiquidKey, name:base.name, density:base.density, color:base.color };
+  };
+  const getSurfaceY = () => GEOM.yBottom - fluidHeightCm * PX_PER_CM;
+
+  function getShapeBounds(shapeKey, y){
+    const t = clamp((y - GEOM.yTop) / (GEOM.yBottom - GEOM.yTop), 0, 1);
+    switch(shapeKey){
+      case "topWide":    return { left:95 + 50*t, right:325 - 50*t };
+      case "bottomWide": return { left:145 - 50*t, right:275 + 50*t };
+      case "bulged":     return { left:145 - 55*Math.sin(Math.PI*t), right:275 + 55*Math.sin(Math.PI*t) };
+      default:           return { left:125, right:295 };
+    }
+  }
+  function buildContainerPath(shapeKey){
+    const leftPts = [], rightPts = [];
+    for (let i = 0; i <= 28; i++) {
+      const y = GEOM.yTop + ((GEOM.yBottom - GEOM.yTop) * i) / 28;
+      const b = getShapeBounds(shapeKey, y);
+      leftPts.push(`${b.left.toFixed(1)} ${y.toFixed(1)}`);
+      rightPts.push(`${b.right.toFixed(1)} ${y.toFixed(1)}`);
+    }
+    return `M ${leftPts[0]} L ${leftPts.slice(1).join(" L ")} L ${rightPts.reverse().join(" L ")} Z`;
+  }
+  function drawScale(){
+    let svg = `<line x1="${GEOM.scaleX}" y1="${GEOM.yTop}" x2="${GEOM.scaleX}" y2="${GEOM.yBottom}" stroke="#8da2c8" stroke-width="2"/>`;
+    for (let i = 0; i <= 8; i++) {
+      const cm = i * 25;
+      const y = GEOM.yBottom - cm * PX_PER_CM;
+      const major = i % 2 === 0;
+      svg += `<line x1="${GEOM.scaleX}" y1="${y}" x2="${major?GEOM.scaleX+16:GEOM.scaleX+10}" y2="${y}" stroke="${major?"#6d83aa":"#9fb0cd"}" stroke-width="2"/>`;
+      if (major) svg += `<text x="${GEOM.scaleX - 6}" y="${y + 4}" text-anchor="end" fill="#5f6f8c" font-size="12" font-weight="700">${cm}</text>`;
+    }
+    el.scaleGroup.innerHTML = svg;
+  }
+
+  function getCurrentState(){
+    const liquid = getCurrentLiquid();
+    const surfaceY = getSurfaceY();
+    probeAbsY = clamp(probeAbsY, GEOM.yTop, GEOM.yBottom);
+    const depthCm = Math.max(0, (probeAbsY - surfaceY) / PX_PER_CM);
+    const distFromBottomCm = (GEOM.yBottom - probeAbsY) / PX_PER_CM;
+    const submerged = probeAbsY > surfaceY && fluidHeightCm > 0;
+    const gaugePressure = submerged ? liquid.density * G * (depthCm / 100) : 0;
+    const absolutePressure = ATM_PRESSURE + gaugePressure;
+    return { liquid, shapeKey:currentShape, shapeName:shapes[currentShape],
+             fluidHeightCm, surfaceY, depthCm, distFromBottomCm, submerged,
+             gaugePressure, absolutePressure };
+  }
+  function getProbeGeometry(){
+    const state = getCurrentState();
+    const bounds = getShapeBounds(state.shapeKey, probeAbsY);
+    probeRatio = clamp(probeRatio, 0, 1);
+    return { ...state, probeX:bounds.left + probeRatio * (bounds.right - bounds.left), probeY:probeAbsY };
+  }
+  function buildCablePath(px, py){
+    return `M ${GEOM.meterPortX} ${GEOM.meterPortY} C ${GEOM.meterPortX - 12} ${GEOM.meterPortY}, 380 ${GEOM.meterPortY - 8}, 360 ${GEOM.meterPortY - 18} L 360 ${GEOM.yTop - 20} Q 360 ${GEOM.yTop - 30} 348 ${GEOM.yTop - 30} L ${px + 12} ${GEOM.yTop - 30} Q ${px} ${GEOM.yTop - 30} ${px} ${GEOM.yTop - 18} L ${px} ${py - 34}`;
+  }
+
+  function renderSimulation(){
+    const state = getCurrentState();
+    const geo = getProbeGeometry();
+    const path = buildContainerPath(state.shapeKey);
+    const bounds = getShapeBounds(state.shapeKey, state.surfaceY);
+
+    el.clipPathShape.setAttribute("d", path);
+    el.containerOutline.setAttribute("d", path);
+
+    if (fluidHeightCm > 0) {
+      el.liquidRect.setAttribute("y", state.surfaceY);
+      el.liquidRect.setAttribute("height", Math.max(0, GEOM.yBottom - state.surfaceY));
+      el.liquidRect.setAttribute("x", 60);
+      el.liquidRect.setAttribute("width", 300);
+      el.liquidRect.setAttribute("fill", state.liquid.color);
+      el.liquidRect.setAttribute("opacity", 0.88);
+      el.liquidRect.classList.remove("hidden");
+      el.surfaceLine.setAttribute("x1", bounds.left);
+      el.surfaceLine.setAttribute("x2", bounds.right);
+      el.surfaceLine.setAttribute("y1", state.surfaceY);
+      el.surfaceLine.setAttribute("y2", state.surfaceY);
+      el.surfaceLine.classList.remove("hidden");
+    } else {
+      el.liquidRect.classList.add("hidden");
+      el.surfaceLine.classList.add("hidden");
+    }
+
+    const cablePath = buildCablePath(geo.probeX, geo.probeY);
+    el.gaugeCable.setAttribute("d", cablePath);
+    el.gaugeCableHighlight.setAttribute("d", cablePath);
+    el.probeGroup.setAttribute("transform", `translate(${geo.probeX.toFixed(1)} ${geo.probeY.toFixed(1)})`);
+
+    const lineX = geo.probeX - 45;
+    const tickLeft = lineX - 8, tickRight = lineX + 8, textX = lineX + 16;
+    if (state.submerged) {
+      [el.depthLine, el.depthTopTick, el.depthBottomTick, el.depthText].forEach(e => e.classList.remove("hidden"));
+      el.depthLine.setAttribute("x1", lineX); el.depthLine.setAttribute("x2", lineX);
+      el.depthLine.setAttribute("y1", state.surfaceY); el.depthLine.setAttribute("y2", geo.probeY);
+      el.depthTopTick.setAttribute("x1", tickLeft); el.depthTopTick.setAttribute("x2", tickRight);
+      el.depthTopTick.setAttribute("y1", state.surfaceY); el.depthTopTick.setAttribute("y2", state.surfaceY);
+      el.depthBottomTick.setAttribute("x1", tickLeft); el.depthBottomTick.setAttribute("x2", tickRight);
+      el.depthBottomTick.setAttribute("y1", geo.probeY); el.depthBottomTick.setAttribute("y2", geo.probeY);
+      el.depthText.setAttribute("x", textX);
+      el.depthText.setAttribute("y", (state.surfaceY + geo.probeY)/2 + 5);
+      el.depthText.textContent = `h = ${state.depthCm.toFixed(0)} cm`;
+    } else {
+      [el.depthLine, el.depthTopTick, el.depthBottomTick, el.depthText].forEach(e => e.classList.add("hidden"));
+    }
+
+    el.bottomDistLine.setAttribute("x1", lineX); el.bottomDistLine.setAttribute("x2", lineX);
+    el.bottomDistLine.setAttribute("y1", geo.probeY); el.bottomDistLine.setAttribute("y2", GEOM.yBottom);
+    el.bottomDistTopTick.setAttribute("x1", tickLeft); el.bottomDistTopTick.setAttribute("x2", tickRight);
+    el.bottomDistTopTick.setAttribute("y1", geo.probeY); el.bottomDistTopTick.setAttribute("y2", geo.probeY);
+    el.bottomDistBottomTick.setAttribute("x1", tickLeft); el.bottomDistBottomTick.setAttribute("x2", tickRight);
+    el.bottomDistBottomTick.setAttribute("y1", GEOM.yBottom); el.bottomDistBottomTick.setAttribute("y2", GEOM.yBottom);
+    el.bottomDistText.setAttribute("x", textX);
+    el.bottomDistText.setAttribute("y", (geo.probeY + GEOM.yBottom)/2 + 5);
+    el.bottomDistText.textContent = `d = ${state.distFromBottomCm.toFixed(0)} cm`;
+
+    const displayedPa = state.absolutePressure - zeroOffsetPa;
+    const pUnit = getPUnit();
+    el.meterValue.textContent = pUnit.fromPa(displayedPa).toFixed(pUnit.decimals);
+    el.meterUnit.textContent = pUnit.label;
+
+    el.liquidInfoText.textContent = `${state.liquid.name} · ${densityGCm3(state.liquid.density).toFixed(3)} g/cm³`;
+    el.shapeInfoText.textContent = state.shapeName;
+
+    if (document.activeElement !== el.fluidHeightNumber) el.fluidHeightNumber.value = fluidHeightCm.toFixed(0);
+    if (document.activeElement !== el.depthNumber) el.depthNumber.value = state.depthCm.toFixed(0);
+  }
+
+  // 動畫迴圈
+  function animationLoop(){
+    let needsRender = false;
+    if (fillFlowDir > 0) {
+      fluidHeightCm = clamp(fluidHeightCm + FILL_RATE, 0, MAX_HEIGHT_CM);
+      needsRender = true;
+    }
+    if (drainFlowDir > 0) {
+      fluidHeightCm = clamp(fluidHeightCm - DRAIN_RATE, 0, MAX_HEIGHT_CM);
+      needsRender = true;
+    }
+    if (needsRender) renderSimulation();
+
+    streamOffset += 1.5;
+    if (fillFlowDir > 0) {
+      el.fillStream.setAttribute("opacity", "1");
+      el.fillStream.setAttribute("stroke-dashoffset", -streamOffset);
+    } else {
+      el.fillStream.setAttribute("opacity", "0");
+    }
+    if (drainFlowDir > 0) {
+      el.drainStream.setAttribute("opacity", "1");
+      el.drainStream.setAttribute("stroke-dashoffset", -streamOffset);
+    } else {
+      el.drainStream.setAttribute("opacity", "0");
+    }
+    requestAnimationFrame(animationLoop);
+  }
+
+  // 廣播
+  function broadcastStateToParent(actionName){
+    if (!actionName) return;
+    try {
+      const state = getCurrentState();
+      const pUnit = getPUnit();
+      const displayedPa = state.absolutePressure - zeroOffsetPa;
+      window.parent.postMessage({
+        type: 'SIMULATION_STATE',
+        payload: {
+          "學生最後的動作": actionName,
+          "目前介面階段": getPhaseDescription(),
+          "液體種類": state.liquid.name,
+          "液體密度": `${densityGCm3(state.liquid.density).toFixed(3)} g/cm³`,
+          "容器形狀": state.shapeName,
+          "液面高度(cm)": state.fluidHeightCm.toFixed(0),
+          "探頭所在深度(cm)": state.submerged ? state.depthCm.toFixed(0) : "0 (未浸入液體)",
+          "探頭距底高度(cm)": state.distFromBottomCm.toFixed(0),
+          "壓力計顯示讀數": `${pUnit.fromPa(displayedPa).toFixed(pUnit.decimals)} ${pUnit.label}`,
+          "歸零狀態": Math.abs(zeroOffsetPa) < 1 ? "未歸零（顯示絕對總壓）" : `已歸零（扣除 ${pUnit.fromPa(zeroOffsetPa).toFixed(pUnit.decimals)} ${pUnit.label}）`,
+          "已收集的數據筆數": records.length + " 筆",
+          "目前組別輸入框內容": currentGroupName || "(空白)"
+        }
+      }, '*');
+    } catch(e){ console.error("狀態廣播失敗:", e); }
+  }
+  function getPhaseDescription(){
+    const settingsOpen = !el.settingsPanel.classList.contains("collapsed");
+    const dataPanelOpen = el.dataPanelWrap.classList.contains("open");
+    if (dataPanelOpen) return "分析階段（數據面板已展開，學生在查看數據、統計圖或寫觀察結論）";
+    if (settingsOpen) return "精確輸入階段（『數值微調』面板展開中）";
+    return "實驗操作階段（學生在主實驗區操作水龍頭、探頭或更換液體/形狀）";
+  }
+
+  // 水龍頭
+  function startFill(){
+    if (fillFlowDir > 0) return;
+    fillFlowDir = 1;
+    el.fillBtn.classList.add("active-fill");
+    if (isSimInitialized) broadcastStateToParent("按住「💧 灌液體」水龍頭開始灌液體");
+  }
+  function stopFill(){
+    if (fillFlowDir === 0) return;
+    fillFlowDir = 0;
+    el.fillBtn.classList.remove("active-fill");
+    if (isSimInitialized) broadcastStateToParent(`放開「💧 灌液體」水龍頭（目前液面 ${fluidHeightCm.toFixed(0)} cm）`);
+  }
+  function startDrain(){
+    if (drainFlowDir > 0) return;
+    drainFlowDir = 1;
+    el.drainBtn.classList.add("active-drain");
+    if (isSimInitialized) broadcastStateToParent("按住「🚿 排液體」水龍頭開始排液體");
+  }
+  function stopDrain(){
+    if (drainFlowDir === 0) return;
+    drainFlowDir = 0;
+    el.drainBtn.classList.remove("active-drain");
+    if (isSimInitialized) broadcastStateToParent(`放開「🚿 排液體」水龍頭（目前液面 ${fluidHeightCm.toFixed(0)} cm）`);
+  }
+  el.fillBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); startFill(); });
+  el.drainBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); startDrain(); });
+  window.addEventListener("pointerup", () => { stopFill(); stopDrain(); });
+  window.addEventListener("pointercancel", () => { stopFill(); stopDrain(); });
+
+  // 更換液體 popup
+  el.changeLiquidBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const wasHidden = el.liquidPopup.classList.contains("hidden");
+    el.liquidPopup.classList.toggle("hidden");
+    el.shapePopup.classList.add("hidden");
+    if (wasHidden) {
+      updateLiquidPopupActive();
+      el.customDensityWrap.classList.remove("expanded");
+      if (isSimInitialized) broadcastStateToParent("點擊「更換液體」，打開液體選擇面板");
+    }
+  });
+  function updateLiquidPopupActive(){
+    el.liquidPopup.querySelectorAll(".liquid-option-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.liquid === currentLiquidKey);
+    });
+  }
+  el.liquidPopup.querySelectorAll(".liquid-option-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const key = btn.dataset.liquid;
+      if (key === "custom") {
+        el.customDensityWrap.classList.toggle("expanded");
+        el.customDensityInput.value = densityGCm3(customDensitySI).toFixed(3);
+        if (el.customDensityWrap.classList.contains("expanded")) el.customDensityInput.focus();
+      } else {
+        applyLiquidChange(key);
+      }
+    });
+  });
+  el.applyCustomDensityBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const v = parseFloat(el.customDensityInput.value);
+    if (isNaN(v) || v < 0.1 || v > 20) { alert("密度需在 0.1 ~ 20 g/cm³ 之間"); return; }
+    customDensitySI = v * 1000;
+    applyLiquidChange("custom");
+  });
+  function applyLiquidChange(newKey){
+    const newLiquid = newKey === "custom"
+      ? { name:"自訂液體", density:customDensitySI }
+      : liquids[newKey];
+    if (fluidHeightCm > 0) {
+      if (!confirm(`更換成「${newLiquid.name}」會清空水槽內目前 ${fluidHeightCm.toFixed(0)} cm 的${getCurrentLiquid().name}。\n\n確定要更換嗎？`)) return;
+    }
+    const oldName = getCurrentLiquid().name;
+    currentLiquidKey = newKey;
+    fluidHeightCm = 0;
+    zeroOffsetPa = 0;
+    el.liquidPopup.classList.add("hidden");
+    el.customDensityWrap.classList.remove("expanded");
+    renderSimulation();
+    if (isSimInitialized) {
+      const dStr = densityGCm3(getCurrentLiquid().density).toFixed(3);
+      broadcastStateToParent(`將液體從「${oldName}」更換為「${newLiquid.name}」(密度 ${dStr} g/cm³)，水槽已清空，歸零也已解除`);
+    }
+  }
+
+  // 形狀 popup
+  el.changeShapeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const wasHidden = el.shapePopup.classList.contains("hidden");
+    el.shapePopup.classList.toggle("hidden");
+    el.liquidPopup.classList.add("hidden");
+    if (wasHidden) {
+      updateShapePopupActive();
+      if (isSimInitialized) broadcastStateToParent("點擊「容器形狀」，打開形狀選擇面板");
+    }
+  });
+  function updateShapePopupActive(){
+    el.shapePopup.querySelectorAll(".shape-option-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.shape === currentShape);
+    });
+  }
+  el.shapePopup.querySelectorAll(".shape-option-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const ns = btn.dataset.shape;
+      if (ns === currentShape) { el.shapePopup.classList.add("hidden"); return; }
+      const oldName = shapes[currentShape];
+      currentShape = ns;
+      el.shapePopup.classList.add("hidden");
+      renderSimulation();
+      if (isSimInitialized) broadcastStateToParent(`將容器形狀從「${oldName}」切換為「${shapes[currentShape]}」`);
+    });
+  });
+  document.addEventListener("click", (e) => {
+    if (!el.liquidPopup.classList.contains("hidden") && !el.liquidPopup.contains(e.target) && !el.changeLiquidBtn.contains(e.target)) {
+      el.liquidPopup.classList.add("hidden");
+    }
+    if (!el.shapePopup.classList.contains("hidden") && !el.shapePopup.contains(e.target) && !el.changeShapeBtn.contains(e.target)) {
+      el.shapePopup.classList.add("hidden");
+    }
+  });
+
+  // 壓力單位切換
+  el.pressureUnitBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const idx = pressureOrder.indexOf(currentPressureUnit);
+    currentPressureUnit = pressureOrder[(idx + 1) % pressureOrder.length];
+    renderSimulation(); renderTable(); populateAxisOptions(); renderChart();
+    if (isSimInitialized) broadcastStateToParent(`點擊壓力計單位，切換為 ${pressureUnits[currentPressureUnit].label}`);
+  });
+
+  // 歸零
+  el.zeroBtnGroup.addEventListener("click", (e) => {
+    e.stopPropagation();
+    zeroOffsetPa = getCurrentState().absolutePressure;
+    renderSimulation();
+    if (isSimInitialized) broadcastStateToParent("按下「TARE 歸零」，將目前讀數設為 0");
+  });
+  el.resetBtnGroup.addEventListener("click", (e) => {
+    e.stopPropagation();
+    zeroOffsetPa = 0;
+    renderSimulation();
+    if (isSimInitialized) broadcastStateToParent("按下「解除歸零」，恢復顯示絕對總壓力");
+  });
+
+  // 探頭拖曳
+  function screenToSvgPoint(e){
+    const rect = el.simSvg.getBoundingClientRect();
+    return { x: ((e.clientX - rect.left)/rect.width) * GEOM.viewW, y: ((e.clientY - rect.top)/rect.height) * GEOM.viewH };
+  }
+  function nearProbe(x,y){ const g = getProbeGeometry(); return Math.hypot(x - g.probeX, y - g.probeY) <= 28; }
+  function pointInsideContainer(x,y){
+    if (y < GEOM.yTop || y > GEOM.yBottom) return false;
+    const b = getShapeBounds(currentShape, y);
+    return x >= b.left && x <= b.right;
+  }
+  function updateProbeFromPoint(x,y){
+    const b = getShapeBounds(currentShape, clamp(y, GEOM.yTop, GEOM.yBottom));
+    probeAbsY = clamp(y, GEOM.yTop, GEOM.yBottom);
+    probeRatio = (clamp(x, b.left, b.right) - b.left) / Math.max(1, b.right - b.left);
+    renderSimulation();
+  }
+  el.simSvg.addEventListener("pointerdown", (e) => {
+    if (e.button === 2) return;
+    if (e.target.closest("#fillBtn, #drainBtn, #zeroBtnGroup, #resetBtnGroup, #changeLiquidBtn, #changeShapeBtn, #pressureUnitBtn")) return;
+    const pt = screenToSvgPoint(e);
+    if (nearProbe(pt.x, pt.y) || pointInsideContainer(pt.x, pt.y)) {
+      e.preventDefault();
+      dragging = true; activePointerId = e.pointerId;
+      document.body.classList.add("dragging");
+      try { el.simSvg.setPointerCapture(e.pointerId); } catch(_){}
+      updateProbeFromPoint(pt.x, pt.y);
+    }
+  });
+  el.simSvg.addEventListener("pointermove", (e) => {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    const pt = screenToSvgPoint(e);
+    updateProbeFromPoint(pt.x, pt.y);
+  });
+  function stopProbeDrag(pid){
+    if (activePointerId !== null && pid !== undefined && pid !== activePointerId) return;
+    const wasDragging = dragging;
+    dragging = false; activePointerId = null;
+    document.body.classList.remove("dragging");
+    if (wasDragging && isSimInitialized) broadcastStateToParent("拖曳移動了測量探頭");
+  }
+  el.simSvg.addEventListener("pointerup", (e) => stopProbeDrag(e.pointerId));
+  el.simSvg.addEventListener("pointercancel", (e) => stopProbeDrag(e.pointerId));
+  window.addEventListener("pointerup", (e) => stopProbeDrag(e.pointerId));
+
+  // 右鍵提示
+  el.simSvg.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    let infoText = "", equipmentName = "";
+    if (e.target.closest("#meterGroup")) {
+      equipmentName = "數位壓力計";
+      infoText = "【數位壓力計】<br>測量並顯示探頭感受到的壓力。點下方單位文字切換單位。TARE 歸零會把目前讀數設為 0。";
+    } else if (e.target.closest("#probeGroup")) {
+      equipmentName = "壓力測量探頭";
+      infoText = "【壓力測量探頭】<br>可拖曳改變位置。浸入液體中讀到的就是液體壓力（若已歸零）。";
+    } else if (e.target.closest("#liquidRect")) {
+      equipmentName = "液體";
+      infoText = "【液體】<br>容器內的液體，用上下水龍頭控制多少。";
+    } else if (e.target.closest("#fillFaucetGroup")) {
+      equipmentName = "💧 灌液體水龍頭";
+      infoText = "【灌液體水龍頭】<br>按住不放開始灌液，放開即停。最高可灌到 200 cm。";
+    } else if (e.target.closest("#drainFaucetGroup")) {
+      equipmentName = "🚿 排液體水龍頭";
+      infoText = "【排液體水龍頭】<br>按住不放開始排液，放開即停。可排到 0 cm。";
+    } else if (e.target.closest("#changeLiquidBtn")) {
+      equipmentName = "🔄 更換液體";
+      infoText = "【更換液體】<br>點擊開啟液體選單。⚠️ 更換液體會先清空水槽。可選擇預設或自訂密度。";
+    } else if (e.target.closest("#changeShapeBtn")) {
+      equipmentName = "📐 容器形狀";
+      infoText = "【容器形狀】<br>切換直筒、上寬下窄、上窄下寬、中間較寬。切換形狀不會清空液體。";
+    }
+    if (infoText) {
+      el.eqTooltip.innerHTML = infoText;
+      el.eqTooltip.style.left = e.pageX + "px";
+      el.eqTooltip.style.top = e.pageY + "px";
+      el.eqTooltip.classList.remove("hidden");
+      if (isSimInitialized) broadcastStateToParent(`用滑鼠右鍵查看了「${equipmentName}」的說明`);
+    }
+  });
+  window.addEventListener("click", () => { if (!el.eqTooltip.classList.contains("hidden")) el.eqTooltip.classList.add("hidden"); });
+
+  // 精確輸入
+  el.fluidHeightNumber.addEventListener("input", (e) => {
+    const v = clamp(parseFloat(e.target.value) || 0, 0, MAX_HEIGHT_CM);
+    fluidHeightCm = v; renderSimulation();
+  });
+  el.fluidHeightNumber.addEventListener("change", () => { if (isSimInitialized) broadcastStateToParent("在『數值微調』輸入精確液面高度"); });
+  el.depthNumber.addEventListener("input", (e) => {
+    const v = clamp(parseFloat(e.target.value) || 0, 0, MAX_HEIGHT_CM);
+    probeAbsY = clamp(getSurfaceY() + v * PX_PER_CM, GEOM.yTop, GEOM.yBottom);
+    renderSimulation();
+  });
+  el.depthNumber.addEventListener("change", () => { if (isSimInitialized) broadcastStateToParent("在『數值微調』輸入精確探頭深度"); });
+
+  // 可收合面板
+  function toggleCollapsible(panelEl, panelKey, panelName){
+    const isCollapsed = panelEl.classList.toggle("collapsed");
+    if (isSimInitialized) broadcastStateToParent(`${isCollapsed ? '收合' : '展開'}了「${panelName}」面板`);
+    if (panelKey === "columns") updateColumnsHint();
+  }
+  el.settingsPanel.querySelector('[data-toggle="settings"]').addEventListener("click", () => toggleCollapsible(el.settingsPanel, "settings", "數值微調"));
+  el.columnsPanel.querySelector('[data-toggle="columns"]').addEventListener("click", () => toggleCollapsible(el.columnsPanel, "columns", "紀錄欄位設定"));
+  function updateColumnsHint(){
+    const count = el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked').length;
+    el.columnsHint.textContent = `已選 ${count} 欄`;
+  }
+  el.dataPanelToggle.addEventListener("click", () => {
+    const isOpen = el.dataPanelWrap.classList.toggle("open");
+    el.dataPanelLabel.textContent = isOpen ? "📉 收合實驗記錄簿" : "📈 打開實驗記錄簿";
+    if (isSimInitialized) broadcastStateToParent(isOpen ? "展開了實驗記錄簿，準備查看數據、統計圖或寫觀察結論" : "收合了實驗記錄簿");
+    if (isOpen) setTimeout(() => el.dataPanelWrap.scrollIntoView({ behavior:"smooth", block:"start" }), 200);
+  });
+
+  // 欄位與表格
+  const columns = [
+    { key:"id",              label:() => "編號",                            get:r => r.id },
+    { key:"time",            label:() => "時間",                            get:r => r.time },
+    { key:"group",           label:() => "組別",                            get:r => r.group || "" },
+    { key:"liquid",          label:() => "液體",                            get:r => r.liquidName },
+    { key:"density",         label:() => "密度 (g/cm³)",   type:"number",   get:r => Number(densityGCm3(r.density).toFixed(3)) },
+    { key:"shape",           label:() => "容器形狀",                        get:r => r.shapeName },
+    { key:"fluidHeight",     label:() => "液面 (cm)",      type:"number",   get:r => Number(r.fluidHeightCm.toFixed(0)) },
+    { key:"depth",           label:() => "深度 h (cm)",    type:"number",   get:r => Number(r.depthCm.toFixed(0)) },
+    { key:"distFromBottom",  label:() => "距底高度 (cm)",  type:"number",   get:r => Number(r.distFromBottomCm.toFixed(0)) },
+    { key:"gaugeDisplay",    label:() => `液壓 (${getPUnit().label})`,    type:"number", get:r => Number(getPUnit().fromPa(r.gaugePressure).toFixed(getPUnit().decimals)) },
+    { key:"absDisplay",      label:() => `總壓力 (${getPUnit().label})`,  type:"number", get:r => Number(getPUnit().fromPa(r.absolutePressure).toFixed(getPUnit().decimals)) }
+  ];
+  const defaultCheckKeys = ["id","group","liquid","shape","depth","density","gaugeDisplay"];
+  const graphFields = columns.filter(c => c.type === "number");
+
+  function populateColumnCheckboxes(){
+    el.columnCheckboxes.innerHTML = columns.map(col =>
+      `<label class="check-item"><input type="checkbox" value="${col.key}" ${defaultCheckKeys.includes(col.key) ? "checked" : ""}><span data-col-label="${col.key}"></span></label>`
+    ).join("");
+    updateColumnCheckboxLabels();
+    el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(i => {
+      i.addEventListener("change", () => { renderTable(); populateAxisOptions(); updateColumnsHint(); });
+    });
+  }
+  const getColumnLabel = col => typeof col.label === "function" ? col.label() : col.label;
+  function updateColumnCheckboxLabels(){
+    columns.forEach(col => {
+      const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`);
+      if (ls) ls.textContent = getColumnLabel(col);
+    });
+  }
+  function getSelectedColumns(){
+    const checked = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')].map(i => i.value);
+    return columns.filter(c => checked.includes(c.key));
+  }
+
+  function renderTable(){
+    updateColumnCheckboxLabels();
+    const countText = `共 ${records.length} 筆紀錄`;
+    el.recordCountCenter.textContent = countText;
+    el.dataPanelCount.textContent = `（${countText}）`;
+    const sc = getSelectedColumns();
+    if (!sc.length) {
+      el.tableHead.innerHTML = "";
+      el.tableBody.innerHTML = `<tr><td class="empty-cell">請先勾選要顯示的欄位。</td></tr>`;
+      return;
+    }
+    el.tableHead.innerHTML = `<tr>${sc.map(c => `<th>${getColumnLabel(c)}</th>`).join("")}<th>操作</th></tr>`;
+    if (!records.length) {
+      el.tableBody.innerHTML = `<tr><td class="empty-cell" colspan="${sc.length + 1}">尚無紀錄。</td></tr>`;
+      return;
+    }
+    el.tableBody.innerHTML = records.map((r, i) => {
+      const rowClass = i === records.length - 1 ? "latest" : "";
+      const dataCells = sc.map(col => {
+        if (col.key === "group") {
+          const gv = r.group || "";
+          const color = gv ? assignGroupColor(gv) : null;
+          const content = gv
+            ? `<span class="group-tag" style="background:${color}">${escapeHtml(gv)}</span>`
+            : `<span class="empty-group">—</span>`;
+          return `<td class="editable-group" data-record-id="${r.id}">${content}</td>`;
+        }
+        return `<td>${escapeHtml(col.get(r))}</td>`;
+      }).join("");
+      const actionCell = `<td><button class="row-delete-btn" data-delete-id="${r.id}" title="刪除第 ${r.id} 筆">🗑️</button></td>`;
+      return `<tr class="${rowClass}">${dataCells}${actionCell}</tr>`;
+    }).join("");
+    el.tableBody.querySelectorAll('.editable-group').forEach(cell => cell.addEventListener('click', () => startEditGroupCell(cell)));
+    el.tableBody.querySelectorAll('.row-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); deleteRecordById(parseInt(btn.dataset.deleteId)); });
+    });
+  }
+
+  function deleteRecordById(id){
+    const idx = records.findIndex(r => r.id === id);
+    if (idx < 0) return;
+    const rec = records[idx];
+    if (!confirm(`確定要刪除第 ${rec.id} 筆紀錄嗎？${rec.group ? `\n（屬於「${rec.group}」組）` : ""}`)) return;
+    records.splice(idx, 1);
+    renderTable(); renderGroupManager(); renderChart();
+    if (isSimInitialized) broadcastStateToParent(`刪除了第 ${rec.id} 筆紀錄${rec.group ? `（原屬「${rec.group}」組）` : ""}`);
+    if (rec.group) scheduleGroupingBroadcast();
+  }
+
+  function startEditGroupCell(cell){
+    const rid = parseInt(cell.dataset.recordId);
+    const rec = records.find(r => r.id === rid);
+    if (!rec) return;
+    const oldValue = rec.group || "";
+    const input = document.createElement('input');
+    input.type = 'text'; input.value = oldValue; input.maxLength = 20;
+    input.className = 'group-edit-input';
+    input.placeholder = '組別名稱（空白=未分組）';
+    cell.innerHTML = ''; cell.appendChild(input);
+    input.focus(); input.select();
+    let finished = false;
+    function finishEdit(save){
+      if (finished) return;
+      finished = true;
+      if (save) {
+        const nv = input.value.trim();
+        if (nv !== oldValue) {
+          rec.group = nv;
+          if (nv) assignGroupColor(nv);
+          renderTable(); renderGroupManager(); renderChart();
+          if (isSimInitialized) {
+            if (oldValue === "" && nv !== "") broadcastStateToParent(`將第 ${rec.id} 筆紀錄歸到「${nv}」組`);
+            else if (nv === "") broadcastStateToParent(`將第 ${rec.id} 筆紀錄從「${oldValue}」組改為未分組`);
+            else broadcastStateToParent(`將第 ${rec.id} 筆紀錄從「${oldValue}」改為「${nv}」組`);
+          }
+          scheduleGroupingBroadcast();
+        } else renderTable();
+      } else renderTable();
+    }
+    input.addEventListener('blur', () => finishEdit(true));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); }
+      if (e.key === 'Escape') { e.preventDefault(); finishEdit(false); }
+    });
+  }
+
+  function makeRecord(){
+    const s = getCurrentState();
+    return {
+      id:recordId++, time:new Date().toLocaleString("zh-TW"),
+      group:currentGroupName.trim(),
+      liquidKey:s.liquid.key, liquidName:s.liquid.name, density:s.liquid.density,
+      shapeKey:s.shapeKey, shapeName:s.shapeName,
+      fluidHeightCm:s.fluidHeightCm, depthCm:s.depthCm, distFromBottomCm:s.distFromBottomCm,
+      submerged:s.submerged, gaugePressure:s.gaugePressure, absolutePressure:s.absolutePressure
+    };
+  }
+
+  // 組別管理
+  function assignGroupColor(name){
+    if (!name) return "#94a3b8";
+    if (groupColors[name]) return groupColors[name];
+    const used = Object.values(groupColors);
+    let picked = DEFAULT_COLORS.find(c => !used.includes(c));
+    if (!picked) picked = DEFAULT_COLORS[Object.keys(groupColors).length % DEFAULT_COLORS.length];
+    groupColors[name] = picked;
+    return picked;
+  }
+  function getUniqueNamedGroups(){
+    const s = new Set();
+    records.forEach(r => { const g = (r.group||"").trim(); if (g) s.add(g); });
+    return Array.from(s);
+  }
+  function renderGroupManager(){
+    const groups = getUniqueNamedGroups();
+    if (!groups.length) {
+      el.groupManager.innerHTML = '<span class="small" style="color:#94a3b8;">尚無組別。在「目前組別」輸入框輸入名稱後加入紀錄，即可管理各組顏色。</span>';
+      return;
+    }
+    const counts = {};
+    records.forEach(r => { const g = (r.group||"").trim(); if (g) counts[g] = (counts[g]||0) + 1; });
+    let html = '<span class="group-manager-title">🎨 組別顏色（可點擊修改）：</span>';
+    groups.forEach(g => {
+      const color = assignGroupColor(g);
+      html += `<div class="group-color-item">
+        <input type="color" value="${color}" data-group="${escapeAttr(g)}" class="group-color-picker" title="點擊修改顏色">
+        <span>${escapeHtml(g)}</span><span class="group-count">(${counts[g]} 筆)</span>
+      </div>`;
+    });
+    el.groupManager.innerHTML = html;
+    el.groupManager.querySelectorAll('.group-color-picker').forEach(p => {
+      p.addEventListener('input', (e) => { groupColors[e.target.dataset.group] = e.target.value; renderChart(); });
+      p.addEventListener('change', (e) => { if (isSimInitialized) broadcastStateToParent(`將組別「${e.target.dataset.group}」的顏色改為 ${e.target.value}`); });
+    });
+  }
+
+  function scheduleGroupingBroadcast(){
+    if (!isSimInitialized) return;
+    if (groupingActionTimer) clearTimeout(groupingActionTimer);
+    groupingActionTimer = setTimeout(() => { broadcastGroupingSummary(); groupingActionTimer = null; }, GROUPING_BROADCAST_DELAY);
+  }
+  function broadcastGroupingSummary(){
+    try {
+      if (!records.length) return;
+      const pUnit = getPUnit();
+      const grouped = {};
+      records.forEach(r => {
+        const k = (r.group||"").trim();
+        const dk = k === "" ? "未分組" : k;
+        if (!grouped[dk]) grouped[dk] = [];
+        grouped[dk].push(r);
+      });
+      const namedCount = Object.keys(grouped).filter(k => k !== "未分組").length;
+      if (namedCount === 0) return;
+      const summary = Object.keys(grouped).map(gn => {
+        const recs = grouped[gn];
+        const rng = (g, d, u) => {
+          const vs = recs.map(g); const mn = Math.min(...vs), mx = Math.max(...vs);
+          if (Math.abs(mx - mn) < Math.pow(10, -d)) return `${mn.toFixed(d)} ${u} (固定)`;
+          return `${mn.toFixed(d)} ~ ${mx.toFixed(d)} ${u} (有變化)`;
+        };
+        const lt = [...new Set(recs.map(r => r.liquidName))];
+        const st = [...new Set(recs.map(r => r.shapeName))];
+        return {
+          "組別名稱":gn, "筆數":recs.length,
+          "該組液體種類":lt.length===1?`${lt[0]} (固定)`:`${lt.join("、")} (有變化)`,
+          "該組容器形狀":st.length===1?`${st[0]} (固定)`:`${st.join("、")} (有變化)`,
+          "液面高度":rng(r => r.fluidHeightCm, 0, "cm"),
+          "測量深度 h":rng(r => r.depthCm, 0, "cm"),
+          "密度":rng(r => densityGCm3(r.density), 3, "g/cm³"),
+          "液壓 P":rng(r => pUnit.fromPa(r.gaugePressure), pUnit.decimals, pUnit.label)
+        };
+      });
+      window.parent.postMessage({
+        type:'GROUPING_SUMMARY',
+        payload:{
+          "訊息類型":"學生分組策略總結（30秒靜置後自動觸發）",
+          "目前總紀錄數":records.length,
+          "已命名組別數":namedCount,
+          "組別清單":summary,
+          "給AI夥伴的評估提示":"請檢視每組內『(固定)』與『(有變化)』的變因分布。理想分組應讓同組內『控制變因』保持固定，只有一個『操作變因』在變化。"
+        }
+      }, '*');
+    } catch(e){ console.error("分組總結廣播失敗:", e); }
+  }
+
+  // 統計圖
+  function populateAxisOptions(){
+    const px = el.chartXSelect.value, py = el.chartYSelect.value;
+    const ck = getSelectedColumns().map(c => c.key);
+    const avail = graphFields.filter(f => ck.includes(f.key));
+    const opts = `<option value="">請選擇項目</option>` + avail.map(f => `<option value="${f.key}">${getColumnLabel(f)}</option>`).join("");
+    el.chartXSelect.innerHTML = el.chartYSelect.innerHTML = opts;
+    if (avail.some(f => f.key === px)) el.chartXSelect.value = px;
+    if (avail.some(f => f.key === py)) el.chartYSelect.value = py;
+  }
+  function calculateTrendline(pts){
+    if (pts.length < 2) return null;
+    let sX=0,sY=0,sXY=0,sXX=0,mn=Infinity,mx=-Infinity;
+    for (let p of pts) { sX+=p.x; sY+=p.y; sXY+=p.x*p.y; sXX+=p.x*p.x; if(p.x<mn)mn=p.x; if(p.x>mx)mx=p.x; }
+    const n = pts.length, denom = n*sXX - sX*sX;
+    if (denom === 0) return null;
+    const slope = (n*sXY - sX*sY)/denom;
+    const intercept = (sY - slope*sX)/n;
+    const m = (mx-mn)*0.05;
+    const dmn = mn===mx ? mn-1 : mn-m;
+    const dmx = mn===mx ? mx+1 : mx+m;
+    const sign = intercept >= 0 ? '+' : '-';
+    return {
+      points:[{x:dmn,y:slope*dmn+intercept},{x:dmx,y:slope*dmx+intercept}],
+      equation:`y = ${slope.toPrecision(4)}x ${sign} ${Math.abs(intercept).toPrecision(4)}`
+    };
+  }
+  const hexToRgba = (hex, a) => {
+    const h = hex.replace('#','');
+    return `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${a})`;
+  };
+  function renderChart(){
+    const xKey = el.chartXSelect.value, yKey = el.chartYSelect.value;
+    if (!chartRequested || !xKey || !yKey) {
+      if (myChart) { myChart.destroy(); myChart = null; }
+      el.chartCanvas.innerHTML = '<div style="color:#888; text-align:center; padding:20px;">請選擇橫軸與縱軸，並按下「產生統計圖」。</div>';
+      return;
+    }
+    const xf = graphFields.find(f => f.key === xKey);
+    const yf = graphFields.find(f => f.key === yKey);
+    if (!xf || !yf) return;
+    const gd = {};
+    records.forEach(r => {
+      const k = (r.group||"").trim();
+      const dk = k === "" ? "未分組" : k;
+      if (!gd[dk]) gd[dk] = [];
+      const x = parseFloat(xf.get(r)), y = parseFloat(yf.get(r));
+      if (!isNaN(x) && !isNaN(y)) gd[dk].push({x, y, _origGroup:k});
+    });
+    const gns = Object.keys(gd).filter(g => gd[g].length > 0);
+    if (!gns.length) {
+      if (myChart) { myChart.destroy(); myChart = null; }
+      el.chartCanvas.innerHTML = '<div style="color:red; text-align:center; padding:20px;">目前選擇的座標軸沒有有效的數據點。</div>';
+      return;
+    }
+    const datasets = [], trendInfos = [];
+    gns.forEach(gn => {
+      const ok = gd[gn][0]._origGroup;
+      const color = ok === "" ? "#94a3b8" : assignGroupColor(ok);
+      datasets.push({
+        label:gn, data:gd[gn],
+        backgroundColor:hexToRgba(color, 0.6), borderColor:color,
+        pointBackgroundColor:color, pointBorderColor:'#1f2a44', pointBorderWidth:1,
+        pointRadius:6, pointHoverRadius:8, showLine:false, tension:0
+      });
+      if (el.trendlineToggle.checked && gd[gn].length >= 2) {
+        const td = calculateTrendline(gd[gn]);
+        if (td) {
+          trendInfos.push({group:gn, color, equation:td.equation});
+          datasets.push({
+            label:`${gn} 擬合線`, data:td.points,
+            backgroundColor:'transparent', borderColor:color,
+            borderWidth:2.5, borderDash:[6,5],
+            pointRadius:0, pointHitRadius:0,
+            showLine:true, fill:false, tension:0, _isTrendline:true
+          });
+        }
+      }
+    });
+    el.chartCanvas.innerHTML = '<canvas id="pressureChart"></canvas>';
+    const ctx = document.getElementById('pressureChart').getContext('2d');
+    const xL = getColumnLabel(xf), yL = getColumnLabel(yf);
+    let parts = [`統計圖已產生（共 ${gns.length} 組）。`];
+    if (trendInfos.length) {
+      parts.push("<br>");
+      trendInfos.forEach(t => parts.push(`<span style="display:inline-block; margin:4px 6px 0 0; color:#fff; background:${t.color}; padding:4px 10px; border-radius:6px; font-weight:900;">📈 ${escapeHtml(t.group)}: ${t.equation}</span>`));
+    }
+    el.chartStatus.innerHTML = parts.join("");
+    myChart = new Chart(ctx, {
+      type:'line', data:{datasets},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        scales:{
+          x:{type:'linear', position:'bottom', title:{display:true, text:xL, font:{size:14, weight:'bold'}}},
+          y:{title:{display:true, text:yL, font:{size:14, weight:'bold'}}}
+        },
+        plugins:{
+          legend:{display:true, position:'top', labels:{filter:(i) => !i.text || !i.text.includes('擬合線'), font:{weight:'bold'}}},
+          tooltip:{callbacks:{label:(c) => `${c.dataset.label}: (${c.parsed.x}, ${c.parsed.y})`}}
+        }
+      }
+    });
+  }
+
+  // 紀錄操作
+  el.recordBtn.addEventListener("click", () => {
+    const rec = makeRecord();
+    records.push(rec);
+    if (rec.group) assignGroupColor(rec.group);
+    renderTable(); renderGroupManager(); renderChart();
+    if (isSimInitialized) {
+      if (rec.group) { broadcastStateToParent(`加入一筆紀錄到「${rec.group}」組`); scheduleGroupingBroadcast(); }
+      else broadcastStateToParent("將當前壓力數據加入紀錄（未指定組別）");
+    }
+  });
+  el.clearBtn.addEventListener("click", () => {
+    if (!records.length) return;
+    if (!confirm(`確定要清空全部 ${records.length} 筆紀錄嗎？此動作無法復原。`)) return;
+    records = []; recordId = 1; groupColors = {};
+    renderTable(); renderGroupManager(); renderChart();
+    if (groupingActionTimer) { clearTimeout(groupingActionTimer); groupingActionTimer = null; }
+    if (isSimInitialized) broadcastStateToParent("清空了全部實驗紀錄與分組");
+  });
+
+  // 匯出 CSV
+  el.exportBtn.addEventListener("click", () => {
+    const sc = getSelectedColumns().length ? getSelectedColumns() : columns;
+    if (!records.length) { alert("請先記錄至少一筆數據再下載！"); return; }
+    const obs = (el.reportText.value || "").trim();
+    const now = new Date(), pad = n => String(n).padStart(2,"0");
+    const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const esc = s => `"${String(s).replace(/"/g,'""')}"`;
+    const lines = [];
+    lines.push(esc("🧪 液體壓力虛擬實驗 — 實驗報告"));
+    lines.push(esc(`下載時間：${ts}`));
+    lines.push(esc(`本次紀錄筆數：${records.length} 筆`));
+    lines.push("");
+    lines.push(esc("【學生觀察與結論】"));
+    if (obs) obs.split(/\r?\n/).forEach(l => lines.push(esc(l)));
+    else lines.push(esc("（學生未填寫觀察與結論）"));
+    lines.push("");
+    lines.push(esc("【實驗數據紀錄】"));
+    lines.push(sc.map(c => esc(getColumnLabel(c))).join(","));
+    records.forEach(r => lines.push(sc.map(c => esc(c.get(r))).join(",")));
+    const csv = "\ufeff" + lines.join("\n");
+    const fd = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8;"}));
+    a.download = `液體壓力實驗報告_${fd}.csv`;
+    a.click();
+    if (isSimInitialized) broadcastStateToParent(`下載了實驗報告（${records.length} 筆數據${obs ? `，觀察結論 ${obs.length} 字` : "，但未填寫觀察結論"}）`);
+  });
+
+  // 送出給 AI
+  el.submitReportBtn.addEventListener("click", () => {
+    const obs = (el.reportText.value || "").trim();
+    if (!records.length) { alert("請先記錄至少一筆數據再送出！"); return; }
+    if (!obs) {
+      if (!confirm("你還沒填寫「實驗觀察與結論」喔！\n確定要直接送出嗎？")) { el.reportText.focus(); return; }
+    }
+    const pUnit = getPUnit();
+    const grouped = {};
+    records.forEach(r => {
+      const k = (r.group||"").trim() || "未分組";
+      if (!grouped[k]) grouped[k] = [];
+      grouped[k].push({
+        "編號":r.id, "液體":r.liquidName,
+        "密度(g/cm³)":Number(densityGCm3(r.density).toFixed(3)),
+        "容器形狀":r.shapeName,
+        "液面(cm)":r.fluidHeightCm.toFixed(0),
+        "深度 h(cm)":r.depthCm.toFixed(0),
+        "距底(cm)":r.distFromBottomCm.toFixed(0),
+        [`液壓(${pUnit.label})`]:Number(pUnit.fromPa(r.gaugePressure).toFixed(pUnit.decimals)),
+        [`總壓力(${pUnit.label})`]:Number(pUnit.fromPa(r.absolutePressure).toFixed(pUnit.decimals))
+      });
+    });
+    const groupAnalysis = Object.keys(grouped).map(gn => {
+      const recs = records.filter(r => ((r.group||"").trim() || "未分組") === gn);
+      const rng = (g, d, u) => {
+        const vs = recs.map(g); const mn = Math.min(...vs), mx = Math.max(...vs);
+        if (Math.abs(mx - mn) < Math.pow(10, -d)) return `${mn.toFixed(d)} ${u}（固定）`;
+        return `${mn.toFixed(d)} ~ ${mx.toFixed(d)} ${u}（有變化）`;
+      };
+      const lt = [...new Set(recs.map(r => r.liquidName))];
+      const st = [...new Set(recs.map(r => r.shapeName))];
+      return {
+        "組別":gn, "筆數":recs.length,
+        "液體種類":lt.length===1?`${lt[0]}（固定）`:`${lt.join("、")}（有變化）`,
+        "容器形狀":st.length===1?`${st[0]}（固定）`:`${st.join("、")}（有變化）`,
+        "液面高度":rng(r => r.fluidHeightCm, 0, "cm"),
+        "測量深度 h":rng(r => r.depthCm, 0, "cm"),
+        "密度":rng(r => densityGCm3(r.density), 3, "g/cm³"),
+        "液壓 P":rng(r => pUnit.fromPa(r.gaugePressure), pUnit.decimals, pUnit.label)
+      };
+    });
+    try {
+      window.parent.postMessage({
+        type:'STUDENT_REPORT_SUBMITTED',
+        payload:{
+          "訊息類型":"🎓 學生正式送出實驗報告（請AI夥伴針對此報告給予回饋）",
+          "送出時間":new Date().toLocaleString('zh-TW'),
+          "學生的觀察與結論（全文）":obs || "（學生未填寫觀察結論）",
+          "觀察字數":obs.length,
+          "數據總筆數":records.length,
+          "目前壓力單位":pUnit.label,
+          "各組變因分析":groupAnalysis,
+          "完整數據（依組別）":grouped,
+          "給AI老師的提示":"這份報告是學生完整的思考。請優先針對『學生的觀察與結論』給予回饋：(1)是否描述了觀察現象、(2)是否嘗試歸納規律、(3)描述是否符合數據事實、(4)分組設計是否合理（同組內應該只有一個變因在變）。用鼓勵且具體的方式引導學生思考。"
+        }
+      }, '*');
+
+      if (isSimInitialized) {
+        const gSum = groupAnalysis.map(g =>
+          `  ・${g["組別"]}（${g["筆數"]}筆）：液體=${g["液體種類"]}；形狀=${g["容器形狀"]}；液面=${g["液面高度"]}；深度=${g["測量深度 h"]}；密度=${g["密度"]}；壓力=${g["液壓 P"]}`
+        ).join("\n");
+        const fullMsg =
+`📤 學生正式送出實驗報告給 AI 夥伴討論，請針對以下內容給予具體回饋：
+
+━━━━━━━━━━━━━━━━━━━━━━
+【學生的觀察與結論（全文，共 ${obs.length} 字）】
+━━━━━━━━━━━━━━━━━━━━━━
+${obs || "（學生未填寫觀察結論）"}
+
+━━━━━━━━━━━━━━━━━━━━━━
+【實驗數據摘要】共 ${records.length} 筆紀錄
+━━━━━━━━━━━━━━━━━━━━━━
+目前壓力單位：${pUnit.label}
+
+各組變因分析：
+${gSum || "  （無分組資料）"}
+
+━━━━━━━━━━━━━━━━━━━━━━
+【完整數據（依組別）】
+━━━━━━━━━━━━━━━━━━━━━━
+${Object.keys(grouped).map(gn =>
+  `\n◆ ${gn}（${grouped[gn].length}筆）：\n` +
+  grouped[gn].map(r => "  " + JSON.stringify(r, null, 0)).join("\n")
+).join("\n")}
+
+━━━━━━━━━━━━━━━━━━━━━━
+請AI夥伴針對「學生的觀察與結論」給予具體回饋：
+1. 學生是否有描述觀察現象？
+2. 是否嘗試歸納規律？
+3. 描述是否符合數據事實？
+4. 分組設計是否合理（同組內應只有一個變因在變）？
+請用鼓勵且具體的方式，引導學生更深入思考。`;
+        broadcastStateToParent(fullMsg);
+      }
+
+      const orig = el.submitReportBtn.textContent;
+      el.submitReportBtn.disabled = true;
+      el.submitReportBtn.textContent = "✅ 已送出，請看右側AI回應";
+      setTimeout(() => { el.submitReportBtn.disabled = false; el.submitReportBtn.textContent = orig; }, 3000);
+    } catch(e) {
+      console.error("送出報告失敗:", e);
+      alert("送出失敗，請稍後再試。");
+    }
+  });
+
+  // 欄位按鈕
+  el.selectAllColumnsBtn.addEventListener("click", () => {
+    el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = true);
+    renderTable(); populateAxisOptions(); updateColumnsHint();
+    if (isSimInitialized) broadcastStateToParent("點擊『全選』欄位");
+  });
+  el.clearColumnsBtn.addEventListener("click", () => {
+    el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = false);
+    renderTable(); populateAxisOptions(); updateColumnsHint();
+    if (isSimInitialized) broadcastStateToParent("點擊『清空』欄位勾選");
+  });
+
+  // 組別輸入
+  el.currentGroupInput.addEventListener("input", (e) => { currentGroupName = e.target.value; });
+  el.currentGroupInput.addEventListener("change", (e) => {
+    currentGroupName = e.target.value;
+    if (isSimInitialized && currentGroupName.trim()) broadcastStateToParent(`設定目前組別為「${currentGroupName.trim()}」`);
+  });
+  el.clearCurrentGroupBtn.addEventListener("click", () => {
+    currentGroupName = "";
+    el.currentGroupInput.value = "";
+    if (isSimInitialized) broadcastStateToParent("清除了目前組別（之後加入的紀錄會是『未分組』）");
+  });
+
+  // 統計圖按鈕
+  el.generateChartBtn.addEventListener("click", () => {
+    if (!el.chartXSelect.value || !el.chartYSelect.value) {
+      alert("請先選擇橫軸與縱軸！"); return;
+    }
+    chartRequested = true;
+    renderChart();
+    if (isSimInitialized) {
+      const xf = graphFields.find(f => f.key === el.chartXSelect.value);
+      const yf = graphFields.find(f => f.key === el.chartYSelect.value);
+      broadcastStateToParent(`產生統計圖：X=${getColumnLabel(xf)}，Y=${getColumnLabel(yf)}${el.trendlineToggle.checked ? "（含擬合線）" : ""}`);
+    }
+  });
+  el.clearChartBtn.addEventListener("click", () => {
+    chartRequested = false;
+    el.chartXSelect.value = ""; el.chartYSelect.value = "";
+    el.trendlineToggle.checked = false;
+    renderChart();
+    el.chartStatus.innerHTML = "";
+    if (isSimInitialized) broadcastStateToParent("清除了統計圖");
+  });
+  el.trendlineToggle.addEventListener("change", () => {
+    if (chartRequested) renderChart();
+    if (isSimInitialized) broadcastStateToParent(el.trendlineToggle.checked ? "開啟擬合線顯示" : "關閉擬合線顯示");
+  });
+  el.chartXSelect.addEventListener("change", () => { if (chartRequested) renderChart(); });
+  el.chartYSelect.addEventListener("change", () => { if (chartRequested) renderChart(); });
+
+  // 說明視窗
+  function openHelp(){
+    el.helpModal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    if (isSimInitialized) broadcastStateToParent("打開『操作說明』視窗");
+  }
+  function closeHelp(){
+    el.helpModal.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+  el.helpBtn.addEventListener("click", openHelp);
+  el.closeHelpBtn.addEventListener("click", closeHelp);
+  el.helpBackdrop.addEventListener("click", closeHelp);
+
+  // 一鍵重置
+  el.resetAllBtn.addEventListener("click", () => {
+    if (!confirm("⚠️ 一鍵重置會：\n\n• 清空所有實驗紀錄與分組\n• 清空水槽\n• 重設液體為『水』\n• 重設容器為『直筒形』\n• 清空觀察結論\n• 恢復所有預設值\n\n確定要重置嗎？")) return;
+    records = []; recordId = 1; groupColors = {};
+    currentGroupName = ""; el.currentGroupInput.value = "";
+    currentLiquidKey = "water"; customDensitySI = 1000;
+    currentShape = "straight"; currentPressureUnit = "gw_cm2";
+    fluidHeightCm = 0; probeAbsY = 322; probeRatio = 0.5;
+    zeroOffsetPa = 0;
+    fillFlowDir = 0; drainFlowDir = 0;
+    el.fillBtn.classList.remove("active-fill");
+    el.drainBtn.classList.remove("active-drain");
+    el.reportText.value = "";
+    chartRequested = false;
+    el.chartXSelect.value = ""; el.chartYSelect.value = "";
+    el.trendlineToggle.checked = false;
+    el.chartStatus.innerHTML = "";
+    el.liquidPopup.classList.add("hidden");
+    el.shapePopup.classList.add("hidden");
+    el.customDensityWrap.classList.remove("expanded");
+    el.dataPanelWrap.classList.remove("open");
+    el.dataPanelLabel.textContent = "📈 打開實驗記錄簿";
+    el.settingsPanel.classList.add("collapsed");
+    el.columnsPanel.classList.remove("collapsed");
+    el.columnCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(i => {
+      i.checked = defaultCheckKeys.includes(i.value);
+    });
+    if (groupingActionTimer) { clearTimeout(groupingActionTimer); groupingActionTimer = null; }
+    renderSimulation(); renderTable(); renderGroupManager();
+    populateAxisOptions(); renderChart(); updateColumnsHint();
+    if (isSimInitialized) broadcastStateToParent("🔄 按下『一鍵重置』，清空所有內容並恢復預設狀態");
+  });
+
+  // 初始化
+  function init(){
+    drawScale();
+    populateColumnCheckboxes();
+    updateColumnsHint();
+    renderSimulation();
+    renderTable();
+    renderGroupManager();
+    populateAxisOptions();
+    renderChart();
+    requestAnimationFrame(animationLoop);
+    setTimeout(() => {
+      isSimInitialized = true;
+      broadcastStateToParent("學生打開液體壓力虛擬實驗，開始探索");
+    }, 300);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
