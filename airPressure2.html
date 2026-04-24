@@ -1839,6 +1839,7 @@ submitReportBtn: document.getElementById("submitReportBtn"),
           }
 
           const payload = {
+              "log摘要": `${gas.name}｜n=${formatNum(currentMoles, 2)}mol｜V=${formatNum(currentVolumeL, 1)}L｜T=${formatNum(displayTemp, 1)}${tUnit.label}｜P=${formatNum(displayPressure, pUnit.decimals)}${pUnit.label}｜${el.lockPistonToggle.checked ? "🔒定容" : "🔓定壓"}`,
             "學生最後的動作": actionName, 
             "目前介面階段": getPhaseDescription(),
             "當前觀察視角": viewDesc,
