@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>液體壓力虛擬實驗2.12</title>
+<title>液體壓力虛擬實驗2.13</title>
 <meta name="x-poe-datastore-behavior" content="local_only">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -1682,21 +1682,29 @@ ${Object.keys(grouped).map(gn =>
   });
 
   // 初始化
+  
   function init(){
-    drawScale();
-    populateColumnCheckboxes();
-    updateColumnsHint();
-    renderSimulation();
-    renderTable();
-    renderGroupManager();
-    populateAxisOptions();
-    renderChart();
-    requestAnimationFrame(animationLoop);
-    setTimeout(() => {
-      isSimInitialized = true;
-      broadcastStateToParent("學生打開液體壓力虛擬實驗，開始探索");
-    }, 300);
-  }
+  drawScale();
+  populateColumnCheckboxes();
+  updateColumnsHint();
+  renderSimulation();
+  renderTable();
+  renderGroupManager();
+  populateAxisOptions();
+  renderChart();
+  requestAnimationFrame(animationLoop);
+  
+  // 🌟 ========== 開場廣播（仿氣壓版）==========
+  isSimInitialized = true;  // 👈 立刻標記初始化完成
+  
+  // 完整系統開場白
+  broadcastStateToParent("【系統開場白】歡迎進入液體壓力虛擬實驗室。主要操作都在實驗區：按住上方『💧 灌液體』水龍頭可灌液、按住下方『🚿 排液體』水龍頭可排液、拖曳紅色探頭可改變測量位置、點左上『🔄 更換液體』可挑選不同液體（含自訂密度）、點右上『📐 容器形狀』可切換四種容器、點壓力計上的單位文字循環切換 gw/cm² → Pa → kPa → kgw/m² → kgw/cm²、按『TARE 歸零』可扣除大氣壓只看液體壓力。左上角的『🎚️ 數值微調』面板預設收合，只有需要輸入精確數值時才展開。");
+  
+  // 🌟 500ms 後再發一次保險訊息（確保父框架一定收得到）
+  setTimeout(() => {
+    broadcastStateToParent("觀察實驗室環境中");
+  }, 500);
+}
   init();
 })();
 </script>
