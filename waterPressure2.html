@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>液體壓力虛擬實驗2.0</title>
+<title>液體壓力虛擬實驗2.1</title>
 <meta name="x-poe-datastore-behavior" content="local_only">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -799,12 +799,8 @@ window.parent.postMessage({
     depth: depthStr,
     reading: readingStr,
 
-    // === 短名中文欄位（新增！對應後台 log 用語）===
-    "動作": actionName,
-    "液體種類": state.liquid.name,
-    "深度": depthStr,
-    "壓力讀數": readingStr,
-    
+    // === 🌟 給 index 顯示的精簡 log（優先使用）===
+    "log摘要": `液體：${state.liquid.name}；深度：${depthStr} cm；讀數：${readingStr}`,
 
     // === 完整中文欄位（給 AI 閱讀）===
     "學生最後的動作": actionName,
