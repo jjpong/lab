@@ -801,11 +801,10 @@ window.parent.postMessage({
 
     // === 短名中文欄位（新增！對應後台 log 用語）===
     "動作": actionName,
-    "液體": state.liquid.name,
-    "當下液體": state.liquid.name,
+    "液體種類": state.liquid.name,
     "深度": depthStr,
-    "讀數": readingStr,
-    "壓力": readingStr,
+    "壓力讀數": readingStr,
+    
 
     // === 完整中文欄位（給 AI 閱讀）===
     "學生最後的動作": actionName,
@@ -816,7 +815,7 @@ window.parent.postMessage({
     "液面高度(cm)": state.fluidHeightCm.toFixed(0),
     "探頭所在深度(cm)": state.submerged ? state.depthCm.toFixed(0) : "0 (未浸入液體)",
     "探頭距底高度(cm)": state.distFromBottomCm.toFixed(0),
-    "壓力計顯示讀數": readingStr,
+    "壓力讀數": readingStr,
     "歸零狀態": Math.abs(zeroOffsetPa) < 1 ? "未歸零（顯示絕對總壓）" : `已歸零（扣除 ${pUnit.fromPa(zeroOffsetPa).toFixed(pUnit.decimals)} ${pUnit.label}）`,
     "已收集的數據筆數": records.length + " 筆",
     "目前組別輸入框內容": currentGroupName || "(空白)"
