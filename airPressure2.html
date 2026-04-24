@@ -272,7 +272,15 @@
     .btn-info{ background:var(--info); color:#fff; }
     .btn-danger{ background:#ffecef; color:#b32b45; border:1px solid #ffc8d2; }
     .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
-
+.btn-reset-all {
+  background: #fff;
+  color: #b32b45;
+  border: 2px solid #d9485f;
+  font-weight: 800;
+}
+.btn-reset-all:hover {
+  background: #fceced;
+}
     .svg-shell{ 
       background:linear-gradient(180deg,#fafafa 0%,#f0f4f8 100%); 
       border:1px solid var(--line); border-radius:14px; padding:8px; 
@@ -480,9 +488,10 @@
         <div>
           <h1>氣體壓力虛擬實驗</h1>
         </div>
-        <div>
-          <button type="button" class="btn-secondary" id="helpBtn">操作說明</button>
-        </div>
+<div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button type="button" class="btn-secondary" id="helpBtn">操作說明</button>
+      <button type="button" class="btn-reset-all" id="resetAllBtn">🔄 一鍵重置</button>
+    </div>
       </div>
     </header>
 
@@ -1021,6 +1030,7 @@ submitReportBtn: document.getElementById("submitReportBtn"),
         chartCanvas: document.getElementById("chartCanvas"),
         
         helpBtn: document.getElementById("helpBtn"),
+        resetAllBtn: document.getElementById("resetAllBtn"),   // ← 新增
         helpModal: document.getElementById("helpModal"),
         closeHelpBtn: document.getElementById("closeHelpBtn"),
         helpBackdrop: document.getElementById("helpBackdrop"),
@@ -2557,7 +2567,28 @@ el.submitReportBtn.addEventListener("click", () => {
       el.helpBtn.addEventListener("click", () => { el.helpModal.classList.remove("hidden"); document.body.classList.add("modal-open"); });
       el.closeHelpBtn.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
       el.helpBackdrop.addEventListener("click", () => { el.helpModal.classList.add("hidden"); document.body.classList.remove("modal-open"); });
-
+// === 一鍵重置：恢復到重新載入的初始狀態 ===
+el.resetAllBtn.addEventListener("click", () => {
+  const hasData = records.length > 0;
+  const hasText = (el.reportText.value || "").trim().length > 0;
+  
+  let msg = "確定要重置整個實驗嗎？\n\n這會清除：\n• 所有實驗數據紀錄\n• 組別設定與顏色\n• 觀察與結論文字\n• 目前的氣體、溫度、體積\n• 面板展開/收合狀態\n\n此動作無法復原！";
+  
+  // 如果有任何內容才需要確認，避免一片空白時還要按
+  if (hasData || hasText) {
+    if (!confirm(msg)) return;
+  }
+  
+  // 通知 AI 夥伴學生按了重置
+  try {
+    broadcastStateToParent(`🔄 學生按下「一鍵重置」，清除全部內容並重新開始實驗（原本有 ${records.length} 筆數據${hasText ? `與 ${(el.reportText.value||"").trim().length} 字觀察結論` : ""}）`);
+  } catch(e) {}
+  
+  // 稍微延遲一下讓廣播送出去，再 reload
+  setTimeout(() => {
+    location.reload();
+  }, 100);
+});
       el.simSvg.addEventListener("contextmenu", (e) => {
         e.preventDefault(); 
         let infoText = "", equipmentName = "";
