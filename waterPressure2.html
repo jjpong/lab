@@ -108,12 +108,24 @@
   .btn-success{ background:#eafaf2; color:#127a4a; border:1px solid #bfe8cf; }
   .btn-reset-all{ background:#fff; color:#1749a5; border:2px solid #2d6cdf; font-weight:800; }
   .btn-reset-all:hover{ background:#eaf1ff; }
-
-  .svg-shell{ background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%);
-              border:1px solid var(--line); border-radius:14px; padding:8px;
-              width:100%; max-width:1100px; margin:0 auto;
-              display:flex; align-items:center; justify-content:center;
-              position:relative; aspect-ratio:620/500; max-height:calc(100vh - 160px); overflow:hidden; }
+  .svg-shell{
+  background:linear-gradient(180deg,#f8fbff 0%,#f2f7ff 100%);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:8px;
+  
+  /* 🌟 關鍵改動：寬度取「寬能給多少」和「高能塞多少」的最小值 */
+  width: min(100%, 1100px, calc((100vh - 160px) * 620 / 500));
+  aspect-ratio: 620/500;
+  /* max-height 那行可以刪掉，不再需要 */
+  
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+}
   svg{ width:100%; height:100%; display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
   .hidden{ display:none !important; }
 
