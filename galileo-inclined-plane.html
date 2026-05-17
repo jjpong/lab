@@ -96,6 +96,26 @@
         .help-block b { color: #334155; }
         
         body.modal-open { overflow: hidden; }
+
+        /* 新增：組別與管理樣式 */
+        .group-input-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .group-input-wrap label { font-weight: 800; color: #92400e; white-space: nowrap; font-size: 0.92rem; }
+        .group-input-wrap input[type="text"] { flex: 1; min-width: 140px; border: 1px solid #fcd34d; border-radius: 8px; padding: 7px 10px; font-size: 0.92rem; background: #fff; }
+        .group-input-wrap input[type="text"]:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15); }
+        
+        .group-manager { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: #fbfdff; border: 1px dashed #cbd5e1; border-radius: 12px; margin-bottom: 12px; }
+        .group-manager-title { font-weight: 800; color: var(--primary); font-size: 0.92rem; }
+        .group-color-item { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 10px 4px 6px; font-size: 0.9rem; font-weight: 700; }
+        .group-color-picker { width: 26px; height: 26px; border: none; border-radius: 4px; cursor: pointer; padding: 0; background: transparent; }
+        .group-color-item .group-count { color: #64748b; font-weight: 500; font-size: 0.82rem; }
+
+        .editable-group { cursor: pointer; position: relative; transition: background 0.15s; }
+        .editable-group:hover { background: #fef3c7 !important; }
+        .editable-group::after { content: "✎"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; }
+        .editable-group:hover::after { opacity: 1; }
+        .editable-group .empty-group { color: #cbd5e1; font-style: italic; }
+        .editable-group .group-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 800; color: #fff; font-size: 0.88rem; }
+        .group-edit-input { width: 100%; border: 2px solid var(--primary); border-radius: 6px; padding: 4px 8px; font-size: 0.92rem; background: #fff; font-family: inherit; }
     </style>
 </head>
 <body class="p-4 md:p-5 min-h-screen flex flex-col gap-5">
@@ -103,7 +123,7 @@
     <header class="flex justify-between items-center shrink-0 max-w-[1600px] mx-auto w-full">
         <div class="text-left">
             <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight mb-1">伽利略理想斜面與運動學實驗</h1>
-            <p class="text-slate-600 font-medium">探索慣性、能量守恆、受力與運動軌跡的關係</p>
+            <p class="text-slate-600 font-medium">探索慣性、能量守恆、受力與運動軌跡</p>
         </div>
         <button id="btnHelp" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-xl border border-indigo-200 shadow-sm transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -231,9 +251,6 @@
                     <div class="flex items-center justify-between border-b pb-2 mb-3">
                         <h3 class="font-bold text-slate-800">📋 實驗數據紀錄表</h3>
                         <div class="flex gap-2">
-                            <button id="btnRecord" class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition-colors">
-                                ➕ 記錄當下狀態
-                            </button>
                             <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-1 px-3 rounded transition-colors">
                                 清空
                             </button>
@@ -241,6 +258,18 @@
                                 💾 下載 CSV
                             </button>
                         </div>
+                    </div>
+
+                    <!-- 分組與紀錄輸入區 (新增) -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex flex-col sm:flex-row gap-3 items-center">
+                        <div class="group-input-wrap flex-1 w-full">
+                            <label for="currentGroupInput">🏷️ 目前組別：</label>
+                            <input type="text" id="currentGroupInput" placeholder="例：質量1kg組（可留空）" maxlength="20">
+                            <button type="button" class="bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded text-sm font-bold transition-colors" id="clearCurrentGroupBtn">清除</button>
+                        </div>
+                        <button id="btnRecord" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold py-2 px-4 rounded-lg shadow transition-colors whitespace-nowrap">
+                            ➕ 記錄當下狀態
+                        </button>
                     </div>
                     
                     <div class="mb-3 text-sm border p-2 bg-slate-50 rounded-lg">
@@ -290,6 +319,9 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 組別顏色管理器 (新增) -->
+                    <div class="group-manager hidden" id="groupManager"></div>
                     
                     <div class="flex flex-wrap gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100 min-h-[38px]" id="yAxisSelectors">
                         <!-- 縱軸選項動態產生 -->
@@ -344,10 +376,10 @@
                 <div class="help-block">
                     <h3>📊 數據紀錄與圖表分析</h3>
                     <ul>
-                        <li><b>自選紀錄欄位</b>：在表格上方打勾你要分析的物理量（如：速度、動能、總能...），它們才會出現在表格中，並作為圖表縱軸的選項。</li>
+                        <li><b>分組紀錄</b>：在「目前組別」輸入框打字（如「1kg組」）再按紀錄，即可將數據歸類。表格內也可直接點擊組別名稱快速修改。統計圖會自動將不同組別以不同顏色繪製！</li>
                         <li><b>實驗回放 (重播)</b>：左下角有一個「時間軸拉桿」。你可以隨時拖拉它回到過去的任何時間點查看狀態！<b>在歷史點按下「記錄當下狀態」一樣能把過去的數據存進表格！</b>如果倒轉後按下播放，未來的歷史紀錄會被抹除並重新開始。</li>
                         <li><b>自訂圖表與擬合線</b>：有兩種模式：
-                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫你算出趨勢方程式以及 $R^2$ 決定係數！
+                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫每組數據算出趨勢方程式以及 $R^2$ 決定係數！
                             <br>2. <b>完整關係圖 (連續線)</b>：系統會自動把整個實驗的過程畫成連續的曲線，方便老師教學講述。
                         </li>
                     </ul>
@@ -357,6 +389,14 @@
     </div>
 
     <script>
+        function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+        function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+        // --- 全域變數：群組管理 ---
+        let currentGroupName = "";
+        let groupColors = {};
+        const DEFAULT_COLORS = ["#d9485f", "#2d6cdf", "#1f9d61", "#d97706", "#8b5cf6", "#0891b2", "#db2777", "#65a30d", "#dc2626", "#9333ea", "#0d9488", "#ea580c"];
+
         function getChartConfigDescription() {
             const xLabel = document.getElementById('chartX').options[document.getElementById('chartX').selectedIndex]?.text || "";
             const yIds = Array.from(chartYSelections);
@@ -375,13 +415,17 @@
                     "實驗時間": timeElapsed.toFixed(3) + " s",
                     "滑車狀態": cart.state,
                     "軌道位置_s": cart.s.toFixed(2) + " m",
+                    "水平位置_X": cart.x.toFixed(2) + " m",
+                    "高度_Y": cart.y.toFixed(2) + " m",
                     "速度_v": cart.v.toFixed(2) + " m/s",
                     "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
                     "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
+                    "目前組別設定": currentGroupName || "(空白)",
                     "表格狀態": `目前有 ${records.length} 筆資料，勾選顯示欄位：${activeTableCols.join("、") || '無'}`,
                     "圖表設定": getChartConfigDescription(),
                     ...details
                 };
+                console.log("【廣播送到AI】", payload);
                 window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
             } catch (e) { console.error("狀態廣播失敗:", e); }
         }
@@ -426,6 +470,10 @@
         const btnRecord = document.getElementById('btnRecord');
         const btnClearRecord = document.getElementById('btnClearRecord');
         const btnExport = document.getElementById('btnExport');
+
+        const currentGroupInput = document.getElementById('currentGroupInput');
+        const clearCurrentGroupBtn = document.getElementById('clearCurrentGroupBtn');
+        const groupManager = document.getElementById('groupManager');
 
         const chartModeSelect = document.getElementById('chartMode');
         const chartXSelect = document.getElementById('chartX');
@@ -484,6 +532,22 @@
              if(toggles.autoPause.checked) {
                  broadcastStateToParent(`定時暫停間隔更改為: ${toggles.autoInterval.value}s`);
              }
+        });
+
+        currentGroupInput.addEventListener('input', (e) => { currentGroupName = e.target.value; });
+        currentGroupInput.addEventListener('change', (e) => {
+            currentGroupName = e.target.value.trim();
+            e.target.value = currentGroupName;
+            if (isSimInitialized && currentGroupName) {
+                broadcastStateToParent(`設定「目前組別」為「${currentGroupName}」，之後加入的紀錄都會歸入此組`);
+            } else if (isSimInitialized && currentGroupName === "") {
+                broadcastStateToParent("清空了「目前組別」設定，之後加入的紀錄將為未分組");
+            }
+        });
+        clearCurrentGroupBtn.addEventListener('click', () => {
+            currentGroupInput.value = "";
+            currentGroupName = "";
+            if (isSimInitialized) broadcastStateToParent("清空了「目前組別」輸入框");
         });
 
         let isVectorPanelOpen = true;
@@ -565,6 +629,119 @@
 
         let activeChart = null;
         let chartYSelections = new Set(); 
+
+        // --- 分組管理函數 ---
+        function assignGroupColor(groupName) {
+            if (!groupName || groupName === "") return "#94a3b8"; // 未分組預設灰
+            if (groupColors[groupName]) return groupColors[groupName];
+            const usedColors = Object.values(groupColors);
+            let picked = DEFAULT_COLORS.find(c => !usedColors.includes(c));
+            if (!picked) picked = DEFAULT_COLORS[Object.keys(groupColors).length % DEFAULT_COLORS.length];
+            groupColors[groupName] = picked;
+            return picked;
+        }
+
+        function getUniqueNamedGroups() {
+            const groups = new Set();
+            records.forEach(r => {
+                const g = (r.group || "").trim();
+                if (g !== "") groups.add(g);
+            });
+            return Array.from(groups);
+        }
+
+        function renderGroupManager() {
+            const groups = getUniqueNamedGroups();
+            if (groups.length === 0) {
+                groupManager.classList.add("hidden");
+                groupManager.innerHTML = '';
+                return;
+            }
+            groupManager.classList.remove("hidden");
+            const counts = {};
+            records.forEach(r => {
+                const g = (r.group || "").trim();
+                if (g !== "") counts[g] = (counts[g] || 0) + 1;
+            });
+            let html = '<span class="group-manager-title">🎨 組別顏色（可點擊修改）：</span>';
+            groups.forEach(g => {
+                const color = assignGroupColor(g);
+                html += `<div class="group-color-item">
+                    <input type="color" value="${color}" data-group="${escapeAttr(g)}" class="group-color-picker" title="點擊修改顏色" />
+                    <span>${escapeHtml(g)}</span>
+                    <span class="group-count">(${counts[g]} 筆)</span>
+                </div>`;
+            });
+            groupManager.innerHTML = html;
+            
+            groupManager.querySelectorAll('.group-color-picker').forEach(picker => {
+                picker.addEventListener('input', (e) => {
+                    const groupName = e.target.dataset.group;
+                    groupColors[groupName] = e.target.value;
+                    renderTable();
+                    if(activeChart && chartModeSelect.value === 'custom') updateChartConfig();
+                });
+                picker.addEventListener('change', (e) => {
+                    const groupName = e.target.dataset.group;
+                    if (isSimInitialized) broadcastStateToParent(`將組別「${groupName}」的顏色修改為 ${e.target.value}`);
+                });
+            });
+        }
+
+        function startEditGroupCell(cell) {
+            const recordId = parseInt(cell.dataset.recordId);
+            const record = records.find(r => r.id === recordId);
+            if (!record) return;
+
+            const oldValue = record.group || "";
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = oldValue;
+            input.maxLength = 20;
+            input.className = 'group-edit-input';
+            input.placeholder = '輸入組別名稱（空白=未分組）';
+
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            input.focus();
+            input.select();
+
+            let finished = false;
+            function finishEdit(save) {
+                if (finished) return;
+                finished = true;
+                if (save) {
+                    const newValue = input.value.trim();
+                    if (newValue !== oldValue) {
+                        record.group = newValue;
+                        if (newValue) assignGroupColor(newValue);
+                        renderTable();
+                        renderGroupManager();
+                        if(activeChart && chartModeSelect.value === 'custom') updateChartConfig();
+                        
+                        if (isSimInitialized) {
+                            if (oldValue === "" && newValue !== "") {
+                                broadcastStateToParent(`在表格中將一筆紀錄歸類到「${newValue}」組`);
+                            } else if (newValue === "") {
+                                broadcastStateToParent(`在表格中將一筆紀錄從「${oldValue}」組改為未分組`);
+                            } else {
+                                broadcastStateToParent(`在表格中將一筆紀錄從「${oldValue}」改為「${newValue}」組`);
+                            }
+                        }
+                    } else {
+                        renderTable();
+                    }
+                } else {
+                    renderTable();
+                }
+            }
+
+            input.addEventListener('blur', () => finishEdit(true));
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); }
+                if (e.key === 'Escape') { e.preventDefault(); finishEdit(false); }
+            });
+        }
 
         function solveLinearSystem(matrix, vector) {
             let m = [[...matrix[0]], [...matrix[1]], [...matrix[2]]];
@@ -1210,57 +1387,75 @@
                 trendlineTypeSelect.disabled = false;
             }
 
+            // 分組數據結構建立
+            const groupedRecords = {};
+            records.forEach(rec => {
+                const g = (rec.group || "").trim() || "未分組";
+                if (!groupedRecords[g]) groupedRecords[g] = [];
+                groupedRecords[g].push(rec);
+            });
+
             Array.from(chartYSelections).forEach(yId => {
                 const yDef = sysVars.find(v => v.id === yId);
                 if(!yDef) return;
 
-                let dataPoints = [];
-                
                 if (mode === 'custom') {
-                    records.forEach(rec => {
-                        let xv = rec[xVar];
-                        let yv = rec[yId];
-                        if (typeof xv === 'number' && typeof yv === 'number') {
-                            dataPoints.push({x: xv, y: yv});
-                        }
-                    });
-
-                    datasets.push({
-                        label: yDef.label,
-                        backgroundColor: yDef.color, 
-                        borderColor: yDef.color,
-                        data: dataPoints,
-                        borderWidth: 1,
-                        pointRadius: 6,
-                        pointHoverRadius: 8,
-                        showLine: false, 
-                        tension: 0
-                    });
-
-                    if (trendType !== 'none' && dataPoints.length > 2) {
-                        let fit = getRegression(dataPoints, trendType, yDef.id, yDef.color);
-                        if (fit) {
-                            let minX = Math.min(...dataPoints.map(p => p.x));
-                            let maxX = Math.max(...dataPoints.map(p => p.x));
-                            let fitLine = [];
-                            for(let i=0; i<=50; i++) {
-                                let px = minX + (maxX - minX) * (i/50);
-                                fitLine.push({x: px, y: fit.fn(px)});
+                    Object.keys(groupedRecords).forEach(gName => {
+                        const recs = groupedRecords[gName];
+                        let dataPoints = [];
+                        recs.forEach(rec => {
+                            let xv = rec[xVar];
+                            let yv = rec[yId];
+                            if (typeof xv === 'number' && typeof yv === 'number') {
+                                dataPoints.push({x: xv, y: yv});
                             }
+                        });
+
+                        if (dataPoints.length > 0) {
+                            const isGrouped = gName !== "未分組";
+                            const dsColor = isGrouped ? assignGroupColor(gName) : yDef.color;
+                            // 若有自訂組別名稱，圖例上標示「組別名稱 (物理量)」，否則單純標示物理量
+                            const dsLabel = isGrouped ? `${gName} (${yDef.label})` : yDef.label;
+
                             datasets.push({
-                                label: `${yDef.id} 擬合線`,
-                                data: fitLine,
-                                borderColor: yDef.color,
-                                borderWidth: 2,
-                                borderDash: [5, 5],
-                                pointRadius: 0,
-                                fill: false,
-                                showLine: true
+                                label: dsLabel,
+                                backgroundColor: dsColor, 
+                                borderColor: dsColor,
+                                data: dataPoints,
+                                borderWidth: 1,
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                showLine: false, 
+                                tension: 0
                             });
-                            eqStrings.push(`<span style="color:${fit.color}; margin-right: 15px;">${fit.eqStr}</span>`);
+
+                            if (trendType !== 'none' && dataPoints.length > 2) {
+                                let fit = getRegression(dataPoints, trendType, dsLabel, dsColor);
+                                if (fit) {
+                                    let minX = Math.min(...dataPoints.map(p => p.x));
+                                    let maxX = Math.max(...dataPoints.map(p => p.x));
+                                    let fitLine = [];
+                                    for(let i=0; i<=50; i++) {
+                                        let px = minX + (maxX - minX) * (i/50);
+                                        fitLine.push({x: px, y: fit.fn(px)});
+                                    }
+                                    datasets.push({
+                                        label: `${dsLabel} 擬合線`,
+                                        data: fitLine,
+                                        borderColor: dsColor,
+                                        borderWidth: 2,
+                                        borderDash: [5, 5],
+                                        pointRadius: 0,
+                                        fill: false,
+                                        showLine: true
+                                    });
+                                    eqStrings.push(`<span style="color:${fit.color}; margin-right: 15px;">${fit.eqStr}</span>`);
+                                }
+                            }
                         }
-                    }
+                    });
                 } else {
+                    let dataPoints = [];
                     for (let i = 0; i < systemDataStore[xVar].length; i++) {
                         let xv = systemDataStore[xVar][i];
                         let yv = systemDataStore[yId][i];
@@ -1329,7 +1524,9 @@
         }
 
         function addTableRecord() {
-            const rec = { id: Date.now() };
+            const rec = { id: Date.now(), group: currentGroupName };
+            if (rec.group) assignGroupColor(rec.group);
+
             sysVars.forEach(v => {
                 let val = v.get({
                     t: timeElapsed, s: cart.state==='flying' ? '拋體' : cart.s, 
@@ -1343,6 +1540,7 @@
             records.sort((a, b) => a.t - b.t);
             
             renderTable();
+            renderGroupManager();
             
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
             
@@ -1352,7 +1550,7 @@
                 return `${colName}: ${typeof rec[colId] === 'number' ? rec[colId].toFixed(2) : rec[colId]}`;
             }).join(" | ");
 
-            broadcastStateToParent("手動記錄了一筆實驗數據", {
+            broadcastStateToParent(`手動記錄了一筆實驗數據 (組別：${rec.group || '未分組'})`, {
                 "記錄時間": rec.t.toFixed(2),
                 "新增資料內容": latestDataString,
                 "表格全貌": `共 ${records.length} 筆資料`
@@ -1364,18 +1562,28 @@
             const tbody = document.getElementById('dataTableBody');
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
             
-            let headHtml = '<tr>';
+            let headHtml = '<tr><th>組別</th>';
             activeCols.forEach(c => headHtml += `<th>${c.label}</th>`);
             headHtml += '<th>操作</th></tr>';
             thead.innerHTML = headHtml;
 
             if (records.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 1}" class="text-center text-slate-400 py-6">點擊「記錄當下狀態」或在暫停時記錄。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊「記錄當下狀態」或在暫停時記錄。</td></tr>`;
                 return;
             }
             
             tbody.innerHTML = records.map(r => {
                 let rowHtml = '<tr>';
+                
+                // 組別欄位
+                const groupVal = r.group || "";
+                const color = groupVal ? assignGroupColor(groupVal) : null;
+                const content = groupVal 
+                    ? `<span class="group-tag" style="background:${color}">${escapeHtml(groupVal)}</span>`
+                    : `<span class="empty-group">—</span>`;
+                rowHtml += `<td class="editable-group" data-record-id="${r.id}">${content}</td>`;
+
+                // 其他數據欄位
                 activeCols.forEach(c => {
                     let displayVal = typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id];
                     rowHtml += `<td class="font-mono">${displayVal}</td>`;
@@ -1383,11 +1591,17 @@
                 rowHtml += `<td><button class="row-delete-btn" onclick="deleteRecord(${r.id})">刪除</button></td></tr>`;
                 return rowHtml;
             }).join('');
+
+            // 綁定編輯組別事件
+            tbody.querySelectorAll('.editable-group').forEach(cell => {
+                cell.addEventListener('click', () => startEditGroupCell(cell));
+            });
         }
         
         window.deleteRecord = function(id) {
             records = records.filter(r => r.id !== id);
             renderTable();
+            renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
             broadcastStateToParent("刪除了表格中的一筆歷史紀錄");
         }
@@ -1396,6 +1610,7 @@
         btnClearRecord.addEventListener('click', () => { 
             records = []; 
             renderTable(); 
+            renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
             broadcastStateToParent("清空了數據表格");
         });
@@ -1403,9 +1618,9 @@
         btnExport.addEventListener('click', () => {
             if(records.length === 0) return alert("沒有數據可以下載！");
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
-            let csv = activeCols.map(c => c.label).join(",") + "\n";
+            let csv = "組別," + activeCols.map(c => c.label).join(",") + "\n";
             records.forEach(r => { 
-                csv += activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; 
+                csv += `"${r.group || '未分組'}",` + activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; 
             });
             
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1600,6 +1815,7 @@
                     turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
                     
                     renderTable();
+                    renderGroupManager();
                     if (activeChart) updateChartConfig();
                     broadcastStateToParent("從重播點接續播放實驗，已抹除該點之後的未來紀錄");
                 }
@@ -1675,7 +1891,7 @@
 2. 改變軌道摩擦力與滑車質量。
 3. 可即時施加「推力」當作火箭車實驗。
 4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
-5. 表格記錄下的數據可以繪製成「自訂散佈圖」，並利用內建的高斯消去法畫出一次或二次擬合線 (含 R平方值)。
+5. 可將數據「分組紀錄」，並在圖表上分組繪製「自訂散佈圖」，會自動幫各組畫出擬合線與 R平方值。
 學生可以透過這些功能來驗證物理定律！`;
             
             setTimeout(() => broadcastStateToParent(introMsg), 500);
