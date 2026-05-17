@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>伽利略理想斜面虛擬實驗</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --panel-bg: #ffffff;
+            --bg: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', "Noto Sans TC", sans-serif;
+            background-color: var(--bg);
+            color: #1e293b;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 18px; width: 18px;
+            border-radius: 50%; background: var(--primary);
+            cursor: pointer; margin-top: -7px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 5px; cursor: pointer;
+            background: #cbd5e1; border-radius: 3px;
+        }
+
+        .table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; width: 100%; }
+        table { width: 100%; border-collapse: collapse; min-width: max-content; }
+        th, td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 0.92rem; white-space: nowrap; }
+        th { position: sticky; top: 0; background: #f8fafc; z-index: 1; color: #475569; font-weight: 700; }
+        tbody tr:nth-child(even) { background: #fcfdff; }
+        .row-delete-btn { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 4px 10px; font-size: 0.9rem; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; }
+        .row-delete-btn:hover { background: #fecaca; }
+
+        .check-item { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem; font-weight:600; }
+        .check-item input { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; }
+
+        #hoverTooltip {
+            position: absolute; pointer-events: none; opacity: 0;
+            background: rgba(15, 23, 42, 0.95); color: white;
+            padding: 12px 16px; border-radius: 8px; font-size: 0.85rem;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15); transition: opacity 0.15s;
+            z-index: 100; font-family: monospace; line-height: 1.6;
+            transform: translate(-50%, -100%); margin-top: -15px;
+        }
+        #hoverTooltip::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            margin-left: -6px; border-width: 6px; border-style: solid;
+            border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+        }
+
+        @keyframes flyoutAlert {
+            0% { opacity: 0; transform: scale(0.9) translateX(-50%); }
+            10% { opacity: 1; transform: scale(1.0) translateX(-50%); }
+            90% { opacity: 1; transform: scale(1.0) translateX(-50%); }
+            100% { opacity: 0; transform: scale(0.9) translateX(-50%); }
+        }
+        .flyout-text {
+            position: absolute; top: 20%; left: 50%;
+            background: rgba(220, 38, 38, 0.9); color: white;
+            padding: 12px 24px; border-radius: 12px; font-weight: 800; font-size: 1.2rem;
+            animation: flyoutAlert 3s forwards; pointer-events: none;
+            box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+        }
+        
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
+
+        /* Modal 樣式 */
+        .modal { position: fixed; inset: 0; z-index: 999; display: flex; align-items: center; justify-content: center; padding: 18px; }
+        .modal-backdrop { position: absolute; inset: 0; background: rgba(18, 29, 51, 0.6); backdrop-filter: blur(2px); }
+        .modal-card { position: relative; width: min(800px, 100%); max-height: calc(100vh - 40px); overflow: auto; background: #fff; border-radius: 20px; padding: 24px; z-index: 1001; box-shadow: 0 25px 50px rgba(18, 29, 51, 0.25); }
+        .modal-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px; }
+        .modal-head h2 { margin: 0; font-size: 1.5rem; color: #1e293b; font-weight: 800; }
+        .help-content { display: grid; gap: 16px; color: var(--text); line-height: 1.7; font-size: 0.95rem; }
+        .help-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+        .help-block h3 { margin: 0 0 10px; font-size: 1.1rem; color: #2563eb; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        .help-block ul { margin: 0; padding-left: 1.4rem; }
+        .help-block li { margin: 6px 0; }
+        .help-block b { color: #334155; }
+        
+        body.modal-open { overflow: hidden; }
+    </style>
+</head>
+<body class="p-4 md:p-5 min-h-screen flex flex-col gap-5">
+
+    <header class="flex justify-between items-center shrink-0 max-w-[1600px] mx-auto w-full">
+        <div class="text-left">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight mb-1">伽利略理想斜面虛擬實驗</h1>
+            <p class="text-slate-600 font-medium">探索慣性、能量守恆、受力與運動軌跡</p>
+        </div>
+        <button id="btnHelp" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-xl border border-indigo-200 shadow-sm transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            操作說明
+        </button>
+    </header>
+
+    <main class="flex flex-col xl:flex-row gap-5 flex-1 max-w-[1600px] mx-auto w-full">
+        
+        <!-- 左側控制面板 -->
+        <aside class="w-full xl:w-[320px] shrink-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-4">
+            <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                實驗參數設定
+            </h2>
+
+            <div class="space-y-4 flex-1">
+                <div>
+                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                        <span>左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-2 rounded">30°</span>
+                    </label>
+                    <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                        <span>右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-2 rounded">30°</span>
+                    </label>
+                    <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1.5">
+                        <span>軌道表面狀態</span><span id="valFrictionText" class="text-red-500 bg-red-50 px-2 rounded font-bold">一般軌道</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">✨ 變光滑</button>
+                        <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">🧱 變粗糙</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                        <span>滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-2 rounded">1.0</span>
+                    </label>
+                    <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+                </div>
+
+                <!-- 滑車推進器 -->
+                <div class="bg-cyan-50 p-2.5 rounded-xl border border-cyan-100">
+                    <label class="flex justify-between items-center text-sm font-semibold text-slate-700 mb-2">
+                        <span class="text-cyan-800">🚀 滑車推力 (N)</span>
+                        <div class="flex gap-2 items-center">
+                            <button id="btnZeroThrust" class="text-[10px] bg-white border border-cyan-200 hover:bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded transition-colors shadow-sm">歸零</button>
+                            <span id="valThrust" class="text-cyan-700 bg-white border border-cyan-200 px-2 rounded w-10 text-center font-bold">0.0</span>
+                        </div>
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-cyan-600 font-bold">-10</span>
+                        <input type="range" id="thrustSlider" min="-10" max="10" step="0.5" value="0">
+                        <span class="text-xs text-cyan-600 font-bold">+10</span>
+                    </div>
+                    <p class="text-[11px] text-cyan-600 mt-1 leading-tight">正值往右推，負值往左推。播放中可像油門一樣即時調整！</p>
+                </div>
+                
+                <!-- 控制按鈕 -->
+                <div class="flex flex-col gap-2">
+                    <button id="btnStart" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-all active:scale-95 flex justify-center items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                        <span>放開滑車</span>
+                    </button>
+                    <button id="btnReset" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition-all active:scale-95 flex justify-center items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>重置實驗</span>
+                    </button>
+                </div>
+
+                <!-- 實驗重播時間軸 -->
+                <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
+                    <label class="flex items-center justify-between text-sm font-bold text-indigo-800 mb-1">
+                        <span>⏪ 實驗重播</span>
+                        <span id="valReplayTime" class="font-mono bg-white px-2 py-0.5 rounded border border-indigo-200 text-xs">0.00s</span>
+                    </label>
+                    <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="w-full">
+                </div>
+
+                <!-- 定時暫停設定 -->
+                <div class="p-2 bg-amber-50 border border-amber-200 rounded-xl">
+                    <label class="flex items-center gap-2 text-sm font-bold text-amber-800 cursor-pointer">
+                        <input type="checkbox" id="autoPauseToggle" class="w-4 h-4 accent-amber-600">
+                        自動暫停(每 <input type="number" id="autoPauseInterval" value="0.1" step="0.05" min="0.05" max="2.0" class="w-12 px-1 rounded border border-amber-300 text-center font-mono text-xs"> s)
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右側主要區域 -->
+        <div class="w-full flex flex-col gap-5 min-w-0">
+            
+            <div class="relative w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" style="padding-top: 45%; min-height: 350px;">
+                <canvas id="simulationCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
+                
+                <div id="statusAlertContainer"></div>
+
+                <div class="absolute top-3 right-3 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all duration-300 z-10 w-[140px]">
+                    <div id="vectorPanelHeader" class="text-slate-600 bg-slate-50 rounded-t-lg p-2 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100 transition-colors">
+                        <span>顯示物理量向量</span>
+                        <span id="vectorPanelIcon" class="transform transition-transform duration-300 text-[10px]">▼</span>
+                    </div>
+                    <div id="vectorPanelContent" class="flex flex-col gap-2 p-2">
+                        <label class="check-item"><input type="checkbox" id="showV" checked> <span class="text-indigo-600">速度 (v)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showA"> <span class="text-pink-600">加速度 (a)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showFthrust" checked> <span class="text-cyan-500">推力 (F_push)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showFg"> <span class="text-emerald-600">重力 (Fg)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showFn"> <span class="text-blue-500">正向力 (Fn)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showFf"> <span class="text-red-500">摩擦力 (Ff)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showFnet"> <span class="text-purple-600">合力 (Fnet)</span></label>
+                    </div>
+                </div>
+
+                <div id="hoverTooltip"></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                
+                <!-- 數據紀錄區 (左邊) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col">
+                    <div class="flex items-center justify-between border-b pb-2 mb-3">
+                        <h3 class="font-bold text-slate-800">📋 實驗數據紀錄表</h3>
+                        <div class="flex gap-2">
+                            <button id="btnRecord" class="bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition-colors">
+                                ➕ 記錄當下狀態
+                            </button>
+                            <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-1 px-3 rounded transition-colors">
+                                清空
+                            </button>
+                            <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition-colors">
+                                💾 下載 CSV
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 text-sm border p-2 bg-slate-50 rounded-lg">
+                        <span class="text-slate-600 font-bold block mb-1">勾選要在表格與圖表顯示的欄位：</span>
+                        <div class="flex flex-wrap gap-x-4 gap-y-2" id="columnCheckboxes"></div>
+                    </div>
+
+                    <div class="table-wrap flex-1 max-h-[300px] overflow-y-auto">
+                        <table id="dataTable">
+                            <thead id="dataTableHead"></thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 圖表區 (右邊) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3">
+                    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-3 mb-2 gap-3">
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center shrink-0">📊 自訂關係圖</h3>
+                        
+                        <div class="flex flex-wrap gap-2 items-center text-sm font-medium">
+                            <div class="flex items-center gap-1 bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200">
+                                <span class="text-indigo-700">模式:</span>
+                                <select id="chartMode" class="bg-transparent font-bold outline-none cursor-pointer text-indigo-800">
+                                    <option value="custom" selected>自訂關係圖 (散佈點)</option>
+                                    <option value="continuous">完整關係圖 (連續線)</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border">
+                                <span class="text-slate-600">橫軸(X):</span>
+                                <select id="chartX" class="bg-transparent font-bold outline-none cursor-pointer">
+                                    <option value="t" selected>時間 (s)</option>
+                                    <option value="s">軌道弧長 (m)</option>
+                                    <option value="x">水平位置 X (m)</option>
+                                    <option value="v">速度 (m/s)</option>
+                                </select>
+                            </div>
+
+                            <div id="trendlineContainer" class="flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-opacity">
+                                <span class="text-amber-700">📈 擬合線:</span>
+                                <select id="trendlineType" class="bg-transparent font-bold outline-none cursor-pointer text-amber-800">
+                                    <option value="none" selected>關閉</option>
+                                    <option value="linear">線性一次 (y = ax+b)</option>
+                                    <option value="quadratic">拋物線二次 (y = ax²+bx+c)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100 min-h-[38px]" id="yAxisSelectors">
+                        <!-- 縱軸選項動態產生 -->
+                    </div>
+
+                    <div class="relative w-full h-[260px] mt-2">
+                        <canvas id="customChart"></canvas>
+                    </div>
+
+                    <div id="trendlineEqs" class="min-h-[24px] text-xs font-mono font-bold text-slate-700 bg-slate-100 p-2 rounded overflow-x-auto whitespace-nowrap hidden">
+                    </div>
+                </div>
+
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- 操作說明 Modal -->
+    <div id="helpModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-backdrop" id="helpBackdrop"></div>
+        <div class="modal-card">
+            <div class="modal-head">
+                <h2>🧪 伽利略理想斜面虛擬實驗 - 操作說明</h2>
+                <button type="button" id="closeHelpBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors border border-slate-300">
+                    關閉
+                </button>
+            </div>
+            <div class="help-content">
+                <div class="help-block">
+                    <h3>💡 實驗簡介</h3>
+                    <p>這是一個模擬物體在斜面上滑動的物理實驗室。你可以透過調整斜面角度、軌道摩擦力與滑車質量，來探索<b>慣性</b>、<b>受力與加速度 (牛頓第二定律)</b>、以及<b>力學能守恆與耗散</b>等物理概念。</p>
+                </div>
+                <div class="help-block">
+                    <h3>🎮 畫面操作與互動</h3>
+                    <ul>
+                        <li><b>拖曳滑車</b>：在靜止或暫停狀態下，可以直接用滑鼠拖曳紅色的滑車到軌道上的任意位置。此時會即時顯示水平 (X) 與高度 (Y) 座標。</li>
+                        <li><b>顯示向量</b>：右上角的半透明面板可自由勾選要顯示的物理向量箭頭，包含：<b>速度(v)、加速度(a)、各種作用力(Fg, Fn, Ff, F_push, Fnet)</b>。</li>
+                        <li><b>滑鼠懸停 (Tooltip)</b>：將滑鼠移到滑車上方，可以即時查看精確的運動學與能量數據。</li>
+                        <li><b>動態比例尺</b>：軌道下方會根據目前的縮放程度自動顯示水平刻度，最左側的軌道起點永遠對齊 X = 0 m。</li>
+                    </ul>
+                </div>
+                <div class="help-block">
+                    <h3>⚙️ 實驗參數與控制</h3>
+                    <ul>
+                        <li><b>斜面角度與摩擦力</b>：左側斜面甚至可以調整為 0°（水平直線），這非常適合搭配推力來做 $F=ma$ 的驗證實驗！點擊「✨ 變光滑 / 🧱 變粗糙」可以調整摩擦係數。</li>
+                        <li><b>滑車推進器</b>：可以為滑車施加額外的定力（正值向右、負值向左）。<b>即使在播放中，你也可以像踩油門一樣即時拉動拉桿</b>來改變推力。</li>
+                        <li><b>定時自動暫停</b>：若勾選，系統會每隔固定時間（例如 0.1 秒）自動暫停。你可以在暫停時把滑鼠移到車上並按下「記錄當下狀態」按鈕。</li>
+                    </ul>
+                </div>
+                <div class="help-block">
+                    <h3>📊 數據紀錄與圖表分析</h3>
+                    <ul>
+                        <li><b>自選紀錄欄位</b>：在表格上方打勾你要分析的物理量（如：速度、動能、總能...），它們才會出現在表格中，並作為圖表縱軸的選項。</li>
+                        <li><b>實驗回放 (重播)</b>：左下角有一個「時間軸拉桿」。你可以隨時拖拉它回到過去的任何時間點查看狀態！<b>在歷史點按下「記錄當下狀態」一樣能把過去的數據存進表格！</b>如果倒轉後按下播放，未來的歷史紀錄會被抹除並重新開始。</li>
+                        <li><b>自訂圖表與擬合線</b>：有兩種模式：
+                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫你算出趨勢方程式（例如驗證 $x \propto t^2$）！
+                            <br>2. <b>完整關係圖 (連續線)</b>：系統會自動把整個實驗的過程畫成連續的曲線，方便老師教學講述。
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getChartConfigDescription() {
+            const xLabel = document.getElementById('chartX').options[document.getElementById('chartX').selectedIndex]?.text || "";
+            const yIds = Array.from(chartYSelections);
+            const yLabels = yIds.map(id => sysVars.find(v => v.id === id)?.label || id).join("、");
+            const modeLabel = document.getElementById('chartMode').options[document.getElementById('chartMode').selectedIndex]?.text || "";
+            const trendLabel = document.getElementById('trendlineType').options[document.getElementById('trendlineType').selectedIndex]?.text || "";
+            return `目前橫軸為「${xLabel}」，縱軸勾選了「${yLabels || '無'}」。模式：「${modeLabel}」。擬合線：「${trendLabel}」。`;
+        }
+
+        function broadcastStateToParent(actionName, details = {}) {
+            try {
+                const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
+                
+                const payload = {
+                    "系統動作": actionName,
+                    "實驗時間": timeElapsed.toFixed(3) + " s",
+                    "滑車狀態": cart.state,
+                    "速度_v": cart.v.toFixed(2) + " m/s",
+                    "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
+                    "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
+                    "表格狀態": `目前有 ${records.length} 筆資料，勾選顯示欄位：${activeTableCols.join("、") || '無'}`,
+                    "圖表設定": getChartConfigDescription(),
+                    ...details
+                };
+                window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
+            } catch (e) { console.error("狀態廣播失敗:", e); }
+        }
+
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('hoverTooltip');
+        const alertContainer = document.getElementById('statusAlertContainer');
+
+        const sliders = {
+            thetaL: document.getElementById('leftAngleSlider'),
+            thetaR: document.getElementById('rightAngleSlider'),
+            mass: document.getElementById('massSlider'),
+            thrust: document.getElementById('thrustSlider')
+        };
+        const labels = {
+            thetaL: document.getElementById('valLeftAngle'),
+            thetaR: document.getElementById('valRightAngle'),
+            mass: document.getElementById('valMass'),
+            thrust: document.getElementById('valThrust')
+        };
+        
+        const btnSmoother = document.getElementById('btnSmoother');
+        const btnRougher = document.getElementById('btnRougher');
+        const btnZeroThrust = document.getElementById('btnZeroThrust');
+        const valFrictionText = document.getElementById('valFrictionText');
+
+        const toggles = {
+            autoPause: document.getElementById('autoPauseToggle'),
+            autoInterval: document.getElementById('autoPauseInterval'),
+            v: document.getElementById('showV'),
+            a: document.getElementById('showA'),
+            Fthrust: document.getElementById('showFthrust'),
+            Fg: document.getElementById('showFg'),
+            Fn: document.getElementById('showFn'),
+            Ff: document.getElementById('showFf'),
+            Fnet: document.getElementById('showFnet')
+        };
+
+        const btnStart = document.getElementById('btnStart');
+        const btnReset = document.getElementById('btnReset');
+        const btnRecord = document.getElementById('btnRecord');
+        const btnClearRecord = document.getElementById('btnClearRecord');
+        const btnExport = document.getElementById('btnExport');
+
+        const chartModeSelect = document.getElementById('chartMode');
+        const chartXSelect = document.getElementById('chartX');
+        const trendlineTypeSelect = document.getElementById('trendlineType');
+        const trendlineEqsDiv = document.getElementById('trendlineEqs');
+        const yAxisSelectorsDiv = document.getElementById('yAxisSelectors');
+        const trendlineContainer = document.getElementById('trendlineContainer');
+
+        const replaySlider = document.getElementById('replaySlider');
+        const valReplayTime = document.getElementById('valReplayTime');
+
+        const vectorPanelHeader = document.getElementById('vectorPanelHeader');
+        const vectorPanelContent = document.getElementById('vectorPanelContent');
+        const vectorPanelIcon = document.getElementById('vectorPanelIcon');
+
+        // Modal 相關元素
+        const btnHelp = document.getElementById('btnHelp');
+        const helpModal = document.getElementById('helpModal');
+        const closeHelpBtn = document.getElementById('closeHelpBtn');
+        const helpBackdrop = document.getElementById('helpBackdrop');
+
+        btnHelp.addEventListener('click', () => { 
+            helpModal.classList.remove('hidden'); 
+            document.body.classList.add('modal-open');
+            broadcastStateToParent("開啟了「操作說明」視窗");
+        });
+        const closeModal = () => { 
+            helpModal.classList.add('hidden'); 
+            document.body.classList.remove('modal-open');
+            broadcastStateToParent("關閉了「操作說明」視窗");
+        };
+        closeHelpBtn.addEventListener('click', closeModal);
+        helpBackdrop.addEventListener('click', closeModal);
+
+
+        Object.keys(toggles).forEach(key => {
+            if(key !== 'autoPause' && key !== 'autoInterval') {
+                toggles[key].addEventListener('change', (e) => {
+                    const labelSpan = e.target.nextElementSibling.textContent;
+                    broadcastStateToParent(`將物理量向量 ${labelSpan} 設定為：${e.target.checked ? '顯示' : '隱藏'}`);
+                    draw();
+                });
+            }
+        });
+
+        toggles.autoPause.addEventListener('change', () => {
+            if(toggles.autoPause.checked) {
+                nextPauseTime = timeElapsed + parseFloat(toggles.autoInterval.value);
+            } else {
+                nextPauseTime = Infinity;
+            }
+            broadcastStateToParent(`定時暫停功能已${toggles.autoPause.checked ? '開啟' : '關閉'} (間隔: ${toggles.autoInterval.value}s)`);
+        });
+
+        toggles.autoInterval.addEventListener('change', () => {
+             if(toggles.autoPause.checked) {
+                 broadcastStateToParent(`定時暫停間隔更改為: ${toggles.autoInterval.value}s`);
+             }
+        });
+
+        let isVectorPanelOpen = true;
+        vectorPanelHeader.addEventListener('click', () => {
+            isVectorPanelOpen = !isVectorPanelOpen;
+            if (isVectorPanelOpen) {
+                vectorPanelContent.style.display = 'flex';
+                vectorPanelIcon.style.transform = 'rotate(0deg)';
+                vectorPanelHeader.classList.replace('rounded-lg', 'rounded-t-lg');
+                vectorPanelHeader.classList.add('border-b');
+                broadcastStateToParent("展開了「顯示物理量向量」面板");
+            } else {
+                vectorPanelContent.style.display = 'none';
+                vectorPanelIcon.style.transform = 'rotate(-90deg)';
+                vectorPanelHeader.classList.replace('rounded-t-lg', 'rounded-lg');
+                vectorPanelHeader.classList.remove('border-b');
+                broadcastStateToParent("收合了「顯示物理量向量」面板");
+            }
+        });
+
+        const g = 9.81;
+        let scale = 60; 
+        let cx = 0, cy = 0; 
+        let startXOffset = 0; 
+        
+        let params = {
+            thetaL: 30 * Math.PI / 180,
+            thetaR: 30 * Math.PI / 180,
+            mu: 0.3,
+            mass: 1.0,
+            thrust: 0.0,
+            R: 1.0,
+            H: 4.0,
+            L_flat: 1.5,
+            max_X: 12.0
+        };
+
+        let trackS = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, total: 0 };
+        let trackBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+        let trackPoints = []; 
+
+        let cart = {
+            state: 'stopped', 
+            s: 0, x: 0, y: 0, theta: 0,
+            v: 0, a: 0, vx: 0, vy: 0,
+            Fg: 0, Fn: 0, Ff: 0, Fnet: 0, F_thrust: 0,
+            K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0,
+            width: 0.6, height: 0.3, color: '#ef4444'
+        };
+
+        let isRunning = false;
+        let timeElapsed = 0;
+        let lastTime = 0;
+        let isDraggingCart = false; 
+        let nextPauseTime = Infinity;
+
+        let replayFrames = [];
+        let turningPoints = [];
+
+        const sysVars = [
+            { id: 't', label: '時間(s)', color: '#475569', showInTable: false, get: r => r.t },
+            { id: 's', label: '弧長位置(m)', color: '#0ea5e9', showInTable: false, get: r => r.s },
+            { id: 'x', label: '水平 X(m)', color: '#0284c7', showInTable: false, get: r => r.x },
+            { id: 'y', label: '高度 Y(m)', color: '#8b5cf6', showInTable: false, get: r => r.y },
+            { id: 'v', label: '速度(m/s)', color: '#4f46e5', showInTable: false, get: r => r.v },
+            { id: 'a', label: '加速度(m/s²)', color: '#db2777', showInTable: false, get: r => r.a },
+            { id: 'F_push', label: '推力(N)', color: '#06b6d4', showInTable: false, get: r => r.F_push },
+            { id: 'K', label: '動能(J)', color: '#f59e0b', showInTable: false, get: r => r.K },
+            { id: 'U', label: '位能(J)', color: '#3b82f6', showInTable: false, get: r => r.U },
+            { id: 'E', label: '總能(J)', color: '#10b981', showInTable: false, get: r => r.E },
+            { id: 'Ff', label: '摩擦力(N)', color: '#ef4444', showInTable: false, get: r => r.Ff },
+            { id: 'Fn', label: '正向力(N)', color: '#0ea5e9', showInTable: false, get: r => r.Fn },
+            { id: 'Fnet', label: '合力(N)', color: '#9333ea', showInTable: false, get: r => r.Fnet }
+        ];
+
+        let records = []; 
+        let systemDataStore = {}; 
+        sysVars.forEach(v => systemDataStore[v.id] = []);
+
+        let activeChart = null;
+        let chartYSelections = new Set(); 
+
+        function solveLinearSystem(matrix, vector) {
+            let m = [[...matrix[0]], [...matrix[1]], [...matrix[2]]];
+            let v = [...vector];
+            for (let i = 0; i < 3; i++) {
+                let maxEl = Math.abs(m[i][i]), maxRow = i;
+                for (let k = i + 1; k < 3; k++) {
+                    if (Math.abs(m[k][i]) > maxEl) { maxEl = Math.abs(m[k][i]); maxRow = k; }
+                }
+                for (let k = i; k < 3; k++) { let tmp = m[maxRow][k]; m[maxRow][k] = m[i][k]; m[i][k] = tmp; }
+                let tmp = v[maxRow]; v[maxRow] = v[i]; v[i] = tmp;
+                if (Math.abs(m[i][i]) < 1e-10) return null;
+                for (let k = i + 1; k < 3; k++) {
+                    let c = -m[k][i] / m[i][i];
+                    for (let j = i; j < 3; j++) { if (i === j) m[k][j] = 0; else m[k][j] += c * m[i][j]; }
+                    v[k] += c * v[i];
+                }
+            }
+            let x = [0, 0, 0];
+            for (let i = 2; i >= 0; i--) {
+                x[i] = v[i] / m[i][i];
+                for (let k = i - 1; k >= 0; k--) v[k] -= m[k][i] * x[i];
+            }
+            return x; 
+        }
+
+        function getRegression(dataPoints, type, labelName, color) {
+            if (dataPoints.length < 3) return null;
+            let result = { type, fn: null, eqStr: '', color, labelName };
+            
+            if (type === 'linear') {
+                let n=0, sX=0, sY=0, sXY=0, sXX=0;
+                dataPoints.forEach(p => {
+                    n++; sX += p.x; sY += p.y; sXY += p.x*p.y; sXX += p.x*p.x;
+                });
+                let denom = n * sXX - sX * sX;
+                if (Math.abs(denom) < 1e-10) return null;
+                let a = (n * sXY - sX * sY) / denom;
+                let b = (sY - a * sX) / n;
+                result.fn = (x) => a * x + b;
+                const signB = b >= 0 ? '+' : '-';
+                result.eqStr = `${labelName} = ${a.toFixed(3)}x ${signB} ${Math.abs(b).toFixed(3)}`;
+            } 
+            else if (type === 'quadratic') {
+                let n=0, sX=0, sX2=0, sX3=0, sX4=0, sY=0, sXY=0, sX2Y=0;
+                dataPoints.forEach(p => {
+                    let vx2 = p.x * p.x;
+                    n++; sX += p.x; sX2 += vx2; sX3 += vx2*p.x; sX4 += vx2*vx2;
+                    sY += p.y; sXY += p.x*p.y; sX2Y += vx2*p.y;
+                });
+                let M = [[sX4, sX3, sX2], [sX3, sX2, sX], [sX2, sX, n]];
+                let V = [sX2Y, sXY, sY];
+                let coeffs = solveLinearSystem(M, V);
+                if (!coeffs) return null;
+                let [a, b, c] = coeffs;
+                result.fn = (x) => a*x*x + b*x + c;
+                const signB = b >= 0 ? '+' : '-';
+                const signC = c >= 0 ? '+' : '-';
+                result.eqStr = `${labelName} = ${a.toFixed(3)}x² ${signB} ${Math.abs(b).toFixed(3)}x ${signC} ${Math.abs(c).toFixed(3)}`;
+            }
+            return result;
+        }
+
+        function getRawPos(s) {
+            const { thetaL, thetaR, R, L_flat } = params;
+            let x, y, theta, k = 0;
+            if (s < trackS.s1) {
+                const d = trackS.s1 - s;
+                x = -L_flat/2 - R * Math.sin(thetaL) - d * Math.cos(thetaL);
+                y = R - R * Math.cos(thetaL) + d * Math.sin(thetaL); theta = -thetaL; 
+            } else if (s < trackS.s2) {
+                const alpha = thetaL - (s - trackS.s1) / R;
+                x = -L_flat/2 - R * Math.sin(alpha);
+                y = R - R * Math.cos(alpha); theta = -alpha; k = 1 / R; 
+            } else if (s < trackS.s3) {
+                x = -L_flat/2 + (s - trackS.s2); y = 0; theta = 0;
+            } else if (s < trackS.s4) {
+                const alpha = (s - trackS.s3) / R;
+                x = L_flat/2 + R * Math.sin(alpha);
+                y = R - R * Math.cos(alpha); theta = alpha; k = 1 / R;
+            } else {
+                const d = s - trackS.s4;
+                x = L_flat/2 + R * Math.sin(thetaR) + d * Math.cos(thetaR);
+                y = (thetaR > 0.01 ? R - R * Math.cos(thetaR) : 0) + d * Math.sin(thetaR); theta = thetaR;
+            }
+            return { x, y, theta, k };
+        }
+
+        function getPos(s) {
+            let p = getRawPos(s);
+            p.x -= startXOffset;
+            return p;
+        }
+
+        function updateTrackGeometry() {
+            const { thetaL, thetaR, R, H, L_flat, max_X } = params;
+            
+            if (thetaL > 0.01) {
+                const h_curve_L = R * (1 - Math.cos(thetaL));
+                trackS.s1 = (H - h_curve_L) / Math.sin(thetaL);
+            } else {
+                trackS.s1 = max_X - L_flat/2;
+            }
+            
+            trackS.s2 = trackS.s1 + R * thetaL;
+            trackS.s3 = trackS.s2 + L_flat;
+
+            if (thetaR > 0.01) {
+                const h_curve_R = R * (1 - Math.cos(thetaR));
+                let expectedLength = (H * 1.5 - h_curve_R) / Math.sin(thetaR);
+                let current_X = L_flat/2 + R * Math.sin(thetaR);
+                let allowed_L = (max_X - current_X) / Math.cos(thetaR);
+                trackS.s4 = trackS.s3 + R * thetaR;
+                trackS.s5 = trackS.s4 + Math.min(expectedLength, Math.max(1, allowed_L));
+            } else {
+                trackS.s4 = trackS.s3;
+                trackS.s5 = trackS.s4 + (max_X - L_flat/2);
+            }
+            trackS.total = trackS.s5;
+
+            startXOffset = 0; 
+            startXOffset = getRawPos(0).x; 
+
+            trackPoints = [];
+            trackBounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+            for (let s = 0; s <= trackS.total; s += 0.01) {
+                let p = getPos(s); p.s = s; trackPoints.push(p);
+                if(p.x < trackBounds.minX) trackBounds.minX = p.x;
+                if(p.x > trackBounds.maxX) trackBounds.maxX = p.x;
+                if(p.y < trackBounds.minY) trackBounds.minY = p.y;
+                if(p.y > trackBounds.maxY) trackBounds.maxY = p.y;
+            }
+        }
+
+        function resize() {
+            canvasRect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = canvasRect.width * 2;
+            canvas.height = canvasRect.height * 2;
+            ctx.scale(2, 2);
+            
+            const padX = 2;  
+            const padY = 2;  
+            const logicalWidth = trackBounds.maxX - trackBounds.minX + padX;
+            const logicalHeight = Math.max(trackBounds.maxY, params.H) + padY;
+            
+            scale = Math.min(canvasRect.width / logicalWidth, canvasRect.height / logicalHeight);
+            
+            cx = canvasRect.width / 2 - ((trackBounds.maxX + trackBounds.minX) / 2) * scale;
+            cy = canvasRect.height - 50; 
+        }
+
+        const sx = (px) => cx + px * scale;
+        const sy = (py) => cy - py * scale;
+
+        function updatePhysics(dt) {
+            if (cart.state === 'stopped' || isDraggingCart) return;
+            const subSteps = 10;
+            const stepDt = dt / subSteps;
+            
+            let hitTurningPoint = null;
+
+            for (let i = 0; i < subSteps; i++) {
+                if (cart.state === 'running') {
+                    const pos = getPos(cart.s);
+                    cart.F_thrust = params.thrust; 
+                    
+                    let fGravity = -params.mass * g * Math.sin(pos.theta);
+                    let fNormal = params.mass * (g * Math.cos(pos.theta) + pos.k * cart.v * cart.v);
+                    let fFriction = 0;
+
+                    let fParallel = fGravity + cart.F_thrust;
+
+                    if (Math.abs(cart.v) > 0.01) { 
+                        fFriction = -Math.sign(cart.v) * params.mu * fNormal; 
+                    } else {
+                        if (Math.abs(fParallel) <= params.mu * fNormal) { 
+                            fFriction = -fParallel; 
+                            cart.v = 0; 
+                        } else { 
+                            fFriction = -Math.sign(fParallel) * params.mu * fNormal; 
+                        }
+                    }
+
+                    cart.Fg = params.mass * g; 
+                    cart.Fn = fNormal; 
+                    cart.Ff = Math.abs(fFriction);
+                    cart.Fnet = fParallel + fFriction;
+                    cart.a = cart.Fnet / params.mass;
+                    
+                    let v_old = cart.v;
+                    let v_new = cart.v + cart.a * stepDt; 
+                    cart.s += cart.v * stepDt;
+                    
+                    cart.Wf += cart.Ff * Math.abs(cart.v * stepDt);
+                    cart.W_thrust += cart.F_thrust * cart.v * stepDt;
+                    cart.v = v_new;
+
+                    const newPos = getPos(cart.s);
+                    cart.x = newPos.x; cart.y = newPos.y; cart.theta = newPos.theta;
+                    
+                    if (v_old * cart.v <= 0 && Math.abs(v_old - cart.v) > 0.001) {
+                        if (cart.y > 0.05) {
+                            let addPt = true;
+                            if (turningPoints.length > 0) {
+                                let lastPt = turningPoints[turningPoints.length - 1];
+                                if (timeElapsed - lastPt.t < 0.2) addPt = false;
+                            }
+                            if (addPt) {
+                                turningPoints.push({ x: cart.x, y: cart.y, t: timeElapsed });
+                                hitTurningPoint = { x: cart.x, y: cart.y, t: timeElapsed };
+                            }
+                        }
+                    }
+
+                    if (cart.s < 0) {
+                        cart.s = 0; cart.v = 0;
+                        cart.x = getPos(0).x; cart.y = getPos(0).y; cart.theta = getPos(0).theta;
+                    } else if (cart.s > trackS.total) {
+                        cart.state = 'flying'; cart.vx = cart.v * Math.cos(cart.theta); cart.vy = cart.v * Math.sin(cart.theta);
+                        showFlyoutAlert(); broadcastStateToParent("滑車飛出軌道末端進入拋體運動！"); break; 
+                    } else {
+                        cart.U = params.mass * g * Math.max(0, cart.y);
+                        let idealE = cart.E0 - cart.Wf + cart.W_thrust;
+                        let idealK = idealE - cart.U;
+                        
+                        if (idealK > 0) {
+                            cart.K = idealK;
+                            cart.v = Math.sign(cart.v === 0 ? cart.a : cart.v) * Math.sqrt(2 * cart.K / params.mass);
+                        } else {
+                            cart.K = 0.5 * params.mass * cart.v * cart.v;
+                        }
+                    }
+                } 
+                else if (cart.state === 'flying') {
+                    cart.F_thrust = params.thrust;
+                    
+                    let ax = (cart.F_thrust * Math.cos(cart.theta)) / params.mass;
+                    let ay = -g + (cart.F_thrust * Math.sin(cart.theta)) / params.mass;
+
+                    cart.vy += ay * stepDt; 
+                    cart.vx += ax * stepDt;
+                    cart.x += cart.vx * stepDt; 
+                    cart.y += cart.vy * stepDt;
+                    
+                    cart.v = Math.sqrt(cart.vx*cart.vx + cart.vy*cart.vy);
+                    cart.theta = Math.atan2(cart.vy, cart.vx);
+                    
+                    cart.W_thrust += cart.F_thrust * cart.v * stepDt;
+                    
+                    cart.Fg = params.mass * g; 
+                    cart.Fn = 0; 
+                    cart.Ff = 0; 
+                    cart.Fnet = Math.sqrt(Math.pow(cart.F_thrust * Math.cos(cart.theta), 2) + Math.pow(cart.F_thrust * Math.sin(cart.theta) - cart.Fg, 2)); 
+                    cart.a = cart.Fnet / params.mass;
+
+                    if (cart.y < -1.0) { 
+                        cart.state = 'stopped'; isRunning = false; updateBtnState();
+                        broadcastStateToParent("滑車落地，實驗結束"); break;
+                    }
+                    cart.K = 0.5 * params.mass * cart.v * cart.v;
+                    cart.U = params.mass * g * Math.max(0, cart.y); 
+                }
+            }
+
+            if (hitTurningPoint) {
+                broadcastStateToParent("滑車到達最高點(速度為0)，記錄高度", { "最高高度(m)": hitTurningPoint.y.toFixed(2), "水平位置_X(m)": hitTurningPoint.x.toFixed(2), "發生時間(s)": hitTurningPoint.t.toFixed(2) });
+            }
+        }
+
+        function drawArrow(x, y, vectorX, vectorY, color) {
+            const len = Math.sqrt(vectorX*vectorX + vectorY*vectorY);
+            if(len < 0.01) return;
+            const vScale = 8;
+            const endX = x + vectorX * vScale;
+            const endY = y - vectorY * vScale; 
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
+
+            const angle = Math.atan2(-vectorY, vectorX);
+            ctx.beginPath(); ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI/6), endY - 10 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI/6), endY - 10 * Math.sin(angle + Math.PI/6));
+            ctx.fillStyle = color; ctx.fill();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvasRect.width, canvasRect.height);
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, canvasRect.width, canvasRect.height);
+            ctx.fillStyle = '#94a3b8'; ctx.fillRect(0, sy(0), canvasRect.width, canvasRect.height - sy(0));
+            ctx.fillStyle = '#84cc16'; ctx.fillRect(0, sy(0), canvasRect.width, 4);
+
+            ctx.beginPath(); ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#334155';
+            if(trackPoints.length > 0) {
+                ctx.moveTo(sx(trackPoints[0].x), sy(trackPoints[0].y));
+                for(let i=1; i<trackPoints.length; i+=5) ctx.lineTo(sx(trackPoints[i].x), sy(trackPoints[i].y));
+                ctx.lineTo(sx(trackPoints[trackPoints.length-1].x), sy(trackPoints[trackPoints.length-1].y));
+            }
+            ctx.stroke();
+
+            ctx.lineWidth = 4; ctx.strokeStyle = '#cbd5e1';
+            trackPoints.forEach((p, idx) => {
+                if(idx % 100 === 0 && p.y > 0.1) {
+                    ctx.beginPath(); ctx.moveTo(sx(p.x), sy(p.y)); ctx.lineTo(sx(p.x), sy(0)); ctx.stroke();
+                }
+            });
+
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 11px Inter, "Noto Sans TC", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            const groundY = sy(0);
+            
+            ctx.beginPath();
+            ctx.moveTo(sx(trackBounds.minX), groundY + 8);
+            ctx.lineTo(sx(trackBounds.maxX), groundY + 8);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            for (let i = Math.floor(trackBounds.minX); i <= Math.ceil(trackBounds.maxX); i++) {
+                let px = sx(i);
+                ctx.beginPath();
+                ctx.moveTo(px, groundY + 8);
+                let tickHeight = (i % 5 === 0) ? 8 : 4; 
+                ctx.lineTo(px, groundY + 8 + tickHeight);
+                ctx.stroke();
+                
+                let step = scale < 15 ? 10 : (scale < 30 ? 5 : (scale < 50 ? 2 : 1));
+                if (i % step === 0) {
+                    ctx.fillText(i + 'm', px, groundY + 8 + tickHeight + 4);
+                }
+            }
+
+            turningPoints.forEach((pt) => {
+                let px = sx(pt.x);
+                let py = sy(pt.y);
+                
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px, sy(0));
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI*2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                
+                let text = `H=${pt.y.toFixed(2)}m`;
+                ctx.font = 'bold 11px Inter, "Noto Sans TC", sans-serif';
+                ctx.textAlign = 'center';
+                let metrics = ctx.measureText(text);
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                ctx.fillRect(px - metrics.width/2 - 4, py - 22, metrics.width + 8, 14);
+                
+                ctx.fillStyle = '#ef4444';
+                ctx.fillText(text, px, py - 12);
+            });
+
+            if(cart.y < -2) return;
+
+            const cw = cart.width * scale; const ch = cart.height * scale;
+            const offset = (cart.height / 2) + 0.08; 
+            let carX = cart.x - offset * Math.sin(cart.theta); let carY = cart.y + offset * Math.cos(cart.theta);
+
+            ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
+            ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
+            ctx.fillStyle = cart.color; ctx.beginPath(); ctx.roundRect(-cw/2, -ch/2, cw, ch, 6); ctx.fill();
+
+            ctx.shadowColor = 'transparent'; ctx.fillStyle = '#1e293b'; const wheelR = 0.08 * scale;
+            ctx.beginPath(); ctx.arc(-cw/3, ch/2, wheelR, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cw/3, ch/2, wheelR, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            const screenCx = sx(carX); const screenCy = sy(carY);
+            if (toggles.Fg.checked) drawArrow(screenCx, screenCy, 0, -cart.Fg, '#10b981');
+            if (cart.state === 'running' || isDraggingCart) {
+                if (toggles.Fn.checked) drawArrow(screenCx, screenCy, -cart.Fn * Math.sin(cart.theta), cart.Fn * Math.cos(cart.theta), '#3b82f6');
+                if (toggles.Ff.checked && cart.Ff > 0) {
+                    const dir = -Math.sign(cart.v || cart.Fnet); 
+                    drawArrow(screenCx, screenCy, cart.Ff * dir * Math.cos(cart.theta), cart.Ff * dir * Math.sin(cart.theta), '#ef4444');
+                }
+            }
+            if (toggles.Fthrust.checked && cart.F_thrust !== 0) {
+                drawArrow(screenCx, screenCy, cart.F_thrust * Math.cos(cart.theta), cart.F_thrust * Math.sin(cart.theta), '#06b6d4');
+            }
+            if (toggles.Fnet.checked) {
+                let netX = cart.state==='flying' ? (cart.F_thrust * Math.cos(cart.theta)) : cart.Fnet * Math.cos(cart.theta);
+                let netY = cart.state==='flying' ? (cart.F_thrust * Math.sin(cart.theta) - cart.Fg) : cart.Fnet * Math.sin(cart.theta);
+                drawArrow(screenCx, screenCy, netX, netY, '#9333ea');
+            }
+            if (toggles.v.checked) {
+                let vx = cart.state==='flying' ? cart.vx : cart.v * Math.cos(cart.theta);
+                let vy = cart.state==='flying' ? cart.vy : cart.v * Math.sin(cart.theta);
+                drawArrow(screenCx, screenCy, vx*3, vy*3, '#4f46e5'); 
+            }
+            if (toggles.a.checked) {
+                let ax = cart.state==='flying' ? (cart.F_thrust * Math.cos(cart.theta))/params.mass : cart.a * Math.cos(cart.theta);
+                let ay = cart.state==='flying' ? -g + (cart.F_thrust * Math.sin(cart.theta))/params.mass : cart.a * Math.sin(cart.theta);
+                drawArrow(screenCx, screenCy, ax*2, ay*2, '#db2777');
+            }
+        }
+
+        function getCarScreenRect() {
+            const offset = (cart.height / 2) + 0.08; 
+            const screenX = sx(cart.x - offset * Math.sin(cart.theta));
+            const screenY = sy(cart.y + offset * Math.cos(cart.theta));
+            return { x: screenX, y: screenY, r: 45 }; 
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (isRunning) return; 
+            const mx = e.offsetX; const my = e.offsetY; const carRect = getCarScreenRect();
+            if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
+                isDraggingCart = true;
+                turningPoints = []; 
+                canvas.classList.remove('cursor-crosshair', 'cursor-grab'); canvas.classList.add('cursor-grabbing');
+                if (cart.state === 'flying') cart.state = 'running';
+                cart.v = 0; cart.a = 0; cart.K = 0; 
+                updateBtnState();
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            const mx = e.offsetX; const my = e.offsetY; const carRect = getCarScreenRect();
+
+            if (!isRunning && !isDraggingCart) {
+                if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
+                    canvas.classList.remove('cursor-crosshair'); canvas.classList.add('cursor-grab');
+                } else {
+                    canvas.classList.remove('cursor-grab', 'cursor-grabbing'); canvas.classList.add('cursor-crosshair');
+                }
+            }
+
+            if (isDraggingCart) {
+                const px = (mx - cx) / scale; const py = (cy - my) / scale;
+                let minDist = Infinity; let bestS = 0;
+                for (let i = 0; i < trackPoints.length; i++) {
+                    const dist = Math.hypot(trackPoints[i].x - px, trackPoints[i].y - py);
+                    if (dist < minDist) { minDist = dist; bestS = trackPoints[i].s; }
+                }
+                cart.s = bestS; const np = getPos(cart.s);
+                cart.x = np.x; cart.y = np.y; cart.theta = np.theta;
+                cart.v = 0; cart.a = 0; cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0;
+                draw(); 
+
+                tooltip.innerHTML = `
+                    <div class="font-bold text-amber-400 mb-1" style="border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:4px;">📍 拖曳滑車中</div>
+                    <div class="mt-1">水平 X: <span class="text-blue-200">${cart.x.toFixed(2)} m</span></div>
+                    <div>高度 Y: <span class="text-emerald-200">${cart.y.toFixed(2)} m</span></div>
+                `;
+                tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 40) + 'px'; tooltip.style.opacity = 1;
+                return;
+            }
+
+            if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
+                tooltip.innerHTML = `時間: ${timeElapsed.toFixed(2)}s<br>軌道_s: ${cart.state==='flying'?'拋體中':cart.s.toFixed(2)+'m'}<br>位置_X: ${cart.x.toFixed(2)}m<br>高度_Y: ${cart.y.toFixed(2)}m<br>速度: ${cart.v.toFixed(2)} m/s<br>加速度: ${cart.a.toFixed(2)} m/s²<br>動能: ${cart.K.toFixed(1)} J<br>位能: ${cart.U.toFixed(1)} J<br>推力: ${cart.F_thrust.toFixed(1)} N`;
+                tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 20) + 'px'; tooltip.style.opacity = 1;
+            } else {
+                tooltip.style.opacity = 0;
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            if (isDraggingCart) {
+                isDraggingCart = false;
+                canvas.classList.remove('cursor-grabbing'); canvas.classList.add('cursor-grab');
+                cart.U = params.mass * g * Math.max(0, cart.y);
+                cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
+
+                replayFrames.push({
+                    t: timeElapsed,
+                    s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
+                    v: cart.v, a: cart.a, K: cart.K, U: cart.U,
+                    Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
+                    state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust
+                });
+                replaySlider.max = replayFrames.length - 1;
+                replaySlider.value = replayFrames.length - 1;
+
+                broadcastStateToParent("放開了拖曳的滑車，設定了新位置", { "位置_s": cart.s.toFixed(2), "水平_X": cart.x.toFixed(2), "高度_Y": cart.y.toFixed(2) });
+            }
+        });
+        canvas.addEventListener('mouseleave', () => tooltip.style.opacity = 0);
+
+        function showFlyoutAlert() {
+            const el = document.createElement('div'); el.className = 'flyout-text'; el.textContent = '🚀 滑車衝出軌道！';
+            alertContainer.appendChild(el); setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
+        }
+
+        // ------------------ 回放時間軸邏輯 ------------------
+        replaySlider.addEventListener('input', (e) => {
+            if (replayFrames.length === 0) return;
+            
+            if (isRunning) {
+                isRunning = false;
+                updateBtnState();
+            }
+
+            let frameIdx = parseInt(e.target.value);
+            let frame = replayFrames[frameIdx];
+
+            timeElapsed = frame.t;
+            cart.s = frame.s; cart.x = frame.x; cart.y = frame.y; cart.theta = frame.theta;
+            cart.v = frame.v; cart.a = frame.a; cart.K = frame.K; cart.U = frame.U;
+            cart.Fg = frame.Fg; cart.Fn = frame.Fn; cart.Ff = frame.Ff; cart.Fnet = frame.Fnet;
+            cart.F_thrust = frame.F_thrust;
+            cart.state = frame.state; cart.E0 = frame.E0; cart.Wf = frame.Wf; cart.W_thrust = frame.W_thrust;
+
+            params.thrust = frame.F_thrust;
+            sliders.thrust.value = params.thrust;
+            labels.thrust.textContent = params.thrust.toFixed(1);
+
+            valReplayTime.textContent = timeElapsed.toFixed(2) + "s";
+            
+            turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
+            draw();
+        });
+
+        replaySlider.addEventListener('change', (e) => {
+            let frameIdx = parseInt(e.target.value);
+            if (frameIdx < replayFrames.length - 1) {
+                broadcastStateToParent("使用了時間軸重播實驗", { "跳轉至歷史時間點": timeElapsed.toFixed(2) + "s" });
+            }
+        });
+
+        // ------------------ 動態表單與圖表 ------------------
+        function renderTableColumnsUI() {
+            const container = document.getElementById('columnCheckboxes');
+            container.innerHTML = sysVars.filter(c => c.id !== 't').map(c => `
+                <label class="check-item">
+                    <input type="checkbox" value="${c.id}" ${c.showInTable ? 'checked' : ''} onchange="toggleTableCol('${c.id}')"> 
+                    <span style="color:${c.color}">${c.label}</span>
+                </label>
+            `).join('');
+        }
+
+        window.toggleTableCol = function(id) {
+            const col = sysVars.find(c => c.id === id);
+            if (col) {
+                col.showInTable = !col.showInTable;
+                if (!col.showInTable && chartYSelections.has(id)) {
+                    chartYSelections.delete(id);
+                }
+            }
+            renderTableColumnsUI();
+            renderTable();
+            renderChartYAxisUI();
+            updateChartConfig();
+            broadcastStateToParent(`改變了表格顯示欄位：${col.showInTable ? '顯示' : '隱藏'}了「${col.label}」`);
+        }
+
+        function renderChartYAxisUI() {
+            const availableVars = sysVars.filter(c => c.id !== 't' && c.showInTable);
+
+            if (availableVars.length === 0) {
+                yAxisSelectorsDiv.innerHTML = '<span class="text-slate-400 font-bold self-center mr-1 ml-2">請先勾選左側表格要紀錄的欄位，即可產生對應圖表</span>';
+                return;
+            }
+
+            yAxisSelectorsDiv.innerHTML = '<span class="text-slate-600 font-bold self-center mr-1">縱軸(Y) 勾選:</span>' + 
+                availableVars.map(c => `
+                <label class="check-item bg-white px-2 py-0.5 rounded border border-slate-200">
+                    <input type="checkbox" value="${c.id}" ${chartYSelections.has(c.id) ? 'checked' : ''} onchange="toggleChartY('${c.id}')"> 
+                    <span style="color:${c.color}">${c.label}</span>
+                </label>
+            `).join('');
+        }
+
+        window.toggleChartY = function(id) {
+            const colLabel = sysVars.find(v => v.id === id)?.label || id;
+            if (chartYSelections.has(id)) {
+                chartYSelections.delete(id);
+                broadcastStateToParent(`將圖表縱軸取消勾選了「${colLabel}」`);
+            } else {
+                chartYSelections.add(id);
+                broadcastStateToParent(`將圖表縱軸新增勾選了「${colLabel}」`);
+            }
+            updateChartConfig();
+            renderChartYAxisUI();
+        }
+
+        function initChart() {
+            const ctxC = document.getElementById('customChart').getContext('2d');
+            Chart.defaults.font.family = 'Inter';
+            activeChart = new Chart(ctxC, {
+                type: 'line',
+                data: { datasets: [] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: { 
+                        x: { type: 'linear', title: { display: true, text: '橫軸' } }, 
+                        y: { title: { display: true, text: '數值' } } 
+                    }
+                }
+            });
+            renderTableColumnsUI();
+            renderChartYAxisUI();
+            updateChartConfig();
+            renderTable();
+        }
+
+        function updateChartConfig() {
+            if (!activeChart) return;
+            const mode = chartModeSelect.value;
+            const xVar = chartXSelect.value;
+            const xDef = sysVars.find(v => v.id === xVar);
+            const trendType = trendlineTypeSelect.value;
+            
+            activeChart.options.scales.x.title.text = xDef ? xDef.label : 'X';
+            
+            let datasets = [];
+            let eqStrings = [];
+
+            if (mode === 'continuous') {
+                trendlineContainer.style.opacity = '0.5';
+                trendlineTypeSelect.disabled = true;
+            } else {
+                trendlineContainer.style.opacity = '1';
+                trendlineTypeSelect.disabled = false;
+            }
+
+            Array.from(chartYSelections).forEach(yId => {
+                const yDef = sysVars.find(v => v.id === yId);
+                if(!yDef) return;
+
+                let dataPoints = [];
+                
+                if (mode === 'custom') {
+                    records.forEach(rec => {
+                        let xv = rec[xVar];
+                        let yv = rec[yId];
+                        if (typeof xv === 'number' && typeof yv === 'number') {
+                            dataPoints.push({x: xv, y: yv});
+                        }
+                    });
+
+                    datasets.push({
+                        label: yDef.label,
+                        backgroundColor: yDef.color, 
+                        borderColor: yDef.color,
+                        data: dataPoints,
+                        borderWidth: 1,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        showLine: false, 
+                        tension: 0
+                    });
+
+                    if (trendType !== 'none' && dataPoints.length > 2) {
+                        let fit = getRegression(dataPoints, trendType, yDef.id, yDef.color);
+                        if (fit) {
+                            let minX = Math.min(...dataPoints.map(p => p.x));
+                            let maxX = Math.max(...dataPoints.map(p => p.x));
+                            let fitLine = [];
+                            for(let i=0; i<=50; i++) {
+                                let px = minX + (maxX - minX) * (i/50);
+                                fitLine.push({x: px, y: fit.fn(px)});
+                            }
+                            datasets.push({
+                                label: `${yDef.id} 擬合線`,
+                                data: fitLine,
+                                borderColor: yDef.color,
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                pointRadius: 0,
+                                fill: false,
+                                showLine: true
+                            });
+                            eqStrings.push(`<span style="color:${fit.color}; margin-right: 15px;">${fit.eqStr}</span>`);
+                        }
+                    }
+                } else {
+                    for (let i = 0; i < systemDataStore[xVar].length; i++) {
+                        let xv = systemDataStore[xVar][i];
+                        let yv = systemDataStore[yId][i];
+                        if (typeof xv === 'number' && typeof yv === 'number') {
+                            dataPoints.push({x: xv, y: yv});
+                        }
+                    }
+
+                    datasets.push({
+                        label: yDef.label,
+                        backgroundColor: yDef.color, 
+                        borderColor: yDef.color,
+                        data: dataPoints,
+                        borderWidth: 2,
+                        pointRadius: 0, 
+                        pointHitRadius: 5,
+                        showLine: true,
+                        tension: 0.1
+                    });
+                }
+            });
+
+            activeChart.data.datasets = datasets;
+            activeChart.update();
+
+            if (eqStrings.length > 0 && mode === 'custom') {
+                trendlineEqsDiv.innerHTML = eqStrings.join(' | ');
+                trendlineEqsDiv.classList.remove('hidden');
+            } else {
+                trendlineEqsDiv.classList.add('hidden');
+                trendlineEqsDiv.innerHTML = '';
+            }
+        }
+
+        chartModeSelect.addEventListener('change', (e) => {
+            const modeText = e.target.options[e.target.selectedIndex].text;
+            updateChartConfig();
+            broadcastStateToParent(`切換圖表模式為：「${modeText}」`);
+        });
+
+        chartXSelect.addEventListener('change', (e) => {
+            const xText = e.target.options[e.target.selectedIndex].text;
+            updateChartConfig();
+            broadcastStateToParent(`將圖表橫軸更改為：「${xText}」`);
+        });
+
+        trendlineTypeSelect.addEventListener('change', (e) => {
+            const trendText = e.target.options[e.target.selectedIndex].text;
+            updateChartConfig();
+            broadcastStateToParent(`更改了擬合線設定為：「${trendText}」`);
+        });
+
+        function recordToSystemData() {
+            if (!isRunning) return;
+            sysVars.forEach(v => {
+                let val = (v.id === 's' && cart.state === 'flying') ? null : v.get({
+                    t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust,
+                    K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet
+                });
+                systemDataStore[v.id].push(val);
+                if (systemDataStore[v.id].length > 1000) systemDataStore[v.id].shift();
+            });
+            if (chartModeSelect.value === 'continuous') {
+                updateChartConfig();
+            }
+        }
+
+        function addTableRecord() {
+            const rec = { id: Date.now() };
+            sysVars.forEach(v => {
+                let val = v.get({
+                    t: timeElapsed, s: cart.state==='flying' ? '拋體' : cart.s, 
+                    x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust,
+                    K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet
+                });
+                rec[v.id] = val;
+            });
+            records.push(rec);
+            
+            records.sort((a, b) => a.t - b.t);
+            
+            renderTable();
+            
+            if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
+            
+            // 整理完整的表格資料摘要 (送出最後一筆 + 全表概況)
+            const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
+            const latestDataString = activeTableCols.map(colName => {
+                const colId = sysVars.find(v => v.label === colName)?.id;
+                return `${colName}: ${typeof rec[colId] === 'number' ? rec[colId].toFixed(2) : rec[colId]}`;
+            }).join(" | ");
+
+            broadcastStateToParent("手動記錄了一筆實驗數據", {
+                "記錄時間": rec.t.toFixed(2),
+                "新增資料內容": latestDataString,
+                "表格全貌": `共 ${records.length} 筆資料`
+            });
+        }
+
+        function renderTable() {
+            const thead = document.getElementById('dataTableHead');
+            const tbody = document.getElementById('dataTableBody');
+            const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
+            
+            let headHtml = '<tr>';
+            activeCols.forEach(c => headHtml += `<th>${c.label}</th>`);
+            headHtml += '<th>操作</th></tr>';
+            thead.innerHTML = headHtml;
+
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 1}" class="text-center text-slate-400 py-6">點擊「記錄當下狀態」或在暫停時記錄。</td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = records.map(r => {
+                let rowHtml = '<tr>';
+                activeCols.forEach(c => {
+                    let displayVal = typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id];
+                    rowHtml += `<td class="font-mono">${displayVal}</td>`;
+                });
+                rowHtml += `<td><button class="row-delete-btn" onclick="deleteRecord(${r.id})">刪除</button></td></tr>`;
+                return rowHtml;
+            }).join('');
+        }
+        
+        window.deleteRecord = function(id) {
+            records = records.filter(r => r.id !== id);
+            renderTable();
+            if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
+            broadcastStateToParent("刪除了表格中的一筆歷史紀錄");
+        }
+
+        btnRecord.addEventListener('click', addTableRecord);
+        btnClearRecord.addEventListener('click', () => { 
+            records = []; 
+            renderTable(); 
+            if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
+            broadcastStateToParent("清空了數據表格");
+        });
+        
+        btnExport.addEventListener('click', () => {
+            if(records.length === 0) return alert("沒有數據可以下載！");
+            const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
+            let csv = activeCols.map(c => c.label).join(",") + "\n";
+            records.forEach(r => { 
+                csv += activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; 
+            });
+            
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = '伽利略斜面實驗數據.csv'; a.click();
+            broadcastStateToParent("下載了實驗數據 CSV 檔");
+        });
+
+        let dataUpdateTimer = 0;
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            if (isRunning) {
+                const safeDt = Math.min(dt, 0.033);
+                updatePhysics(safeDt);
+                timeElapsed += safeDt;
+                dataUpdateTimer += safeDt;
+
+                replayFrames.push({
+                    t: timeElapsed,
+                    s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
+                    v: cart.v, a: cart.a, K: cart.K, U: cart.U,
+                    Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
+                    state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust
+                });
+                replaySlider.max = replayFrames.length - 1;
+                replaySlider.value = replayFrames.length - 1;
+                valReplayTime.textContent = timeElapsed.toFixed(2) + "s";
+
+                if (dataUpdateTimer >= 0.1) {
+                    recordToSystemData();
+                    dataUpdateTimer = 0;
+                }
+
+                if (toggles.autoPause.checked && timeElapsed >= nextPauseTime) {
+                    isRunning = false;
+                    nextPauseTime += parseFloat(toggles.autoInterval.value);
+                    updateBtnState();
+                    broadcastStateToParent(`觸發定時暫停 (${timeElapsed.toFixed(2)}s)`);
+                    
+                    const el = document.createElement('div');
+                    el.className = 'absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-1 rounded-full font-bold shadow-md';
+                    el.textContent = '⏸ 時間暫停 (可移動滑鼠查看數據)';
+                    alertContainer.appendChild(el);
+                    setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 2000);
+                }
+            }
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        function applyParams() {
+            params.thetaL = parseFloat(sliders.thetaL.value) * Math.PI / 180;
+            params.thetaR = parseFloat(sliders.thetaR.value) * Math.PI / 180;
+            params.mass = parseFloat(sliders.mass.value);
+            params.thrust = parseFloat(sliders.thrust.value);
+
+            labels.thetaL.textContent = `${sliders.thetaL.value}°`;
+            labels.thetaR.textContent = `${sliders.thetaR.value}°`;
+            labels.mass.textContent = sliders.mass.value;
+            labels.thrust.textContent = params.thrust.toFixed(1);
+
+            updateTrackGeometry(); resize(); 
+        }
+
+        function resetSimulation() {
+            isRunning = false; timeElapsed = 0; dataUpdateTimer = 0;
+            applyParams();
+            
+            cart.state = 'running'; cart.s = 0; cart.v = 0; cart.a = 0;
+            const initPos = getPos(0);
+            cart.x = initPos.x; cart.y = initPos.y; cart.theta = initPos.theta;
+            cart.F_thrust = params.thrust;
+            
+            cart.U = params.mass * g * Math.max(0, cart.y); 
+            cart.K = 0;
+            cart.E0 = cart.U + cart.K;
+            cart.Wf = 0; cart.W_thrust = 0;
+
+            replayFrames = [{
+                t: timeElapsed,
+                s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
+                v: cart.v, a: cart.a, K: cart.K, U: cart.U,
+                Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
+                state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust
+            }];
+            replaySlider.max = 0;
+            replaySlider.value = 0;
+            valReplayTime.textContent = "0.00s";
+            turningPoints = [];
+
+            sysVars.forEach(v => systemDataStore[v.id] = []);
+            if(activeChart) updateChartConfig();
+            
+            nextPauseTime = toggles.autoPause.checked ? parseFloat(toggles.autoInterval.value) : Infinity;
+            updateBtnState(); draw();
+            
+            if (typeof isSimInitialized !== 'undefined' && isSimInitialized) {
+                broadcastStateToParent("重置了實驗環境", { "滑車質量": params.mass, "推力": params.thrust, "左斜角": sliders.thetaL.value, "右斜角": sliders.thetaR.value });
+            }
+        }
+
+        function updateBtnState() {
+            if (isRunning) {
+                btnStart.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>手動暫停</span>`;
+                btnStart.classList.replace('bg-blue-600', 'bg-amber-500'); btnStart.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
+            } else {
+                let text = cart.s === 0 && cart.state !== 'flying' ? '放開滑車' : '繼續播放';
+                if (cart.state === 'stopped' && cart.y < -1) text = '已落地 (請重置)';
+                
+                btnStart.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg><span>${text}</span>`;
+                btnStart.classList.replace('bg-amber-500', 'bg-blue-600'); btnStart.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
+                
+                if(cart.state === 'stopped' && cart.y < -1) {
+                    btnStart.disabled = true; btnStart.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    btnStart.disabled = false; btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+
+        window.addEventListener('resize', () => { resize(); draw(); });
+        
+        Object.values(sliders).forEach(slider => {
+            slider.addEventListener('change', () => {
+                if (!isRunning && (slider.id === 'leftAngleSlider' || slider.id === 'rightAngleSlider' || slider.id === 'massSlider')) {
+                    broadcastStateToParent(`在靜止狀態下調整了參數`, {
+                        "左斜角": sliders.thetaL.value + "°",
+                        "右斜角": sliders.thetaR.value + "°",
+                        "滑車質量": sliders.mass.value + " kg"
+                    });
+                }
+            });
+
+            slider.addEventListener('input', () => {
+                if(isRunning) {
+                    if(slider.id === 'thrustSlider') {
+                        params.thrust = parseFloat(slider.value);
+                        labels.thrust.textContent = params.thrust.toFixed(1);
+                    } else {
+                        resetSimulation();
+                    }
+                } else { 
+                    applyParams(); 
+                    if(cart.state === 'running' || cart.state === 'stopped') {
+                        if(cart.s > trackS.total) cart.s = trackS.total;
+                        const np = getPos(cart.s);
+                        cart.x = np.x; cart.y = np.y; cart.theta = np.theta;
+                        
+                        cart.U = params.mass * g * Math.max(0, cart.y);
+                        cart.E0 = cart.U + cart.K;
+                    }
+                    draw(); 
+                }
+            });
+        });
+        
+        sliders.thrust.addEventListener('change', () => {
+            broadcastStateToParent("調整了滑車推力", { "推力(N)": params.thrust.toFixed(1) });
+        });
+
+        document.getElementById('btnZeroThrust').addEventListener('click', () => {
+            sliders.thrust.value = 0;
+            params.thrust = 0;
+            labels.thrust.textContent = '0.0';
+            if (!isRunning) draw();
+            broadcastStateToParent("已將推力歸零");
+        });
+
+        btnStart.addEventListener('click', () => {
+            if (cart.state === 'stopped' && cart.y < -1) return; 
+            
+            isRunning = !isRunning;
+            if (isRunning) {
+                let currentIdx = parseInt(replaySlider.value);
+                if (currentIdx < replayFrames.length - 1) {
+                    replayFrames = replayFrames.slice(0, currentIdx + 1);
+                    
+                    for (let key in systemDataStore) {
+                        let validLen = 0;
+                        for (let i = 0; i < systemDataStore['t'].length; i++) {
+                            if (systemDataStore['t'][i] <= timeElapsed + 0.001) validLen++;
+                            else break;
+                        }
+                        systemDataStore[key] = systemDataStore[key].slice(0, validLen);
+                    }
+                    
+                    records = records.filter(r => r.t <= timeElapsed + 0.001);
+                    turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
+                    
+                    renderTable();
+                    if (activeChart) updateChartConfig();
+                    broadcastStateToParent("從重播點接續播放實驗，已抹除該點之後的未來紀錄");
+                }
+
+                lastTime = performance.now(); 
+                if (cart.state === 'stopped') cart.state = 'running'; 
+                broadcastStateToParent("點擊了繼續/播放按鈕");
+            } else { broadcastStateToParent("點擊了手動暫停按鈕"); }
+            updateBtnState();
+        });
+
+        btnReset.addEventListener('click', resetSimulation);
+
+        function showToast(msg, type='info') {
+            const el = document.createElement('div');
+            let bgClass = type === 'success' ? 'bg-emerald-500' : (type === 'warning' ? 'bg-orange-500' : 'bg-slate-800');
+            el.className = `absolute top-16 left-1/2 -translate-x-1/2 ${bgClass} text-white px-6 py-2 rounded-full font-bold shadow-lg z-50 transition-opacity duration-300`;
+            el.textContent = msg;
+            alertContainer.appendChild(el);
+            setTimeout(() => { 
+                el.style.opacity = '0';
+                setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+            }, 2500);
+        }
+
+        function applyFrictionChange() {
+            params.mu = Math.round(params.mu * 10) / 10; 
+            let text = "一般軌道";
+            let colorClass = "text-red-500 bg-red-50";
+            
+            if (params.mu <= 0) { text = "理想光滑 (無摩擦)"; colorClass = "text-amber-600 bg-amber-50"; }
+            else if (params.mu <= 0.1) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
+            else if (params.mu <= 0.2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
+            else if (params.mu <= 0.3) { text = "一般軌道"; colorClass = "text-red-500 bg-red-50"; }
+            else if (params.mu <= 0.4) { text = "略微粗糙"; colorClass = "text-orange-500 bg-orange-50"; }
+            else { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
+            
+            valFrictionText.textContent = text;
+            valFrictionText.className = `px-2 rounded font-bold ${colorClass}`;
+
+            if (isRunning) resetSimulation();
+            broadcastStateToParent(`將軌道表面狀態調整為: ${text}`);
+        }
+
+        btnSmoother.addEventListener('click', () => {
+            if (params.mu > 0.01) {
+                params.mu -= 0.1;
+                applyFrictionChange();
+            } else {
+                showToast("✨ 軌道已達「理想光滑」狀態，完全沒有摩擦力囉！", "success");
+            }
+        });
+
+        btnRougher.addEventListener('click', () => {
+            if (params.mu < 0.49) {
+                params.mu += 0.1;
+                applyFrictionChange();
+            } else {
+                showToast("🧱 軌道已經非常粗糙，滑車會很難移動喔！", "warning");
+            }
+        });
+
+        let isSimInitialized = false;
+
+        window.onload = () => {
+            initChart(); resize(); resetSimulation(); requestAnimationFrame(animate);
+            isSimInitialized = true;
+            
+            // 專為 AI 夥伴設計的開場白廣播
+            const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實驗室」！
+這是一個可以探索慣性、力學能守恆與牛頓第二定律的模擬環境。
+主要功能包含：
+1. 調整左/右斜面角度 (甚至能調成0度水平面)。
+2. 改變軌道摩擦力與滑車質量。
+3. 可即時施加「推力」當作火箭車實驗。
+4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
+5. 表格記錄下的數據可以繪製成「自訂散佈圖」，並利用內建的高斯消去法畫出一次或二次擬合線。
+學生可以透過這些功能來驗證物理定律！`;
+            
+            setTimeout(() => broadcastStateToParent(introMsg), 500);
+        };
+    </script>
+</body>
+</html>
