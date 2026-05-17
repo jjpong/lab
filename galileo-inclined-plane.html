@@ -274,7 +274,7 @@
                                 <span class="text-slate-600">橫軸(X):</span>
                                 <select id="chartX" class="bg-transparent font-bold outline-none cursor-pointer">
                                     <option value="t" selected>時間 (s)</option>
-                                    <option value="s">軌道弧長 (m)</option>
+                                    <option value="s">軌道位置 (m)</option>
                                     <option value="x">水平位置 X (m)</option>
                                     <option value="v">速度 (m/s)</option>
                                 </select>
@@ -374,6 +374,7 @@
                     "系統動作": actionName,
                     "實驗時間": timeElapsed.toFixed(3) + " s",
                     "滑車狀態": cart.state,
+                    "軌道位置_s": cart.s.toFixed(2) + " m",
                     "速度_v": cart.v.toFixed(2) + " m/s",
                     "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
                     "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
@@ -544,7 +545,7 @@
 
         const sysVars = [
             { id: 't', label: '時間(s)', color: '#475569', showInTable: false, get: r => r.t },
-            { id: 's', label: '弧長位置(m)', color: '#0ea5e9', showInTable: false, get: r => r.s },
+            { id: 's', label: '軌道位置(m)', color: '#0ea5e9', showInTable: false, get: r => r.s },
             { id: 'x', label: '水平 X(m)', color: '#0284c7', showInTable: false, get: r => r.x },
             { id: 'y', label: '高度 Y(m)', color: '#8b5cf6', showInTable: false, get: r => r.y },
             { id: 'v', label: '速度(m/s)', color: '#4f46e5', showInTable: false, get: r => r.v },
@@ -590,7 +591,7 @@
             return x; 
         }
 
-        // 新增 R^2 計算的迴歸分析引擎
+        // R^2 計算的迴歸分析引擎
         function getRegression(dataPoints, type, labelName, color) {
             if (dataPoints.length < 3) return null;
             let result = { type, fn: null, eqStr: '', color, labelName };
@@ -1042,7 +1043,7 @@
             }
 
             if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
-                tooltip.innerHTML = `時間: ${timeElapsed.toFixed(2)}s<br>軌道_s: ${cart.state==='flying'?'拋體中':cart.s.toFixed(2)+'m'}<br>位置_X: ${cart.x.toFixed(2)}m<br>高度_Y: ${cart.y.toFixed(2)}m<br>速度: ${cart.v.toFixed(2)} m/s<br>加速度: ${cart.a.toFixed(2)} m/s²<br>動能: ${cart.K.toFixed(1)} J<br>位能: ${cart.U.toFixed(1)} J<br>推力: ${cart.F_thrust.toFixed(1)} N`;
+                tooltip.innerHTML = `時間: ${timeElapsed.toFixed(2)}s<br>軌道位置: ${cart.state==='flying'?'拋體中':cart.s.toFixed(2)+'m'}<br>位置_X: ${cart.x.toFixed(2)}m<br>高度_Y: ${cart.y.toFixed(2)}m<br>速度: ${cart.v.toFixed(2)} m/s<br>加速度: ${cart.a.toFixed(2)} m/s²<br>動能: ${cart.K.toFixed(1)} J<br>位能: ${cart.U.toFixed(1)} J<br>推力: ${cart.F_thrust.toFixed(1)} N`;
                 tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 20) + 'px'; tooltip.style.opacity = 1;
             } else {
                 tooltip.style.opacity = 0;
@@ -1066,7 +1067,7 @@
                 replaySlider.max = replayFrames.length - 1;
                 replaySlider.value = replayFrames.length - 1;
 
-                broadcastStateToParent("放開了拖曳的滑車，設定了新位置", { "位置_s": cart.s.toFixed(2), "水平_X": cart.x.toFixed(2), "高度_Y": cart.y.toFixed(2) });
+                broadcastStateToParent("放開了拖曳的滑車，設定了新位置", { "軌道位置_s": cart.s.toFixed(2), "水平_X": cart.x.toFixed(2), "高度_Y": cart.y.toFixed(2) });
             }
         });
         canvas.addEventListener('mouseleave', () => tooltip.style.opacity = 0);
