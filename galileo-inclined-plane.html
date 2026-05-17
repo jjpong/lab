@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>伽利略理想斜面虛擬實驗</title>
+    <title>伽利略理想斜面與運動學實驗</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -299,6 +299,7 @@
                         <canvas id="customChart"></canvas>
                     </div>
 
+                    <!-- 擬合線方程式與R平方顯示區 -->
                     <div id="trendlineEqs" class="min-h-[24px] text-xs font-mono font-bold text-slate-700 bg-slate-100 p-2 rounded overflow-x-auto whitespace-nowrap hidden">
                     </div>
                 </div>
@@ -346,7 +347,7 @@
                         <li><b>自選紀錄欄位</b>：在表格上方打勾你要分析的物理量（如：速度、動能、總能...），它們才會出現在表格中，並作為圖表縱軸的選項。</li>
                         <li><b>實驗回放 (重播)</b>：左下角有一個「時間軸拉桿」。你可以隨時拖拉它回到過去的任何時間點查看狀態！<b>在歷史點按下「記錄當下狀態」一樣能把過去的數據存進表格！</b>如果倒轉後按下播放，未來的歷史紀錄會被抹除並重新開始。</li>
                         <li><b>自訂圖表與擬合線</b>：有兩種模式：
-                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫你算出趨勢方程式（例如驗證 $x \propto t^2$）！
+                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫你算出趨勢方程式以及 $R^2$ 決定係數！
                             <br>2. <b>完整關係圖 (連續線)</b>：系統會自動把整個實驗的過程畫成連續的曲線，方便老師教學講述。
                         </li>
                     </ul>
@@ -589,14 +590,22 @@
             return x; 
         }
 
+        // 新增 R^2 計算的迴歸分析引擎
         function getRegression(dataPoints, type, labelName, color) {
             if (dataPoints.length < 3) return null;
             let result = { type, fn: null, eqStr: '', color, labelName };
             
+            // 計算 Y 變異總和 (SS_tot) 供 R^2 使用
+            let n = 0, sY = 0;
+            dataPoints.forEach(p => { n++; sY += p.y; });
+            let meanY = sY / n;
+            let ssTot = 0;
+            dataPoints.forEach(p => { ssTot += Math.pow(p.y - meanY, 2); });
+
             if (type === 'linear') {
-                let n=0, sX=0, sY=0, sXY=0, sXX=0;
+                let sX = 0, sXY = 0, sXX = 0;
                 dataPoints.forEach(p => {
-                    n++; sX += p.x; sY += p.y; sXY += p.x*p.y; sXX += p.x*p.x;
+                    sX += p.x; sXY += p.x*p.y; sXX += p.x*p.x;
                 });
                 let denom = n * sXX - sX * sX;
                 if (Math.abs(denom) < 1e-10) return null;
@@ -607,11 +616,11 @@
                 result.eqStr = `${labelName} = ${a.toFixed(3)}x ${signB} ${Math.abs(b).toFixed(3)}`;
             } 
             else if (type === 'quadratic') {
-                let n=0, sX=0, sX2=0, sX3=0, sX4=0, sY=0, sXY=0, sX2Y=0;
+                let sX=0, sX2=0, sX3=0, sX4=0, sXY=0, sX2Y=0;
                 dataPoints.forEach(p => {
                     let vx2 = p.x * p.x;
-                    n++; sX += p.x; sX2 += vx2; sX3 += vx2*p.x; sX4 += vx2*vx2;
-                    sY += p.y; sXY += p.x*p.y; sX2Y += vx2*p.y;
+                    sX += p.x; sX2 += vx2; sX3 += vx2*p.x; sX4 += vx2*vx2;
+                    sXY += p.x*p.y; sX2Y += vx2*p.y;
                 });
                 let M = [[sX4, sX3, sX2], [sX3, sX2, sX], [sX2, sX, n]];
                 let V = [sX2Y, sXY, sY];
@@ -623,6 +632,16 @@
                 const signC = c >= 0 ? '+' : '-';
                 result.eqStr = `${labelName} = ${a.toFixed(3)}x² ${signB} ${Math.abs(b).toFixed(3)}x ${signC} ${Math.abs(c).toFixed(3)}`;
             }
+
+            // 計算 R^2 (決定係數)
+            let ssRes = 0;
+            dataPoints.forEach(p => {
+                ssRes += Math.pow(p.y - result.fn(p.x), 2);
+            });
+            let rSquared = ssTot === 0 ? 1 : 1 - (ssRes / ssTot);
+            rSquared = Math.max(0, Math.min(1, rSquared)); // 確保在 0~1 之間
+            result.eqStr += ` (R² = ${rSquared.toFixed(3)})`;
+
             return result;
         }
 
@@ -1326,7 +1345,6 @@
             
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
             
-            // 整理完整的表格資料摘要 (送出最後一筆 + 全表概況)
             const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
             const latestDataString = activeTableCols.map(colName => {
                 const colId = sysVars.find(v => v.label === colName)?.id;
@@ -1649,7 +1667,6 @@
             initChart(); resize(); resetSimulation(); requestAnimationFrame(animate);
             isSimInitialized = true;
             
-            // 專為 AI 夥伴設計的開場白廣播
             const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實驗室」！
 這是一個可以探索慣性、力學能守恆與牛頓第二定律的模擬環境。
 主要功能包含：
@@ -1657,7 +1674,7 @@
 2. 改變軌道摩擦力與滑車質量。
 3. 可即時施加「推力」當作火箭車實驗。
 4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
-5. 表格記錄下的數據可以繪製成「自訂散佈圖」，並利用內建的高斯消去法畫出一次或二次擬合線。
+5. 表格記錄下的數據可以繪製成「自訂散佈圖」，並利用內建的高斯消去法畫出一次或二次擬合線 (含 R平方值)。
 學生可以透過這些功能來驗證物理定律！`;
             
             setTimeout(() => broadcastStateToParent(introMsg), 500);
