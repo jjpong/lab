@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>伽利略理想斜面虛擬實驗</title>
+    <title>伽利略理想斜面與運動學實驗</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -99,7 +98,7 @@
         
         body.modal-open { overflow: hidden; }
 
-        /* 新增：組別與管理樣式 */
+        /* 組別與管理樣式 */
         .group-input-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .group-input-wrap label { font-weight: 800; color: #92400e; white-space: nowrap; font-size: 0.92rem; }
         .group-input-wrap input[type="text"] { flex: 1; min-width: 140px; border: 1px solid #fcd34d; border-radius: 8px; padding: 7px 10px; font-size: 0.92rem; background: #fff; }
@@ -124,7 +123,7 @@
 
     <header class="flex justify-between items-center shrink-0 max-w-[1600px] mx-auto w-full">
         <div class="text-left">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight mb-1">伽利略理想斜面與運動學實驗</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight mb-1">伽利略理想斜面虛擬實驗</h1>
             <p class="text-slate-600 font-medium">探索慣性、能量守恆、受力與運動軌跡</p>
         </div>
         <button id="btnHelp" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-xl border border-indigo-200 shadow-sm transition-colors flex items-center gap-2">
@@ -135,7 +134,6 @@
 
     <main class="flex flex-col xl:flex-row gap-5 flex-1 max-w-[1600px] mx-auto w-full">
         
-        <!-- 左側控制面板 -->
         <aside class="w-full xl:w-[320px] shrink-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-4">
             <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
@@ -171,7 +169,6 @@
                     <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
                 </div>
 
-                <!-- 滑車推進器 -->
                 <div class="bg-cyan-50 p-2.5 rounded-xl border border-cyan-100">
                     <label class="flex justify-between items-center text-sm font-semibold text-slate-700 mb-2">
                         <span class="text-cyan-800">🚀 滑車推力 (N)</span>
@@ -188,7 +185,6 @@
                     <p class="text-[11px] text-cyan-600 mt-1 leading-tight">正值往右推，負值往左推。播放中可像油門一樣即時調整！</p>
                 </div>
                 
-                <!-- 控制按鈕 -->
                 <div class="flex flex-col gap-2">
                     <button id="btnStart" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-all active:scale-95 flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
@@ -200,7 +196,6 @@
                     </button>
                 </div>
 
-                <!-- 實驗重播時間軸 -->
                 <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
                     <label class="flex items-center justify-between text-sm font-bold text-indigo-800 mb-1">
                         <span>⏪ 實驗重播</span>
@@ -209,7 +204,6 @@
                     <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="w-full">
                 </div>
 
-                <!-- 定時暫停設定 -->
                 <div class="p-2 bg-amber-50 border border-amber-200 rounded-xl">
                     <label class="flex items-center gap-2 text-sm font-bold text-amber-800 cursor-pointer">
                         <input type="checkbox" id="autoPauseToggle" class="w-4 h-4 accent-amber-600">
@@ -219,7 +213,6 @@
             </div>
         </aside>
 
-        <!-- 右側主要區域 -->
         <div class="w-full flex flex-col gap-5 min-w-0">
             
             <div class="relative w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" style="padding-top: 45%; min-height: 350px;">
@@ -248,7 +241,6 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 
-                <!-- 數據紀錄區 (左邊) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col">
                     <div class="flex items-center justify-between border-b pb-2 mb-3">
                         <h3 class="font-bold text-slate-800">📋 實驗數據紀錄表</h3>
@@ -262,7 +254,6 @@
                         </div>
                     </div>
 
-                    <!-- 分組與紀錄輸入區 (新增) -->
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex flex-col sm:flex-row gap-3 items-center">
                         <div class="group-input-wrap flex-1 w-full">
                             <label for="currentGroupInput">🏷️ 目前組別：</label>
@@ -287,7 +278,6 @@
                     </div>
                 </div>
 
-                <!-- 圖表區 (右邊) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3">
                     <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-3 mb-2 gap-3">
                         <h3 class="font-bold text-slate-800 text-lg flex items-center shrink-0">📊 自訂關係圖</h3>
@@ -322,18 +312,15 @@
                         </div>
                     </div>
 
-                    <!-- 組別顏色管理器 (新增) -->
                     <div class="group-manager hidden" id="groupManager"></div>
                     
                     <div class="flex flex-wrap gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100 min-h-[38px]" id="yAxisSelectors">
-                        <!-- 縱軸選項動態產生 -->
-                    </div>
+                        </div>
 
                     <div class="relative w-full h-[260px] mt-2">
                         <canvas id="customChart"></canvas>
                     </div>
 
-                    <!-- 擬合線方程式與R平方顯示區 -->
                     <div id="trendlineEqs" class="min-h-[24px] text-xs font-mono font-bold text-slate-700 bg-slate-100 p-2 rounded overflow-x-auto whitespace-nowrap hidden">
                     </div>
                 </div>
@@ -343,7 +330,6 @@
         </div>
     </main>
 
-    <!-- 操作說明 Modal -->
     <div id="helpModal" class="modal hidden" aria-hidden="true">
         <div class="modal-backdrop" id="helpBackdrop"></div>
         <div class="modal-card">
@@ -413,7 +399,7 @@
                 const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
                 
                 const payload = {
-                    "學生最後的動作": actionName,                    
+                    "學生最後的動作": actionName,
                     "實驗時間": timeElapsed.toFixed(3) + " s",
                     "滑車狀態": cart.state,
                     "軌道位置_s": cart.s.toFixed(2) + " m",
@@ -634,7 +620,7 @@
 
         // --- 分組管理函數 ---
         function assignGroupColor(groupName) {
-            if (!groupName || groupName === "") return "#94a3b8"; // 未分組預設灰
+            if (!groupName || groupName === "") return "#94a3b8"; 
             if (groupColors[groupName]) return groupColors[groupName];
             const usedColors = Object.values(groupColors);
             let picked = DEFAULT_COLORS.find(c => !usedColors.includes(c));
@@ -819,7 +805,7 @@
                 ssRes += Math.pow(p.y - result.fn(p.x), 2);
             });
             let rSquared = ssTot === 0 ? 1 : 1 - (ssRes / ssTot);
-            rSquared = Math.max(0, Math.min(1, rSquared)); // 確保在 0~1 之間
+            rSquared = Math.max(0, Math.min(1, rSquared)); 
             result.eqStr += ` (R² = ${rSquared.toFixed(3)})`;
 
             return result;
@@ -976,12 +962,21 @@
                         }
                     }
 
+                    // 👉 修正：當車子位置小於 0 時，改為向左拋體飛出，不再強制卡在起點
                     if (cart.s < 0) {
-                        cart.s = 0; cart.v = 0;
-                        cart.x = getPos(0).x; cart.y = getPos(0).y; cart.theta = getPos(0).theta;
+                        cart.state = 'flying'; 
+                        cart.vx = cart.v * Math.cos(cart.theta); 
+                        cart.vy = cart.v * Math.sin(cart.theta);
+                        showFlyoutAlert(); 
+                        broadcastStateToParent("滑車飛出軌道左側進入拋體運動！"); 
+                        break; 
                     } else if (cart.s > trackS.total) {
-                        cart.state = 'flying'; cart.vx = cart.v * Math.cos(cart.theta); cart.vy = cart.v * Math.sin(cart.theta);
-                        showFlyoutAlert(); broadcastStateToParent("滑車飛出軌道末端進入拋體運動！"); break; 
+                        cart.state = 'flying'; 
+                        cart.vx = cart.v * Math.cos(cart.theta); 
+                        cart.vy = cart.v * Math.sin(cart.theta);
+                        showFlyoutAlert(); 
+                        broadcastStateToParent("滑車飛出軌道右側末端進入拋體運動！"); 
+                        break; 
                     } else {
                         cart.U = params.mass * g * Math.max(0, cart.y);
                         let idealE = cart.E0 - cart.Wf + cart.W_thrust;
@@ -1389,7 +1384,6 @@
                 trendlineTypeSelect.disabled = false;
             }
 
-            // 分組數據結構建立
             const groupedRecords = {};
             records.forEach(rec => {
                 const g = (rec.group || "").trim() || "未分組";
@@ -1416,7 +1410,6 @@
                         if (dataPoints.length > 0) {
                             const isGrouped = gName !== "未分組";
                             const dsColor = isGrouped ? assignGroupColor(gName) : yDef.color;
-                            // 若有自訂組別名稱，圖例上標示「組別名稱 (物理量)」，否則單純標示物理量
                             const dsLabel = isGrouped ? `${gName} (${yDef.label})` : yDef.label;
 
                             datasets.push({
@@ -1577,7 +1570,6 @@
             tbody.innerHTML = records.map(r => {
                 let rowHtml = '<tr>';
                 
-                // 組別欄位
                 const groupVal = r.group || "";
                 const color = groupVal ? assignGroupColor(groupVal) : null;
                 const content = groupVal 
@@ -1585,7 +1577,6 @@
                     : `<span class="empty-group">—</span>`;
                 rowHtml += `<td class="editable-group" data-record-id="${r.id}">${content}</td>`;
 
-                // 其他數據欄位
                 activeCols.forEach(c => {
                     let displayVal = typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id];
                     rowHtml += `<td class="font-mono">${displayVal}</td>`;
@@ -1594,7 +1585,6 @@
                 return rowHtml;
             }).join('');
 
-            // 綁定編輯組別事件
             tbody.querySelectorAll('.editable-group').forEach(cell => {
                 cell.addEventListener('click', () => startEditGroupCell(cell));
             });
@@ -1765,6 +1755,7 @@
                     if(slider.id === 'thrustSlider') {
                         params.thrust = parseFloat(slider.value);
                         labels.thrust.textContent = params.thrust.toFixed(1);
+                        console.log("【廣播送到AI】實驗進行中即時調整推力", { "推力(N)": params.thrust.toFixed(1) });
                     } else {
                         resetSimulation();
                     }
@@ -1894,7 +1885,7 @@
 3. 可即時施加「推力」當作火箭車實驗。
 4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
 5. 可將數據「分組紀錄」，並在圖表上分組繪製「自訂散佈圖」，會自動幫各組畫出擬合線與 R平方值。
-學生可以透過這些功能來驗證物理定律！`;      
+學生可以透過這些功能來驗證物理定律！`;
             
             setTimeout(() => broadcastStateToParent(introMsg), 500);
         };
