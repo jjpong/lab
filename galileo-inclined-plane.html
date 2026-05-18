@@ -1840,10 +1840,10 @@
             let colorClass = "text-red-500 bg-red-50";
             
             if (params.mu <= 0) { text = "理想光滑 (無摩擦)"; colorClass = "text-amber-600 bg-amber-50"; }
-            else if (params.mu <= 0.1) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
-            else if (params.mu <= 0.2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
-            else if (params.mu <= 0.3) { text = "一般軌道"; colorClass = "text-red-500 bg-red-50"; }
-            else if (params.mu <= 0.4) { text = "略微粗糙"; colorClass = "text-orange-500 bg-orange-50"; }
+            else if (params.mu <= 0.02) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
+            else if (params.mu <= 0.1) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
+            else if (params.mu <= 0.5) { text = "一般軌道"; colorClass = "text-red-500 bg-red-50"; }
+            else if (params.mu <= 0.8) { text = "略微粗糙"; colorClass = "text-orange-500 bg-orange-50"; }
             else { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
             
             valFrictionText.textContent = text;
