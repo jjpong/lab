@@ -703,6 +703,15 @@
                     if (newValue !== oldValue) {
                         record.group = newValue;
                         if (newValue) assignGroupColor(newValue);
+                        
+                        // 🌟 修正：修改完組別後，也要讓表格立刻重新排序歸隊
+                        records.sort((a, b) => {
+                            const gA = (a.group || "").trim();
+                            const gB = (b.group || "").trim();
+                            if (gA !== gB) return gA.localeCompare(gB, 'zh-TW');
+                            return a.t - b.t;
+                        });
+                        
                         renderTable();
                         renderGroupManager();
                         if(activeChart && chartModeSelect.value === 'custom') updateChartConfig();
