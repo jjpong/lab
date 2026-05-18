@@ -1135,13 +1135,20 @@
             const offset = (cart.height / 2) + 0.08; 
             let carX = cart.x - offset * Math.sin(cart.theta); let carY = cart.y + offset * Math.cos(cart.theta);
 
-            ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
+ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
+            
+            // 加上一點陰影讓車子有立體感
             ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
-            ctx.fillStyle = cart.color; ctx.beginPath(); ctx.roundRect(-cw/2, -ch/2, cw, ch, 6); ctx.fill();
+            
+            // 🚗 畫上 Emoji 小車車！
+            // 根據原本車寬設定適當的字體大小 (乘以 1.4 倍比例看起來最剛好)
+            ctx.font = `${cw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 稍微把 Y 軸往上提一點點 (給個 -5 或依喜好微調)，讓輪子完美貼在軌道上
+            ctx.fillText("🚗", 0, - (ch * 0.15));
 
-            ctx.shadowColor = 'transparent'; ctx.fillStyle = '#1e293b'; const wheelR = 0.08 * scale;
-            ctx.beginPath(); ctx.arc(-cw/3, ch/2, wheelR, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(cw/3, ch/2, wheelR, 0, Math.PI*2); ctx.fill();
             ctx.restore();
 
             const screenCx = sx(carX); const screenCy = sy(carY);
