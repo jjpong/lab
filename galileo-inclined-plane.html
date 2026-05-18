@@ -117,6 +117,21 @@
         .editable-group .empty-group { color: #cbd5e1; font-style: italic; }
         .editable-group .group-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 800; color: #fff; font-size: 0.88rem; }
         .group-edit-input { width: 100%; border: 2px solid var(--primary); border-radius: 6px; padding: 4px 8px; font-size: 0.92rem; background: #fff; font-family: inherit; }
+
+        /* 🌟 新增：大本子收合動畫相關 CSS */
+        .data-panel-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
+            opacity: 0;
+        }
+        .data-panel-wrap.open .data-panel-content {
+            max-height: 2500px;
+            opacity: 1;
+        }
+        .data-panel-toggle {
+            transition: background-color 0.2s, color 0.2s;
+        }
     </style>
 </head>
 <body class="p-4 md:p-5 min-h-screen flex flex-col gap-5">
@@ -155,7 +170,7 @@
                 </div>
                 <div>
                     <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1.5">
-                        <span>軌道表面狀態</span><span id="valFrictionText" class="text-red-500 bg-red-50 px-2 rounded font-bold">一般軌道</span>
+                        <span>軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-2 rounded font-bold">一般軌道</span>
                     </label>
                     <div class="flex gap-2">
                         <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">✨ 變光滑</button>
@@ -239,92 +254,105 @@
                 <div id="hoverTooltip"></div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" id="dataPanelWrap">
+                <button type="button" class="w-full flex justify-between items-center p-4 bg-gradient-to-r from-slate-50 to-blue-50/20 hover:from-slate-100 hover:to-blue-100/30 text-slate-700 font-extrabold text-base transition-colors data-panel-toggle" id="dataPanelToggle">
+                    <span class="flex items-center gap-2">
+                        📊 <span id="dataPanelLabel">📈 打開實驗記錄簿（查看表格與數據圖表）</span>
+                    </span>
+                    <span id="dataPanelIcon" class="transform transition-transform duration-300 text-slate-400 text-xs">▼</span>
+                </button>
                 
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col">
-                    <div class="flex items-center justify-between border-b pb-2 mb-3">
-                        <h3 class="font-bold text-slate-800">📋 實驗數據紀錄表</h3>
-                        <div class="flex gap-2">
-                            <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-1 px-3 rounded transition-colors">
-                                清空
-                            </button>
-                            <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition-colors">
-                                💾 下載 CSV
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex flex-col sm:flex-row gap-3 items-center">
-                        <div class="group-input-wrap flex-1 w-full">
-                            <label for="currentGroupInput">🏷️ 目前組別：</label>
-                            <input type="text" id="currentGroupInput" placeholder="例：質量1kg組（可留空）" maxlength="20">
-                            <button type="button" class="bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded text-sm font-bold transition-colors" id="clearCurrentGroupBtn">清除</button>
-                        </div>
-                        <button id="btnRecord" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold py-2 px-4 rounded-lg shadow transition-colors whitespace-nowrap">
-                            ➕ 記錄當下狀態
-                        </button>
-                    </div>
-                    
-                    <div class="mb-3 text-sm border p-2 bg-slate-50 rounded-lg">
-                        <span class="text-slate-600 font-bold block mb-1">勾選要在表格與圖表顯示的欄位：</span>
-                        <div class="flex flex-wrap gap-x-4 gap-y-2" id="columnCheckboxes"></div>
-                    </div>
-
-                    <div class="table-wrap flex-1 max-h-[300px] overflow-y-auto">
-                        <table id="dataTable">
-                            <thead id="dataTableHead"></thead>
-                            <tbody id="dataTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3">
-                    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-3 mb-2 gap-3">
-                        <h3 class="font-bold text-slate-800 text-lg flex items-center shrink-0">📊 自訂關係圖</h3>
+                <div class="data-panel-content" id="dataPanelContent">
+                    <div class="p-4 flex flex-col gap-5 border-t border-slate-100">
                         
-                        <div class="flex flex-wrap gap-2 items-center text-sm font-medium">
-                            <div class="flex items-center gap-1 bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200">
-                                <span class="text-indigo-700">模式:</span>
-                                <select id="chartMode" class="bg-transparent font-bold outline-none cursor-pointer text-indigo-800">
-                                    <option value="custom" selected>自訂關係圖 (散佈點)</option>
-                                    <option value="continuous">完整關係圖 (連續線)</option>
-                                </select>
+                        <!-- 🌟 將紀錄列移入大本子內部，並加上專屬底色凸顯 -->
+                        <div class="bg-amber-50 rounded-xl border border-amber-200 p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
+                            <div class="group-input-wrap flex-1 w-full">
+                                <label for="currentGroupInput" class="text-amber-900">🏷️ 目前組別：</label>
+                                <input type="text" id="currentGroupInput" placeholder="例：質量1kg組（可留空）" maxlength="20">
+                                <button type="button" class="bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors" id="clearCurrentGroupBtn">清除</button>
                             </div>
-
-                            <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border">
-                                <span class="text-slate-600">橫軸(X):</span>
-                                <select id="chartX" class="bg-transparent font-bold outline-none cursor-pointer">
-                                    <option value="t" selected>時間 (s)</option>
-                                    <option value="s">軌道位置 (m)</option>
-                                    <option value="x">水平位置 X (m)</option>
-                                    <option value="v">速度 (m/s)</option>
-                                </select>
-                            </div>
-
-                            <div id="trendlineContainer" class="flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-opacity">
-                                <span class="text-amber-700">📈 擬合線:</span>
-                                <select id="trendlineType" class="bg-transparent font-bold outline-none cursor-pointer text-amber-800">
-                                    <option value="none" selected>關閉</option>
-                                    <option value="linear">線性一次 (y = ax+b)</option>
-                                    <option value="quadratic">拋物線二次 (y = ax²+bx+c)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="group-manager hidden" id="groupManager"></div>
-                    
-                    <div class="flex flex-wrap gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100 min-h-[38px]" id="yAxisSelectors">
+                            <button id="btnRecord" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center gap-2">
+                                ➕ 記錄當下狀態
+                            </button>
                         </div>
 
-                    <div class="relative w-full h-[260px] mt-2">
-                        <canvas id="customChart"></canvas>
-                    </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col">
+                                <div class="flex items-center justify-between border-b pb-2 mb-3">
+                                    <h3 class="font-bold text-slate-800">📋 實驗數據紀錄表</h3>
+                                    <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-1 px-3 rounded transition-colors">
+                                        清空
+                                    </button>
+                                    <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition-colors">
+                                        💾 下載 CSV
+                                    </button>
+                                </div>
+                                
+                                <div class="mb-3 text-sm border p-2 bg-slate-50 rounded-lg">
+                                    <span class="text-slate-600 font-bold block mb-1">勾選要在表格與圖表顯示的欄位：</span>
+                                    <div class="flex flex-wrap gap-x-4 gap-y-2" id="columnCheckboxes"></div>
+                                </div>
 
-                    <div id="trendlineEqs" class="min-h-[24px] text-xs font-mono font-bold text-slate-700 bg-slate-100 p-2 rounded overflow-x-auto whitespace-nowrap hidden">
+                                <div class="table-wrap flex-1 max-h-[300px] overflow-y-auto">
+                                    <table id="dataTable">
+                                        <thead id="dataTableHead"></thead>
+                                        <tbody id="dataTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-3">
+                                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-3 mb-2 gap-3">
+                                    <h3 class="font-bold text-slate-800 text-lg flex items-center shrink-0">📊 自訂關係圖</h3>
+                                    
+                                    <div class="flex flex-wrap gap-2 items-center text-sm font-medium">
+                                        <div class="flex items-center gap-1 bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200">
+                                            <span class="text-indigo-700">模式:</span>
+                                            <select id="chartMode" class="bg-transparent font-bold outline-none cursor-pointer text-indigo-800">
+                                                <option value="custom" selected>自訂關係圖 (散佈點)</option>
+                                                <option value="continuous">完整關係圖 (連續線)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border">
+                                            <span class="text-slate-600">橫軸(X):</span>
+                                            <select id="chartX" class="bg-transparent font-bold outline-none cursor-pointer">
+                                                <option value="t" selected>時間 (s)</option>
+                                                <option value="s">軌道位置 (m)</option>
+                                                <option value="x">水平位置 X (m)</option>
+                                                <option value="v">速度 (m/s)</option>
+                                            </select>
+                                        </div>
+
+                                        <div id="trendlineContainer" class="flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-opacity">
+                                            <span class="text-amber-700">📈 擬合線:</span>
+                                            <select id="trendlineType" class="bg-transparent font-bold outline-none cursor-pointer text-amber-800">
+                                                <option value="none" selected>關閉</option>
+                                                <option value="linear">線性一次 (y = ax+b)</option>
+                                                <option value="quadratic">拋物線二次 (y = ax²+bx+c)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="group-manager hidden" id="groupManager"></div>
+                                
+                                <div class="flex flex-wrap gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100 min-h-[38px]" id="yAxisSelectors">
+                                </div>
+
+                                <div class="relative w-full h-[260px] mt-2">
+                                    <canvas id="customChart"></canvas>
+                                </div>
+
+                                <div id="trendlineEqs" class="min-h-[24px] text-xs font-mono font-bold text-slate-700 bg-slate-100 p-2 rounded overflow-x-auto whitespace-nowrap hidden">
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
-
             </div>
             
         </div>
@@ -356,9 +384,9 @@
                 <div class="help-block">
                     <h3>⚙️ 實驗參數與控制</h3>
                     <ul>
-                        <li><b>斜面角度與摩擦力</b>：左側斜面甚至可以調整為 0°（水平直線），這非常適合搭配推力來做 F=ma 的驗證實驗！點擊「✨ 變光滑 / 🧱 變粗糙」可以調整摩擦係數。</li>
+                        <li><b>斜面角度與摩擦力</b>：左側斜面甚至可以調整為 0°（水平直線），這非常適合搭配推力來做 $F=ma$ 的驗證實驗！點擊「✨ 變光滑 / 🧱 變粗糙」可以調整摩擦係數。</li>
                         <li><b>滑車推進器</b>：可以為滑車施加額外的定力（正值向右、負值向左）。<b>即使在播放中，你也可以像踩油門一樣即時拉動拉桿</b>來改變推力。</li>
-                        <li><b>定時自動暫停</b>：若勾選，系統會每隔固定時間（例如 0.1 秒）自動暫停。你可以在暫停時把滑鼠移到車上並按下「記錄當下狀態」按鈕。</li>
+                        <li><b>定時自動暫停</b>：若勾選，系統會每隔固定時間（例如 0.1秒）自動暫停。你可以在暫停時把滑鼠移到車上並按下「記錄當下狀態」按鈕。</li>
                     </ul>
                 </div>
                 <div class="help-block">
@@ -367,7 +395,7 @@
                         <li><b>分組紀錄</b>：在「目前組別」輸入框打字（如「1kg組」）再按紀錄，即可將數據歸類。表格內也可直接點擊組別名稱快速修改。統計圖會自動將不同組別以不同顏色繪製！</li>
                         <li><b>實驗回放 (重播)</b>：左下角有一個「時間軸拉桿」。你可以隨時拖拉它回到過去的任何時間點查看狀態！<b>在歷史點按下「記錄當下狀態」一樣能把過去的數據存進表格！</b>如果倒轉後按下播放，未來的歷史紀錄會被抹除並重新開始。</li>
                         <li><b>自訂圖表與擬合線</b>：有兩種模式：
-                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫每組數據算出趨勢方程式以及 R^2 決定係數！
+                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫每組數據算出趨勢方程式以及 $R^2$ 決定係數！
                             <br>2. <b>完整關係圖 (連續線)</b>：系統會自動把整個實驗的過程畫成連續的曲線，方便老師教學講述。
                         </li>
                     </ul>
@@ -380,7 +408,6 @@
         function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
         function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
 
-        // --- 全域變數：群組管理 ---
         let currentGroupName = "";
         let groupColors = {};
         const DEFAULT_COLORS = ["#d9485f", "#2d6cdf", "#1f9d61", "#d97706", "#8b5cf6", "#0891b2", "#db2777", "#65a30d", "#dc2626", "#9333ea", "#0d9488", "#ea580c"];
@@ -477,6 +504,12 @@
         const vectorPanelContent = document.getElementById('vectorPanelContent');
         const vectorPanelIcon = document.getElementById('vectorPanelIcon');
 
+        // 🌟 新增：摺疊大本子對應的 DOM 元素
+        const dataPanelWrap = document.getElementById('dataPanelWrap');
+        const dataPanelToggle = document.getElementById('dataPanelToggle');
+        const dataPanelLabel = document.getElementById('dataPanelLabel');
+        const dataPanelIcon = document.getElementById('dataPanelIcon');
+
         // Modal 相關元素
         const btnHelp = document.getElementById('btnHelp');
         const helpModal = document.getElementById('helpModal');
@@ -552,7 +585,7 @@
                 vectorPanelIcon.style.transform = 'rotate(-90deg)';
                 vectorPanelHeader.classList.replace('rounded-t-lg', 'rounded-lg');
                 vectorPanelHeader.classList.remove('border-b');
-                broadcastStateToParent("收合了「顯示物理量向量」面板");
+                broadcastStateToParent("收合了「顯示物理量向量’」面板");
             }
         });
 
@@ -561,10 +594,14 @@
         let cx = 0, cy = 0; 
         let startXOffset = 0; 
         
+        // 🌟 陣列檔位設計與初始引索
+        const frictionLevels = [0.0, 0.02, 0.1, 0.2, 0.5];
+        let currentFrictionIndex = 3; // 預設指向 0.2 
+
         let params = {
             thetaL: 30 * Math.PI / 180,
             thetaR: 30 * Math.PI / 180,
-            mu: 0.2,
+            mu: 0.2, 
             mass: 1.0,
             thrust: 0.0,
             R: 1.0,
@@ -704,7 +741,7 @@
                         record.group = newValue;
                         if (newValue) assignGroupColor(newValue);
                         
-                        // 🌟 修正：修改完組別後，也要讓表格立刻重新排序歸隊
+                        // 🌟 先組別排序，後時間排序
                         records.sort((a, b) => {
                             const gA = (a.group || "").trim();
                             const gB = (b.group || "").trim();
@@ -718,11 +755,11 @@
                         
                         if (isSimInitialized) {
                             if (oldValue === "" && newValue !== "") {
-                                broadcastStateToParent(`在表格中將一筆紀錄歸類到「${newValue}」組`);
+                                broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄歸類到「${newValue}」組`);
                             } else if (newValue === "") {
-                                broadcastStateToParent(`在表格中將一筆紀錄從「${oldValue}」組改為未分組`);
+                                broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄從「${oldValue}」組改為未分組`);
                             } else {
-                                broadcastStateToParent(`在表格中將一筆紀錄從「${oldValue}」改為「${newValue}」組`);
+                                broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄從「${oldValue}」改為「${newValue}」組`);
                             }
                         }
                     } else {
@@ -765,12 +802,10 @@
             return x; 
         }
 
-        // R^2 計算的迴歸分析引擎
         function getRegression(dataPoints, type, labelName, color) {
             if (dataPoints.length < 3) return null;
             let result = { type, fn: null, eqStr: '', color, labelName };
             
-            // 計算 Y 變異總和 (SS_tot) 供 R^2 使用
             let n = 0, sY = 0;
             dataPoints.forEach(p => { n++; sY += p.y; });
             let meanY = sY / n;
@@ -808,7 +843,6 @@
                 result.eqStr = `${labelName} = ${a.toFixed(3)}x² ${signB} ${Math.abs(b).toFixed(3)}x ${signC} ${Math.abs(c).toFixed(3)}`;
             }
 
-            // 計算 R^2 (決定係數)
             let ssRes = 0;
             dataPoints.forEach(p => {
                 ssRes += Math.pow(p.y - result.fn(p.x), 2);
@@ -971,7 +1005,6 @@
                         }
                     }
 
-                    // 👉 修正：當車子位置小於 0 時，改為向左拋體飛出，不再強制卡在起點
                     if (cart.s < 0) {
                         cart.state = 'flying'; 
                         cart.vx = cart.v * Math.cos(cart.theta); 
@@ -1134,23 +1167,16 @@
             const cw = cart.width * scale; const ch = cart.height * scale;
             const offset = (cart.height / 2) + 0.08; 
             let carX = cart.x - offset * Math.sin(cart.theta); let carY = cart.y + offset * Math.cos(cart.theta);
+
             ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
-            
-            // 加上一點陰影讓車子有立體感
             ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
             
-            // 🚗 畫上 Emoji 小車車！
+            // 🌟 物理嚴謹剛體版：固定翻轉 Emoji 讓車頭朝右，後退時呈現自然物理負向
             ctx.font = `${cw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
-            // 🌟 物理嚴謹版：拔掉自動轉向，固定翻轉讓車頭朝右 (因為通常從左斜面出發)
-            // 這樣盪回來的時候就會真實呈現「倒退嚕」的物理現象！
             ctx.scale(-1, 1);
-            
-            // 稍微把 Y 軸往上提一點點，讓輪子完美貼在軌道上
             ctx.fillText("🚗", 0, - (ch * 0.15));
-
             ctx.restore();
 
             const screenCx = sx(carX); const screenCy = sy(carY);
@@ -1548,16 +1574,13 @@
                 });
                 rec[v.id] = val;
             });
-records.push(rec);
+            records.push(rec);
             
-            // 🌟 修正：先用組別名稱排序，同組別才用時間排序
+            // 🌟 排序邏輯優化
             records.sort((a, b) => {
                 const gA = (a.group || "").trim();
                 const gB = (b.group || "").trim();
-                if (gA !== gB) {
-                    // 使用 localeCompare 讓中文名稱（如 A組、B組）也能正確排序
-                    return gA.localeCompare(gB, 'zh-TW'); 
-                }
+                if (gA !== gB) return gA.localeCompare(gB, 'zh-TW');
                 return a.t - b.t;
             });
             
@@ -1590,7 +1613,7 @@ records.push(rec);
             thead.innerHTML = headHtml;
 
             if (records.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊「記錄當下狀態」或在暫停時記錄。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊上方「記錄當下狀態」來收集實驗數據。</td></tr>`;
                 return;
             }
             
@@ -1861,18 +1884,13 @@ records.push(rec);
             }, 2500);
         }
 
-// 🌟 定義 5 個檔位的摩擦係數
-        const frictionLevels = [0.0, 0.02, 0.08, 0.2, 0.5];
-        let currentFrictionIndex = 3; // 預設指向 0.2 的位置 (第 4 個元素)
-
         function applyFrictionChange() {
             params.mu = frictionLevels[currentFrictionIndex]; 
             let text = "一般軌道";
             let colorClass = "text-blue-500 bg-blue-50";
             
-            // 根據目前 index 對應專屬文字與顏色
-            if (currentFrictionIndex === 0) { text = "理想光滑"; colorClass = "text-amber-600 bg-amber-50"; }
-            else if (currentFrictionIndex === 1) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
+            if (currentFrictionIndex === 0) { text = "理想光滑 (無摩擦)"; colorClass = "text-amber-600 bg-amber-50"; }
+            else if (currentFrictionIndex === 1) { text = "非常光滑 (差一點點)"; colorClass = "text-emerald-600 bg-emerald-50"; }
             else if (currentFrictionIndex === 2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
             else if (currentFrictionIndex === 3) { text = "一般軌道"; colorClass = "text-blue-500 bg-blue-50"; }
             else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
@@ -1902,6 +1920,24 @@ records.push(rec);
             }
         });
 
+        // 🌟 新增：實驗紀錄大本子的摺疊切換監聽器
+        dataPanelToggle.addEventListener('click', () => {
+            const isOpen = dataPanelWrap.classList.toggle('open');
+            dataPanelLabel.textContent = isOpen ? "📈 收合實驗記錄簿" : "📈 打開實驗記錄簿（查看表格與數據圖表）";
+            dataPanelIcon.style.transform = isOpen ? "rotate(180deg)" : "rotate(0deg)";
+            
+            if (isSimInitialized) {
+                broadcastStateToParent(isOpen ? "展開了底部數據面板，準備查看實驗數據與統計圖" : "收合了底部數據面板，回到實驗操作模式");
+            }
+
+            // 防錯：當容器展開時，強制驅動 Chart.js 重新計算寬度，防止排版縮小
+            if (isOpen && activeChart) {
+                setTimeout(() => {
+                    activeChart.resize();
+                }, 410);
+            }
+        });
+
         let isSimInitialized = false;
 
         window.onload = () => {
@@ -1915,7 +1951,7 @@ records.push(rec);
 2. 改變軌道摩擦力與滑車質量。
 3. 可即時施加「推力」當作火箭車實驗。
 4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
-5. 可將數據「分組紀錄」，並在圖表上分組繪製「自訂散佈圖」，會自動幫各組畫出擬合線與 R平方值。
+5. 數據紀錄表與自訂圖表被妥善整合在底部的「實驗記錄簿」中，您可以隨時點選標頭展開或收合它。
 學生可以透過這些功能來驗證物理定律！`;
             
             setTimeout(() => broadcastStateToParent(introMsg), 500);
