@@ -1141,12 +1141,22 @@ ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta);
             ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
             
             // 🚗 畫上 Emoji 小車車！
-            // 根據原本車寬設定適當的字體大小 (乘以 1.4 倍比例看起來最剛好)
             ctx.font = `${cw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // 稍微把 Y 軸往上提一點點 (給個 -5 或依喜好微調)，讓輪子完美貼在軌道上
+            // 🌟 加入「動態自動轉向」邏輯
+            // 根據速度 (cart.v) 判斷方向。因為 🚗 預設朝左，所以 scaleX 為 -1 時會翻轉朝右
+            if (cart.v > 0.01) cart.faceDir = -1;       // 往右開，翻轉車頭朝右
+            else if (cart.v < -0.01) cart.faceDir = 1;  // 往左開，恢復車頭朝左
+            
+            // 靜止或剛載入時，預設讓它朝右
+            if (typeof cart.faceDir === 'undefined') cart.faceDir = -1;
+
+            // 利用畫布縮放 (scale) 來水平翻轉 Emoji
+            ctx.scale(cart.faceDir, 1);
+            
+            // 稍微把 Y 軸往上提一點點，讓輪子完美貼在軌道上
             ctx.fillText("🚗", 0, - (ch * 0.15));
 
             ctx.restore();
