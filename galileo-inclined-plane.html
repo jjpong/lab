@@ -411,7 +411,7 @@
                 const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
                 
                 const payload = {
-                    "系統動作": actionName,
+                    "學生最後的動作": actionName,                    
                     "實驗時間": timeElapsed.toFixed(3) + " s",
                     "滑車狀態": cart.state,
                     "軌道位置_s": cart.s.toFixed(2) + " m",
@@ -1892,9 +1892,7 @@
 3. 可即時施加「推力」當作火箭車實驗。
 4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
 5. 可將數據「分組紀錄」，並在圖表上分組繪製「自訂散佈圖」，會自動幫各組畫出擬合線與 R平方值。
-學生可以透過這些功能來驗證物理定律！`;
-            broadcastStateToParent(introMsg);
-      
+學生可以透過這些功能來驗證物理定律！`;      
             
             setTimeout(() => broadcastStateToParent(introMsg), 500);
         };
