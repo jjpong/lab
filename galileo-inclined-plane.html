@@ -118,14 +118,14 @@
         .editable-group .group-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 800; color: #fff; font-size: 0.88rem; }
         .group-edit-input { width: 100%; border: 2px solid var(--primary); border-radius: 6px; padding: 4px 8px; font-size: 0.92rem; background: #fff; font-family: inherit; }
 
-        /* 🌟 大本子收合動畫相關 CSS */
+        /* 🌟 大本子收合動畫相關 CSS (已修正 ID 選擇器) */
         .data-panel-content {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
             opacity: 0;
         }
-        .data-panel-wrap.open .data-panel-content {
+        #dataPanelWrap.open .data-panel-content {
             max-height: 2500px;
             opacity: 1;
         }
@@ -505,7 +505,7 @@
         const vectorPanelContent = document.getElementById('vectorPanelContent');
         const vectorPanelIcon = document.getElementById('vectorPanelIcon');
 
-        // 🌟 新增：摺疊大本子對應的 DOM 元素
+        // 🌟 摺疊大本子對應的 DOM 元素
         const dataPanelWrap = document.getElementById('dataPanelWrap');
         const dataPanelToggle = document.getElementById('dataPanelToggle');
         const dataPanelLabel = document.getElementById('dataPanelLabel');
