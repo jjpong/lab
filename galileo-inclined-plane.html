@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>伽利略理想斜面與運動學實驗</title>
+    <title>伽利略理想斜面與運動學實驗o</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -148,41 +148,50 @@
     </header>
 
     <main class="flex flex-col xl:flex-row gap-5 flex-1 max-w-[1600px] mx-auto w-full">
-            <aside class="w-full xl:w-[320px] shrink-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-2">
+<aside class="w-full xl:w-[320px] shrink-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-4">
             <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                 實驗參數設定
             </h2>
 
-            <div class="flex flex-col justify-between flex-1 gap-3">
-                <div>
-                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                        <span>左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-2 rounded">30°</span>
-                    </label>
-                    <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
-                </div>
-                <div>
-                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                        <span>右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-2 rounded">30°</span>
-                    </label>
-                    <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
-                </div>
-                <div>
-                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1.5">
-                        <span>軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-2 rounded font-bold">一般軌道</span>
-                    </label>
-                    <div class="flex gap-2">
-                        <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">✨ 變光滑</button>
-                        <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">🧱 變粗糙</button>
+            <!-- 加上 justify-between 與 flex-1 讓四大區塊均勻撐滿垂直空間 -->
+            <div class="flex flex-col justify-between flex-1 gap-2">
+                
+                <!-- 【區塊 1】基本軌道與滑車參數 -->
+                <div class="flex flex-col gap-3">
+                    <div>
+                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                            <span>左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-2 rounded">30°</span>
+                        </label>
+                        <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
+                    </div>
+                    <div>
+                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                            <span>右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-2 rounded">30°</span>
+                        </label>
+                        <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
+                    </div>
+                    <div>
+                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1.5">
+                            <span>軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-2 rounded font-bold">一般軌道</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">✨ 變光滑</button>
+                            <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">🧱 變粗糙</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
+                            <span>滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-2 rounded">1.0</span>
+                        </label>
+                        <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
                     </div>
                 </div>
-                <div>
-                    <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                        <span>滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-2 rounded">1.0</span>
-                    </label>
-                    <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
-                </div>
 
+                <!-- 🔗 質感細橫線分隔 -->
+                <hr class="border-slate-100 my-1">
+
+                <!-- 【區塊 2】火箭推力 -->
                 <div class="bg-cyan-50 p-2.5 rounded-xl border border-cyan-100">
                     <label class="flex justify-between items-center text-sm font-semibold text-slate-700 mb-2">
                         <span class="text-cyan-800">🚀 滑車推力 (N)</span>
@@ -197,7 +206,11 @@
                         <span class="text-xs text-cyan-600 font-bold">+10</span>
                     </div>
                 </div>
+
+                <!-- 🔗 質感細橫線分隔 -->
+                <hr class="border-slate-100 my-1">
                 
+                <!-- 【區塊 3】主要操作按鈕 (恢復間距與胖胖按鈕) -->
                 <div class="flex gap-3">
                     <button id="btnStart" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-all active:scale-95 flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
@@ -209,19 +222,25 @@
                     </button>
                 </div>
 
-                <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
-                    <label class="flex items-center justify-between text-sm font-bold text-indigo-800 mb-1">
-                        <span>⏪ 實驗重播</span>
-                        <span id="valReplayTime" class="font-mono bg-white px-2 py-0.5 rounded border border-indigo-200 text-xs">0.00s</span>
-                    </label>
-                    <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="w-full">
-                </div>
+                <!-- 🔗 質感細橫線分隔 -->
+                <hr class="border-slate-100 my-1">
 
-                <div class="p-2 bg-amber-50 border border-amber-200 rounded-xl">
-                    <label class="flex items-center gap-2 text-sm font-bold text-amber-800 cursor-pointer">
-                        <input type="checkbox" id="autoPauseToggle" class="w-4 h-4 accent-amber-600">
-                        自動暫停(每 <input type="number" id="autoPauseInterval" value="0.1" step="0.05" min="0.05" max="2.0" class="w-12 px-1 rounded border border-amber-300 text-center font-mono text-xs"> s)
-                    </label>
+                <!-- 【區塊 4】時間與重播系統 -->
+                <div class="flex flex-col gap-3">
+                    <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
+                        <label class="flex items-center justify-between text-sm font-bold text-indigo-800 mb-1">
+                            <span>⏪ 實驗重播</span>
+                            <span id="valReplayTime" class="font-mono bg-white px-2 py-0.5 rounded border border-indigo-200 text-xs">0.00s</span>
+                        </label>
+                        <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="w-full">
+                    </div>
+
+                    <div class="p-2 bg-amber-50 border border-amber-200 rounded-xl">
+                        <label class="flex items-center gap-2 text-sm font-bold text-amber-800 cursor-pointer">
+                            <input type="checkbox" id="autoPauseToggle" class="w-4 h-4 accent-amber-600">
+                            自動暫停(每 <input type="number" id="autoPauseInterval" value="0.1" step="0.05" min="0.05" max="2.0" class="w-12 px-1 rounded border border-amber-300 text-center font-mono text-xs"> s)
+                        </label>
+                    </div>
                 </div>
             </div>
         </aside>
