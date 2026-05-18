@@ -1835,7 +1835,7 @@
         }
 
 // 🌟 定義 5 個檔位的摩擦係數
-        const frictionLevels = [0.0, 0.02, 0.1, 0.2, 0.5];
+        const frictionLevels = [0.0, 0.02, 0.08, 0.2, 0.5];
         let currentFrictionIndex = 3; // 預設指向 0.2 的位置 (第 4 個元素)
 
         function applyFrictionChange() {
@@ -1844,8 +1844,8 @@
             let colorClass = "text-blue-500 bg-blue-50";
             
             // 根據目前 index 對應專屬文字與顏色
-            if (currentFrictionIndex === 0) { text = "理想光滑 (無摩擦)"; colorClass = "text-amber-600 bg-amber-50"; }
-            else if (currentFrictionIndex === 1) { text = "非常光滑 (差一點點)"; colorClass = "text-emerald-600 bg-emerald-50"; }
+            if (currentFrictionIndex === 0) { text = "理想光滑"; colorClass = "text-amber-600 bg-amber-50"; }
+            else if (currentFrictionIndex === 1) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
             else if (currentFrictionIndex === 2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
             else if (currentFrictionIndex === 3) { text = "一般軌道"; colorClass = "text-blue-500 bg-blue-50"; }
             else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
