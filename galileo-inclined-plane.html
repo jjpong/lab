@@ -564,7 +564,7 @@
         let params = {
             thetaL: 30 * Math.PI / 180,
             thetaR: 30 * Math.PI / 180,
-            mu: 0.3,
+            mu: 0.2,
             mass: 1.0,
             thrust: 0.0,
             R: 1.0,
@@ -1834,17 +1834,21 @@
             }, 2500);
         }
 
+// 🌟 定義 5 個檔位的摩擦係數
+        const frictionLevels = [0.0, 0.02, 0.1, 0.2, 0.5];
+        let currentFrictionIndex = 3; // 預設指向 0.2 的位置 (第 4 個元素)
+
         function applyFrictionChange() {
-            params.mu = Math.round(params.mu * 10) / 10; 
+            params.mu = frictionLevels[currentFrictionIndex]; 
             let text = "一般軌道";
-            let colorClass = "text-red-500 bg-red-50";
+            let colorClass = "text-blue-500 bg-blue-50";
             
-            if (params.mu <= 0) { text = "理想光滑 (無摩擦)"; colorClass = "text-amber-600 bg-amber-50"; }
-            else if (params.mu <= 0.02) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
-            else if (params.mu <= 0.1) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
-            else if (params.mu <= 0.5) { text = "一般軌道"; colorClass = "text-red-500 bg-red-50"; }
-            else if (params.mu <= 0.8) { text = "略微粗糙"; colorClass = "text-orange-500 bg-orange-50"; }
-            else { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
+            // 根據目前 index 對應專屬文字與顏色
+            if (currentFrictionIndex === 0) { text = "理想光滑 (無摩擦)"; colorClass = "text-amber-600 bg-amber-50"; }
+            else if (currentFrictionIndex === 1) { text = "非常光滑 (差一點點)"; colorClass = "text-emerald-600 bg-emerald-50"; }
+            else if (currentFrictionIndex === 2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
+            else if (currentFrictionIndex === 3) { text = "一般軌道"; colorClass = "text-blue-500 bg-blue-50"; }
+            else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
             
             valFrictionText.textContent = text;
             valFrictionText.className = `px-2 rounded font-bold ${colorClass}`;
@@ -1854,8 +1858,8 @@
         }
 
         btnSmoother.addEventListener('click', () => {
-            if (params.mu > 0.01) {
-                params.mu -= 0.1;
+            if (currentFrictionIndex > 0) {
+                currentFrictionIndex--;
                 applyFrictionChange();
             } else {
                 showToast("✨ 軌道已達「理想光滑」狀態，完全沒有摩擦力囉！", "success");
@@ -1863,8 +1867,8 @@
         });
 
         btnRougher.addEventListener('click', () => {
-            if (params.mu < 0.49) {
-                params.mu += 0.1;
+            if (currentFrictionIndex < frictionLevels.length - 1) {
+                currentFrictionIndex++;
                 applyFrictionChange();
             } else {
                 showToast("🧱 軌道已經非常粗糙，滑車會很難移動喔！", "warning");
