@@ -1134,8 +1134,7 @@
             const cw = cart.width * scale; const ch = cart.height * scale;
             const offset = (cart.height / 2) + 0.08; 
             let carX = cart.x - offset * Math.sin(cart.theta); let carY = cart.y + offset * Math.cos(cart.theta);
-
-ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
+            ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
             
             // 加上一點陰影讓車子有立體感
             ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
@@ -1145,16 +1144,9 @@ ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // 🌟 加入「動態自動轉向」邏輯
-            // 根據速度 (cart.v) 判斷方向。因為 🚗 預設朝左，所以 scaleX 為 -1 時會翻轉朝右
-            if (cart.v > 0.01) cart.faceDir = -1;       // 往右開，翻轉車頭朝右
-            else if (cart.v < -0.01) cart.faceDir = 1;  // 往左開，恢復車頭朝左
-            
-            // 靜止或剛載入時，預設讓它朝右
-            if (typeof cart.faceDir === 'undefined') cart.faceDir = -1;
-
-            // 利用畫布縮放 (scale) 來水平翻轉 Emoji
-            ctx.scale(cart.faceDir, 1);
+            // 🌟 物理嚴謹版：拔掉自動轉向，固定翻轉讓車頭朝右 (因為通常從左斜面出發)
+            // 這樣盪回來的時候就會真實呈現「倒退嚕」的物理現象！
+            ctx.scale(-1, 1);
             
             // 稍微把 Y 軸往上提一點點，讓輪子完美貼在軌道上
             ctx.fillText("🚗", 0, - (ch * 0.15));
