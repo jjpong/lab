@@ -118,7 +118,7 @@
         .editable-group .group-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 800; color: #fff; font-size: 0.88rem; }
         .group-edit-input { width: 100%; border: 2px solid var(--primary); border-radius: 6px; padding: 4px 8px; font-size: 0.92rem; background: #fff; font-family: inherit; }
 
-        /* 🌟 新增：大本子收合動畫相關 CSS */
+        /* 🌟 大本子收合動畫相關 CSS */
         .data-panel-content {
             max-height: 0;
             overflow: hidden;
@@ -254,6 +254,7 @@
                 <div id="hoverTooltip"></div>
             </div>
 
+            <!-- 🌟 實驗紀錄大本子 -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" id="dataPanelWrap">
                 <button type="button" class="w-full flex justify-between items-center p-4 bg-gradient-to-r from-slate-50 to-blue-50/20 hover:from-slate-100 hover:to-blue-100/30 text-slate-700 font-extrabold text-base transition-colors data-panel-toggle" id="dataPanelToggle">
                     <span class="flex items-center gap-2">
@@ -265,7 +266,7 @@
                 <div class="data-panel-content" id="dataPanelContent">
                     <div class="p-4 flex flex-col gap-5 border-t border-slate-100">
                         
-                        <!-- 🌟 將紀錄列移入大本子內部，並加上專屬底色凸顯 -->
+                        <!-- 🌟 將紀錄列移入大本子內部 -->
                         <div class="bg-amber-50 rounded-xl border border-amber-200 p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
                             <div class="group-input-wrap flex-1 w-full">
                                 <label for="currentGroupInput" class="text-amber-900">🏷️ 目前組別：</label>
@@ -585,7 +586,7 @@
                 vectorPanelIcon.style.transform = 'rotate(-90deg)';
                 vectorPanelHeader.classList.replace('rounded-t-lg', 'rounded-lg');
                 vectorPanelHeader.classList.remove('border-b');
-                broadcastStateToParent("收合了「顯示物理量向量’」面板");
+                broadcastStateToParent("收合了「顯示物理量向量」面板");
             }
         });
 
@@ -1920,7 +1921,7 @@
             }
         });
 
-        // 🌟 新增：實驗紀錄大本子的摺疊切換監聽器
+        // 🌟 實驗紀錄大本子的摺疊切換監聽器
         dataPanelToggle.addEventListener('click', () => {
             const isOpen = dataPanelWrap.classList.toggle('open');
             dataPanelLabel.textContent = isOpen ? "📈 收合實驗記錄簿" : "📈 打開實驗記錄簿（查看表格與數據圖表）";
@@ -1930,7 +1931,6 @@
                 broadcastStateToParent(isOpen ? "展開了底部數據面板，準備查看實驗數據與統計圖" : "收合了底部數據面板，回到實驗操作模式");
             }
 
-            // 防錯：當容器展開時，強制驅動 Chart.js 重新計算寬度，防止排版縮小
             if (isOpen && activeChart) {
                 setTimeout(() => {
                     activeChart.resize();
