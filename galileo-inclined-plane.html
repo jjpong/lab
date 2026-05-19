@@ -154,10 +154,8 @@
                 實驗參數設定
             </h2>
 
-            <!-- 加上 justify-between 與 flex-1 讓四大區塊均勻撐滿垂直空間 -->
-            <div class="flex flex-col justify-between flex-1 gap-2">
+            <div class="flex flex-col gap-4">
                 
-                <!-- 【區塊 1】基本軌道與滑車參數 -->
                 <div class="flex flex-col gap-3">
                     <div>
                         <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
@@ -180,9 +178,6 @@
                             <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">🧱 變粗糙</button>
                         </div>
                     </div>
-                    
-                <!-- 🔗 質感細橫線分隔 -->
-                <hr class="border-slate-200 my-1">
                     <div>
                         <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
                             <span>滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-2 rounded">1.0</span>
@@ -191,7 +186,8 @@
                     </div>
                 </div>
 
-                <!-- 【區塊 2】火箭推力 -->
+                <hr class="border-slate-200 my-0.5">
+
                 <div class="bg-cyan-50 p-2.5 rounded-xl border border-cyan-100">
                     <label class="flex justify-between items-center text-sm font-semibold text-slate-700 mb-2">
                         <span class="text-cyan-800">🚀 滑車推力 (N)</span>
@@ -207,10 +203,8 @@
                     </div>
                 </div>
 
-                <!-- 🔗 質感細橫線分隔 -->
-                <hr class="border-slate-200 my-1">
+                <hr class="border-slate-200 my-0.5">
                 
-                <!-- 【區塊 3】主要操作按鈕 (恢復間距與胖胖按鈕) -->
                 <div class="flex gap-3">
                     <button id="btnStart" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-all active:scale-95 flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
@@ -222,10 +216,8 @@
                     </button>
                 </div>
 
-                <!-- 🔗 質感細橫線分隔 -->
-                <hr class="border-slate-200 my-1">
+                <hr class="border-slate-200 my-0.5">
 
-                <!-- 【區塊 4】時間與重播系統 -->
                 <div class="flex flex-col gap-3">
                     <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
                         <label class="flex items-center justify-between text-sm font-bold text-indigo-800 mb-1">
