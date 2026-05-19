@@ -200,21 +200,33 @@
                 </div>
                 <div class="w-px h-6 bg-slate-200 hidden sm:block shrink-0"></div>
                 
-                <!-- 修正：加入 flex-wrap 允許換行 -->
                 <div class="flex flex-wrap flex-1 min-w-[250px] gap-2 items-center px-1">
-                    <!-- 修正：加入 min-w-[150px] 確保時間軸區域最小寬度 -->
                     <div class="flex items-center gap-2 flex-1 min-w-[150px]">
                         <span class="text-[11px] font-bold text-indigo-800 whitespace-nowrap">⏪重播:</span>
-                        <!-- 修正：加入 min-w-[100px] 確保拉桿本身不會被壓縮到不見 -->
                         <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="flex-1 min-w-[100px]">
                         <span id="valReplayTime" class="text-[11px] font-mono font-bold bg-indigo-50 border border-indigo-200 px-1 rounded text-right whitespace-nowrap w-12 shrink-0">0.00s</span>
                     </div>
                     <div class="flex items-center gap-3 justify-center sm:justify-start shrink-0 bg-amber-50/50 px-2 py-1 rounded-lg border border-amber-100 flex-wrap">
-                        <label class="flex items-center gap-1 text-[11px] font-bold cursor-pointer text-amber-700 whitespace-nowrap">
-                           每 <input type="number" id="autoPauseInterval" value="0.1" step="0.05" min="0.05" max="2.0" class="w-15 border border-amber-300 rounded px-0.5 text-center font-mono h-5 text-black bg-white">秒 <input type="checkbox" id="autoPauseToggle" class="w-3 h-3 accent-amber-600"> ⏸ 暫停
-                        </label>
+                        <!-- 調整後的自動暫停與紀錄設定區塊 -->
+                        <div class="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
+                            <span>每</span>
+                            <input 
+                                type="number" 
+                                id="autoPauseInterval" 
+                                value="0.1" 
+                                step="0.05" 
+                                min="0.05" 
+                                max="2.0" 
+                                class="w-14 h-6 border border-amber-400 rounded px-1 text-center font-mono text-xs text-black bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            >
+                            <span>秒</span>
+                            <label class="flex items-center gap-1 cursor-pointer hover:text-amber-800 transition-colors ml-1">
+                                <input type="checkbox" id="autoPauseToggle" class="w-3.5 h-3.5 accent-amber-600 cursor-pointer">
+                                <span>⏸ 暫停</span>
+                            </label>
+                        </div>
                         <label class="flex items-center gap-1 text-[11px] font-bold cursor-pointer text-rose-600 whitespace-nowrap" title="連續播放不暫停，留下軌跡並自動抄表">
-                            <input type="checkbox" id="snapshotToggle" class="w-3 h-3 accent-rose-500"> 📸 快照
+                            <input type="checkbox" id="snapshotToggle" class="w-3.5 h-3.5 accent-rose-500"> 📸 快照
                         </label>
                     </div>
                 </div>
@@ -254,7 +266,7 @@
                     <div class="flex gap-1.5">
                         <button id="btnRecord" class="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold py-1 px-2 rounded shadow transition-colors">➕ 手動記錄</button>
                         <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold py-1 px-2 rounded">清空</button>
-                        <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold py-1 px-2 rounded shadow">💾 CSV</button>
+                        <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold py-1 px-2 rounded shadow">💾 下載實驗結果</button>
                     </div>
                 </div>
                 <div class="overflow-auto flex-1 text-xs px-1 relative">
@@ -268,7 +280,7 @@
                 </div>
             </div>
 
-            <div id="rightSidebarChartContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 shrink-0 flex flex-col" style="min-height: 380px;">
+            <div id="rightSidebarChartContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 shrink-0 flex flex-col" style="min-height: 300px;">
                 <div class="flex justify-between items-center border-b pb-1.5 mb-1.5 shrink-0">
                     <h3 class="font-bold text-slate-800 text-sm">📊 統計圖表</h3>
                     <button id="btnPopOutChart" class="bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold py-1 px-2 rounded text-[10px] transition-colors shadow-sm">↗️ 獨立視窗</button>
@@ -313,12 +325,19 @@
                     <div id="trendlineEqs" class="min-h-[20px] text-[10px] font-mono font-bold text-slate-700 bg-slate-100 p-1.5 rounded overflow-x-auto whitespace-nowrap hidden shrink-0 mt-1"></div>
                 </div>
             </div>
+
+            <!-- 新增：實驗報告區塊 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 shrink-0 flex flex-col">
+                <h3 class="font-bold text-slate-800 text-sm mb-2 border-b pb-1.5">📝 撰寫實驗報告</h3>
+                <textarea id="labReportText" class="w-full h-32 p-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y" placeholder="請在此輸入您的實驗觀察、心得或結論..."></textarea>
+            </div>
+
         </aside>
     </main>
-<!-- 版權宣告 Footer (純文字徽章版) -->
+    
+    <!-- 版權宣告 Footer (純文字徽章版) -->
     <footer class="shrink-0 flex justify-center items-center gap-2 text-[11px] text-slate-400 py-1 mt-1">
         <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" class="flex items-center gap-1 hover:opacity-80 transition-opacity">
-            <!-- 用 CSS 做的假圖片徽章 -->
             <span class="bg-gray-200 text-gray-700 font-bold px-1.5 py-0.5 rounded text-[10px] tracking-wider border border-gray-300">
                 CC BY-NC-SA
             </span>
@@ -577,7 +596,6 @@
             input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); } if (e.key === 'Escape') { e.preventDefault(); finishEdit(false); } });
         }
 
-        // Regression Math... (省略相同數學邏輯以節省空間，與前一版相同)
         function solveLinearSystem(matrix, vector) {
             let m = [[...matrix[0]], [...matrix[1]], [...matrix[2]]]; let v = [...vector];
             for (let i = 0; i < 3; i++) {
@@ -749,7 +767,6 @@
             }
 
             turningPoints.forEach((pt) => {
-                // 修正：隱藏未來的轉折點
                 if (pt.t > timeElapsed + 0.001) return;
                 
                 let px = sx(pt.x); let py = sy(pt.y);
@@ -760,9 +777,7 @@
                 ctx.fillStyle = '#ef4444'; ctx.fillText(text, px, py - 36);
             });
 
-            // 畫出殘影
             snapshotFrames.forEach(snap => {
-                // 修正：隱藏未來的殘影
                 if (snap.t > timeElapsed + 0.001) return;
                 
                 const scw = snap.width * scale; const sch = snap.height * scale; const soffset = (snap.height / 2) + 0.08; 
@@ -858,7 +873,6 @@
             alertContainer.appendChild(el); setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
         }
 
-        // 🌟 亮點功能：時空回溯醒目標示 (不刪除數據)
         function updateHighlights() {
             const tbody = document.getElementById('dataTableBody');
             let foundTr = null;
@@ -867,7 +881,6 @@
                 if (!cell) return;
                 const recordId = parseInt(cell.dataset.recordId);
                 const rec = records.find(r => r.id === recordId);
-                // 誤差範圍 0.035s 內判定為同一個數據點
                 if (rec && Math.abs(rec.t - timeElapsed) < 0.035) {
                     tr.classList.add('bg-rose-100', 'text-rose-700', 'font-bold');
                     foundTr = tr;
@@ -875,14 +888,11 @@
                     tr.classList.remove('bg-rose-100', 'text-rose-700', 'font-bold');
                 }
             });
-            // 自動捲動表格到醒目的那一行
             if (foundTr) foundTr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
             
-            // 讓圖表重繪，套用新顏色的 Highlight
             if(activeChart) updateChartConfig();
         }
 
-        // ------------------ 回放時間軸邏輯 ------------------
         replaySlider.addEventListener('input', (e) => {
             if (replayFrames.length === 0) return;
             if (isRunning) { isRunning = false; updateBtnState(); }
@@ -897,16 +907,10 @@
             params.thrust = frame.F_thrust; sliders.thrust.value = params.thrust; labels.thrust.textContent = params.thrust.toFixed(1);
             valReplayTime.textContent = timeElapsed.toFixed(2) + "s";
             
-            // 修正：移除在此處直接刪除殘影的邏輯，改由 draw() 函數動態隱藏
-            // turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
-            // snapshotFrames = snapshotFrames.filter(snap => snap.t <= timeElapsed + 0.001); 
-            
             draw();
-            // 🌟 觸發標示功能
             updateHighlights();
         });
 
-        // ------------------ 動態表單與圖表 ------------------
         function renderTableColumnsUI() {
             const container = document.getElementById('columnCheckboxes');
             container.innerHTML = sysVars.filter(c => c.id !== 't').map(c => `
@@ -984,7 +988,7 @@
                         const recs = groupedRecords[gName]; let dataPoints = [];
                         recs.forEach(rec => {
                             let xv = rec[xVar]; let yv = rec[yId];
-                            if (typeof xv === 'number' && typeof yv === 'number') dataPoints.push({x: xv, y: yv, t: rec.t}); // 儲存 t 以便回溯標示
+                            if (typeof xv === 'number' && typeof yv === 'number') dataPoints.push({x: xv, y: yv, t: rec.t}); 
                         });
 
                         if (dataPoints.length > 0) {
@@ -992,7 +996,6 @@
                             const dsColor = isGrouped ? assignGroupColor(gName) : yDef.color;
                             const dsLabel = isGrouped ? `${gName} (${yDef.label})` : yDef.label;
 
-                            // 🌟 圖表醒目標示邏輯：判斷該點是否接近目前拉桿時間
                             let pointColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#ef4444' : dsColor);
                             let pointRadii = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? 10 : 6);
                             let borderColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#991b1b' : dsColor);
@@ -1035,7 +1038,7 @@
             });
 
             activeChart.data.datasets = datasets; 
-            activeChart.update('none'); // 使用 'none' 防止滑動拉桿時動畫導致閃爍
+            activeChart.update('none'); 
 
             if (eqStrings.length > 0 && mode === 'custom') {
                 trendlineEqsDiv.innerHTML = eqStrings.join(' | '); trendlineEqsDiv.classList.remove('hidden');
@@ -1084,7 +1087,6 @@
             renderTable(); renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
             
-            // 記錄完後捲動到底部並套用當前標示
             const tbody = document.getElementById('dataTableBody');
             tbody.parentElement.parentElement.scrollTop = tbody.parentElement.parentElement.scrollHeight; 
             updateHighlights();
@@ -1106,7 +1108,6 @@
             }
             
             tbody.innerHTML = records.map(r => {
-                // 檢查是否處於時間軸標示狀態
                 let isHighlight = Math.abs(r.t - timeElapsed) < 0.035;
                 let rowClass = isHighlight ? 'bg-rose-100 text-rose-700 font-bold' : '';
 
@@ -1138,14 +1139,27 @@
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
         });
         
+        // 🌟 更新的匯出邏輯：包含實驗報告文字
         btnExport.addEventListener('click', () => {
             if(records.length === 0) return alert("沒有數據可以下載！");
+            
+            // 取得報告文字並處理引號，以符合 CSV 格式
+            const reportText = document.getElementById('labReportText').value;
+            const escapedReport = reportText.replace(/"/g, '""');
+            
+            let csv = "【實驗報告】\n";
+            csv += `"${escapedReport}"\n\n`; // 用雙引號包起來，允許內容有換行與逗號
+            
+            csv += "【實驗數據】\n";
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
-            let csv = "組別," + activeCols.map(c => c.label).join(",") + "\n";
-            records.forEach(r => { csv += `"${r.group || '未分組'}",` + activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; });
+            csv += "組別," + activeCols.map(c => c.label).join(",") + "\n";
+            records.forEach(r => { 
+                csv += `"${r.group || '未分組'}",` + activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; 
+            });
+            
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob); const a = document.createElement('a');
-            a.href = url; a.download = '伽利略斜面實驗數據.csv'; a.click();
+            a.href = url; a.download = '伽利略斜面實驗結果與報告.csv'; a.click();
         });
 
         let dataUpdateTimer = 0;
@@ -1176,14 +1190,12 @@
                 if (timeElapsed >= nextPauseTime) {
                     let didPause = false; let didSnap = false;
 
-                    // 🌟 獨立的快照邏輯
                     if (toggles.snapshot.checked) {
                         snapshotFrames.push({ t: timeElapsed, x: cart.x, y: cart.y, theta: cart.theta, width: cart.width, height: cart.height });
                         addTableRecord();
                         didSnap = true;
                     }
 
-                    // 🌟 獨立的暫停邏輯
                     if (toggles.autoPause.checked) {
                         isRunning = false; updateBtnState(); didPause = true;
                     }
@@ -1296,7 +1308,6 @@
             if (isRunning) {
                 let currentIdx = parseInt(replaySlider.value);
                 if (currentIdx < replayFrames.length - 1) {
-                    // 🌟 改變未來的核心機制：只有按下播放繼續時，才會抹除過去的紀錄點
                     replayFrames = replayFrames.slice(0, currentIdx + 1);
                     for (let key in systemDataStore) {
                         let validLen = 0;
@@ -1341,6 +1352,4 @@
             isSimInitialized = true;
         };
     </script>
-
-
 </body></html>
