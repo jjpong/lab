@@ -1389,6 +1389,17 @@
         window.onload = () => {
             initChart(); resize(); resetSimulation(); requestAnimationFrame(animate);
             isSimInitialized = true;
+              const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實驗室」！
+這是一個可以探索慣性、力學能守恆與牛頓第二定律的模擬環境。
+主要功能包含：
+1. 調整左/右斜面角度 (甚至能調成0度水平面)。
+2. 改變軌道摩擦力與滑車質量。
+3. 可即時施加「推力」當作火箭車實驗。
+4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
+5. 數據紀錄表與自訂圖表被妥善整合在底部的「實驗記錄簿」中，您可以隨時點選標頭展開或收合它。
+學生可以透過這些功能來驗證物理定律！`;
+            
+            setTimeout(() => broadcastStateToParent(introMsg), 500);
         };
     </script>
 </body></html>
