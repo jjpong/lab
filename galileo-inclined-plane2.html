@@ -2,7 +2,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>伽利略理想斜面虛擬實驗2.0</title>
-    <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;🚗&lt;/text&gt;&lt;/svg&gt;">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -224,15 +224,7 @@
                     <div class="flex items-center gap-3 justify-center sm:justify-start shrink-0 bg-amber-50/50 px-2 py-1 rounded-lg border border-amber-100 flex-wrap">
                         <div class="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
                             <span>每</span>
-                            <input 
-                                type="number" 
-                                id="autoPauseInterval" 
-                                value="0.1" 
-                                step="0.05" 
-                                min="0.05" 
-                                max="2.0" 
-                                class="w-14 h-6 border border-amber-400 rounded px-1 text-center font-mono text-xs text-black bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                            >
+                            <input type="number" id="autoPauseInterval" value="0.1" step="0.05" min="0.05" max="2.0" class="w-14 h-6 border border-amber-400 rounded px-1 text-center font-mono text-xs text-black bg-white focus:outline-none focus:ring-1 focus:ring-amber-500">
                             <span>秒</span>
                             <label class="flex items-center gap-1 cursor-pointer hover:text-amber-800 transition-colors ml-1">
                                 <input type="checkbox" id="autoPauseToggle" class="w-3.5 h-3.5 accent-amber-600 cursor-pointer">
@@ -355,7 +347,7 @@
             </span>
         </a>
         <span>
-            &copy; 2026 <strong>[鄭志鵬(小p老師)]</strong>。
+            © 2026 <strong>[鄭志鵬(小p老師)]</strong>。
             本虛擬實驗室採用 <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" class="text-blue-500 hover:underline font-medium">創用 CC 姓名標示-非商業性-相同方式分享 4.0 國際 授權條款</a> 授權。
         </span>
     </footer>
@@ -538,6 +530,40 @@
 
         let records = []; let systemDataStore = {}; sysVars.forEach(v => systemDataStore[v.id] = []);
         let activeChart = null; let chartYSelections = new Set(); 
+
+        // ==========================================
+        // ▼ 新增：廣播狀態到父層 (AI) 的函數 ▼
+        // ==========================================
+        function broadcastStateToParent(actionName, details = {}) {
+            try {
+                const chartXText = chartXSelect.options[chartXSelect.selectedIndex] ? chartXSelect.options[chartXSelect.selectedIndex].text : "";
+                const chartYText = Array.from(chartYSelections).map(id => {
+                    const v = sysVars.find(c => c.id === id);
+                    return v ? v.label : id;
+                }).join(', ') || "無";
+
+                const payload = {
+                    "學生最後的動作": actionName,
+                    "實驗時間": timeElapsed.toFixed(3) + " s",
+                    "滑車狀態": cart.state,
+                    "軌道位置_s": cart.s.toFixed(2) + " m",
+                    "水平位置_X": cart.x.toFixed(2) + " m",
+                    "高度_Y": cart.y.toFixed(2) + " m",
+                    "速度_v": cart.v.toFixed(2) + " m/s",
+                    "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
+                    "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
+                    "目前組別設定": currentGroupName || "(空白)",
+                    "表格狀態": `目前有 ${records.length} 筆資料`,
+                    "圖表設定": `X軸:${chartXText}, Y軸:${chartYText}`,
+                    ...details
+                };
+                
+                console.log("【廣播送到AI】", payload);
+                window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
+                
+            } catch (e) { console.error("狀態廣播失敗:", e); }
+        }
+        // ==========================================
 
         function assignGroupColor(groupName) {
             if (!groupName || groupName === "") return "#94a3b8"; 
@@ -896,6 +922,9 @@
                 cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
                 replayFrames.push({ t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, theta: cart.theta, v: cart.v, a: cart.a, K: cart.K, U: cart.U, Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust, state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust });
                 replaySlider.max = replayFrames.length - 1; replaySlider.value = replayFrames.length - 1;
+                
+                // 廣播：拖曳滑車
+                broadcastStateToParent("手動拖曳滑車改變位置");
             }
         });
         canvas.addEventListener('mouseleave', () => tooltip.style.opacity = 0);
@@ -943,6 +972,11 @@
             draw();
             updateHighlights();
             updateBtnState(); 
+        });
+        
+        // 廣播：拖曳時間軸 (放開滑鼠時觸發，避免洗版)
+        replaySlider.addEventListener('change', () => {
+            broadcastStateToParent("拖曳時間軸回放");
         });
 
         function renderTableColumnsUI() {
@@ -1124,6 +1158,9 @@
             const tbody = document.getElementById('dataTableBody');
             tbody.parentElement.parentElement.scrollTop = tbody.parentElement.parentElement.scrollHeight; 
             updateHighlights();
+            
+            // 廣播：紀錄數據
+            broadcastStateToParent("手動/自動紀錄數據");
         }
 
         function renderTable() {
@@ -1333,11 +1370,18 @@
                     draw(); 
                 }
             });
+            
+            // 廣播：拉桿參數改變 (放開滑鼠時觸發，避免洗版)
+            slider.addEventListener('change', (e) => {
+                broadcastStateToParent(`調整參數: ${e.target.id}`);
+            });
         });
 
         document.getElementById('btnZeroThrust').addEventListener('click', () => {
             sliders.thrust.value = 0; params.thrust = 0; labels.thrust.textContent = '0.0'; 
             if (!isRunning) { applyParams(); updateStaticPhysics(); draw(); }
+            // 廣播：推力歸零
+            broadcastStateToParent("推力歸零");
         });
 
         btnStart.addEventListener('click', () => {
@@ -1366,9 +1410,16 @@
                 if (cart.state === 'stopped') cart.state = 'running'; 
             }
             updateBtnState();
+            
+            // 廣播：播放/暫停
+            broadcastStateToParent(isRunning ? "開始播放" : "暫停播放");
         });
 
-        btnReset.addEventListener('click', resetSimulation);
+        btnReset.addEventListener('click', () => {
+            resetSimulation();
+            // 廣播：重置
+            broadcastStateToParent("重置實驗");
+        });
 
         function applyFrictionChange() {
             params.mu = frictionLevels[currentFrictionIndex]; 
@@ -1380,6 +1431,9 @@
             else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
             valFrictionText.textContent = text; valFrictionText.className = `px-1.5 rounded font-bold whitespace-nowrap ${colorClass}`;
             if (isRunning) resetSimulation(); else { updateStaticPhysics(); draw(); }
+            
+            // 廣播：修改摩擦力
+            broadcastStateToParent(`調整軌道摩擦力: ${text}`);
         }
 
         btnSmoother.addEventListener('click', () => { if (currentFrictionIndex > 0) { currentFrictionIndex--; applyFrictionChange(); } });
@@ -1389,7 +1443,179 @@
         window.onload = () => {
             initChart(); resize(); resetSimulation(); requestAnimationFrame(animate);
             isSimInitialized = true;
-              const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實驗室」！
+            Skip to content
+jjpong
+lab
+Repository navigation
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security and quality
+Insights
+Settings
+lab
+/
+galileo-inclined-plane2.html
+in
+main
+
+Edit
+
+Preview
+Indent mode
+
+Spaces
+Indent size
+
+4
+Line wrap mode
+
+No wrap
+Editing galileo-inclined-plane2.html file contents
+Selection deleted
+1386
+1387
+1388
+1389
+1390
+1391
+1392
+1393
+1394
+1395
+1396
+1397
+1398
+1399
+1400
+1401
+1402
+1403
+1404
+1405
+1406
+1407
+1408
+1409
+1410
+1411
+1412
+1413
+1414
+1415
+1416
+1417
+1418
+1419
+1420
+1421
+1422
+1423
+1424
+1425
+1426
+1427
+1428
+1429
+1430
+1431
+1432
+1433
+1434
+1435
+1436
+1437
+1438
+1439
+1440
+1441
+1442
+1443
+1444
+1445
+1446
+1447
+1448
+1449
+1450
+1451
+1452
+1453
+1454
+1455
+1456
+1457
+1458
+1459
+1460
+1461
+1462
+1463
+
+        btnStart.addEventListener('click', () => {
+            if (cart.state === 'stopped' && cart.y < -1) return; 
+            
+            isRunning = !isRunning;
+            if (isRunning) {
+                let currentIdx = parseInt(replaySlider.value);
+                if (currentIdx < replayFrames.length - 1) {
+                    replayFrames = replayFrames.slice(0, currentIdx + 1);
+                    for (let key in systemDataStore) {
+                        let validLen = 0;
+                        for (let i = 0; i < systemDataStore['t'].length; i++) {
+                            if (systemDataStore['t'][i] <= timeElapsed + 0.001) validLen++; else break;
+                        }
+                        systemDataStore[key] = systemDataStore[key].slice(0, validLen);
+                    }
+                    records = records.filter(r => r.t <= timeElapsed + 0.001);
+                    turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
+                    snapshotFrames = snapshotFrames.filter(snap => snap.t <= timeElapsed + 0.001); 
+                    
+                    renderTable(); renderGroupManager();
+                    if (activeChart) updateChartConfig();
+                }
+                lastTime = performance.now(); 
+                if (cart.state === 'stopped') cart.state = 'running'; 
+            }
+            updateBtnState();
+            
+            // 廣播：播放/暫停
+            broadcastStateToParent(isRunning ? "開始播放" : "暫停播放");
+        });
+
+        btnReset.addEventListener('click', () => {
+            resetSimulation();
+            // 廣播：重置
+            broadcastStateToParent("重置實驗");
+        });
+
+        function applyFrictionChange() {
+            params.mu = frictionLevels[currentFrictionIndex]; 
+            let text = "一般軌道"; let colorClass = "text-blue-500 bg-blue-50";
+            if (currentFrictionIndex === 0) { text = "理想光滑"; colorClass = "text-amber-600 bg-amber-50"; }
+            else if (currentFrictionIndex === 1) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
+            else if (currentFrictionIndex === 2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
+            else if (currentFrictionIndex === 3) { text = "一般軌道"; colorClass = "text-blue-500 bg-blue-50"; }
+            else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
+            valFrictionText.textContent = text; valFrictionText.className = `px-1.5 rounded font-bold whitespace-nowrap ${colorClass}`;
+            if (isRunning) resetSimulation(); else { updateStaticPhysics(); draw(); }
+            
+            // 廣播：修改摩擦力
+            broadcastStateToParent(`調整軌道摩擦力: ${text}`);
+        }
+
+        btnSmoother.addEventListener('click', () => { if (currentFrictionIndex > 0) { currentFrictionIndex--; applyFrictionChange(); } });
+        btnRougher.addEventListener('click', () => { if (currentFrictionIndex < frictionLevels.length - 1) { currentFrictionIndex++; applyFrictionChange(); } });
+
+                    let isSimInitialized = false;
+        window.onload = () => {
+            initChart(); resize(); resetSimulation(); requestAnimationFrame(animate);
+            isSimInitialized = true;
+            
+            const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實驗室」！
 這是一個可以探索慣性、力學能守恆與牛頓第二定律的模擬環境。
 主要功能包含：
 1. 調整左/右斜面角度 (甚至能調成0度水平面)。
@@ -1401,5 +1627,7 @@
             
             setTimeout(() => broadcastStateToParent(introMsg), 500);
         };
+        
     </script>
+
 </body></html>
