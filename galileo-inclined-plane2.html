@@ -1081,7 +1081,7 @@
                             const dsLabel = isGrouped ? `${gName} (${yDef.label})` : yDef.label;
 
                             let pointColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#ef4444' : dsColor);
-                            let pointRadii = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? 10 : 6);
+                            let pointRadii = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? 5 : 3);
                             let borderColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#991b1b' : dsColor);
 
                             datasets.push({
