@@ -507,7 +507,7 @@
 
         let params = { thetaL: 30 * Math.PI / 180, thetaR: 30 * Math.PI / 180, mu: 0.2, mass: 1.0, thrust: 0.0, R: 1.0, H: 4.0, L_flat: 1.5, max_X: 12.0 };
         let trackS = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, total: 0 }; let trackBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 }; let trackPoints = []; 
-        let cart = { state: 'stopped', s: 0, x: 0, y: 0, theta: 0, v: 0, a: 0, vx: 0, vy: 0, Fg: 0, Fn: 0, Ff: 0, dirFf: 0, Fnet: 0, F_thrust: 0, K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0, width: 0.6, height: 0.3, color: '#ef4444' };
+        let cart = { state: 'stopped', s: 0, x: 0, y: 0, theta: 0, v: 0, a: 0, vx: 0, vy: 0, Fg: 0, Fn: 0, Ff: 0, dirFf: 0, Fnet: 0, F_thrust: 0, K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0, width: 0.6, height: 0.3, color: '#ef4444', maxLeftY: 0, maxRightY: 0 };
         let isRunning = false; let timeElapsed = 0; let lastTime = 0; let isDraggingCart = false; let nextPauseTime = Infinity;
 
         let replayFrames = []; let turningPoints = []; let snapshotFrames = []; 
@@ -532,7 +532,7 @@
         let activeChart = null; let chartYSelections = new Set(); 
 
         // ==========================================
-        // ▼ 新增：廣播狀態到父層 (AI) 的函數 ▼
+        // ▼ 廣播狀態到父層 (AI) 的函數 ▼
         // ==========================================
         function broadcastStateToParent(actionName, details = {}) {
             try {
@@ -550,6 +550,9 @@
                     "水平位置_X": cart.x.toFixed(2) + " m",
                     "高度_Y": cart.y.toFixed(2) + " m",
                     "速度_v": cart.v.toFixed(2) + " m/s",
+                    "左側最高高度": (cart.maxLeftY !== undefined ? cart.maxLeftY.toFixed(2) : "0.00") + " m",
+                    "右側最高高度": (cart.maxRightY !== undefined ? cart.maxRightY.toFixed(2) : "0.00") + " m",
+        
                     "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
                     "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
                     "目前組別設定": currentGroupName || "(空白)",
@@ -747,6 +750,10 @@
 
                     const newPos = getPos(cart.s); cart.x = newPos.x; cart.y = newPos.y; cart.theta = newPos.theta;
                     
+                    // 紀錄最高點
+                    if (cart.x < 0 && cart.y > cart.maxLeftY) cart.maxLeftY = cart.y;
+                    if (cart.x > 0 && cart.y > cart.maxRightY) cart.maxRightY = cart.y;
+
                     if (v_old * cart.v <= 0 && Math.abs(v_old - cart.v) > 0.001) {
                         if (cart.y > 0.05) {
                             let addPt = true; if (turningPoints.length > 0) { let lastPt = turningPoints[turningPoints.length - 1]; if (timeElapsed - lastPt.t < 0.2) addPt = false; }
@@ -765,6 +772,11 @@
                     cart.F_thrust = params.thrust; let ax = (cart.F_thrust * Math.cos(cart.theta)) / params.mass; let ay = -g + (cart.F_thrust * Math.sin(cart.theta)) / params.mass;
                     cart.vy += ay * stepDt; cart.vx += ax * stepDt; cart.x += cart.vx * stepDt; cart.y += cart.vy * stepDt;
                     cart.v = Math.sqrt(cart.vx*cart.vx + cart.vy*cart.vy); cart.theta = Math.atan2(cart.vy, cart.vx); cart.W_thrust += cart.F_thrust * cart.v * stepDt;
+                    
+                    // 紀錄最高點
+                    if (cart.x < 0 && cart.y > cart.maxLeftY) cart.maxLeftY = cart.y;
+                    if (cart.x > 0 && cart.y > cart.maxRightY) cart.maxRightY = cart.y;
+
                     cart.Fg = params.mass * g; cart.Fn = 0; cart.Ff = 0; cart.dirFf = 0; cart.Fnet = Math.sqrt(Math.pow(cart.F_thrust * Math.cos(cart.theta), 2) + Math.pow(cart.F_thrust * Math.sin(cart.theta) - cart.Fg, 2)); cart.a = cart.Fnet / params.mass;
                     if (cart.y < -1.0) { cart.state = 'stopped'; isRunning = false; updateBtnState(); break; }
                     cart.K = 0.5 * params.mass * cart.v * cart.v; cart.U = params.mass * g * Math.max(0, cart.y); 
@@ -895,6 +907,10 @@
                 const px = (mx - cx) / scale; const py = (cy - my) / scale; let minDist = Infinity; let bestS = 0;
                 for (let i = 0; i < trackPoints.length; i++) { const dist = Math.hypot(trackPoints[i].x - px, trackPoints[i].y - py); if (dist < minDist) { minDist = dist; bestS = trackPoints[i].s; } }
                 cart.s = bestS; const np = getPos(cart.s); cart.x = np.x; cart.y = np.y; cart.theta = np.theta; cart.v = 0; cart.a = 0; cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; 
+                
+                // 拖曳時重置最高點
+                cart.maxLeftY = 0; cart.maxRightY = 0;
+
                 updateStaticPhysics();
                 draw(); 
 
@@ -1122,11 +1138,16 @@
         function recordToSystemData() {
             if (!isRunning) return;
             sysVars.forEach(v => {
-                let val = (v.id === 's' && cart.state === 'flying') ? null : v.get({
-                    t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust,
-                    K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet
-                });
-                systemDataStore[v.id].push(val);
+                // 只有勾選的欄位才紀錄連續數據，沒勾選就塞入 null (保持陣列長度一致)
+                if (v.id === 't' || v.showInTable) {
+                    let val = (v.id === 's' && cart.state === 'flying') ? null : v.get({
+                        t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust,
+                        K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet
+                    });
+                    systemDataStore[v.id].push(val);
+                } else {
+                    systemDataStore[v.id].push(null);
+                }
                 if (systemDataStore[v.id].length > 1000) systemDataStore[v.id].shift();
             });
             if (chartModeSelect.value === 'continuous') updateChartConfig();
@@ -1136,13 +1157,23 @@
             const rec = { id: Date.now(), group: currentGroupName };
             if (rec.group) assignGroupColor(rec.group);
 
+            let recordedDataStrArr = [];
+
             sysVars.forEach(v => {
-                let val = v.get({
-                    t: timeElapsed, s: cart.state==='flying' ? '拋體' : cart.s, 
-                    x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust,
-                    K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet
-                });
-                rec[v.id] = val;
+                // 只有勾選的欄位 (以及必備的時間 t) 才會被紀錄進表格物件
+                if (v.id === 't' || v.showInTable) {
+                    let val = v.get({
+                        t: timeElapsed, s: cart.state==='flying' ? '拋體' : cart.s, 
+                        x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust,
+                        K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet
+                    });
+                    rec[v.id] = val;
+
+                    if (v.showInTable) {
+                        let displayVal = typeof val === 'number' ? val.toFixed(2) : val;
+                        recordedDataStrArr.push(`${v.label}:${displayVal}`);
+                    }
+                }
             });
             records.push(rec);
             
@@ -1159,8 +1190,10 @@
             tbody.parentElement.parentElement.scrollTop = tbody.parentElement.parentElement.scrollHeight; 
             updateHighlights();
             
-            // 廣播：紀錄數據
-            broadcastStateToParent("手動/自動紀錄數據");
+            // 廣播：紀錄數據 (附帶本次紀錄的內容)
+            broadcastStateToParent("手動/自動紀錄數據", {
+                "本次紀錄數據": recordedDataStrArr.length > 0 ? recordedDataStrArr.join(', ') : "無(未勾選任何欄位)"
+            });
         }
 
         function renderTable() {
@@ -1188,7 +1221,9 @@
                 rowHtml += `<td class="editable-group border-r border-slate-100 bg-white/50" data-record-id="${r.id}">${content}</td>`;
 
                 activeCols.forEach(c => {
-                    let displayVal = typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id];
+                    // 如果該欄位在當初紀錄時沒有被勾選，就會是 undefined，顯示為 '-'
+                    let val = r[c.id];
+                    let displayVal = val !== undefined ? (typeof val === 'number' ? val.toFixed(2) : val) : '-';
                     let textClass = isHighlight ? 'text-rose-700' : 'text-slate-700';
                     rowHtml += `<td class="font-mono ${textClass}">${displayVal}</td>`;
                 });
@@ -1223,7 +1258,10 @@
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
             csv += "組別," + activeCols.map(c => c.label).join(",") + "\n";
             records.forEach(r => { 
-                csv += `"${r.group || '未分組'}",` + activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; 
+                csv += `"${r.group || '未分組'}",` + activeCols.map(c => {
+                    let val = r[c.id];
+                    return val !== undefined ? (typeof val === 'number' ? val.toFixed(2) : val) : '-';
+                }).join(",") + "\n"; 
             });
             
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1310,6 +1348,9 @@
             cart.v = 0; cart.a = 0;
             const initPos = getPos(cart.s); cart.x = initPos.x; cart.y = initPos.y; cart.theta = initPos.theta; cart.F_thrust = params.thrust;
             cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
+            
+            // 重置最高點
+            cart.maxLeftY = 0; cart.maxRightY = 0;
 
             updateStaticPhysics();
 
