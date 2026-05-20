@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>伽利略理想斜面虛擬實驗2.0</title>
@@ -542,6 +542,23 @@
                     return v ? v.label : id;
                 }).join(', ') || "無";
 
+                // 這次不限制筆數，全部送出
+                const recentRecords = records;
+                
+                // 動態產生詳細數據字串 (只包含有被勾選且真正記錄下來的欄位)
+                const recordsDetailString = recentRecords.length > 0 
+                    ? recentRecords.map(r => {
+                        let rowDetails = [];
+                        sysVars.forEach(v => {
+                            if (r[v.id] !== undefined) {
+                                let val = r[v.id];
+                                rowDetails.push(`${v.label}:${typeof val === 'number' ? val.toFixed(2) : val}`);
+                            }
+                        });
+                        return `[${rowDetails.join(', ')}]`;
+                    }).join(' ➔ ')
+                    : "無";
+
                 const payload = {
                     "學生最後的動作": actionName,
                     "實驗時間": timeElapsed.toFixed(3) + " s",
@@ -550,11 +567,14 @@
                     "水平位置_X": cart.x.toFixed(2) + " m",
                     "高度_Y": cart.y.toFixed(2) + " m",
                     "速度_v": cart.v.toFixed(2) + " m/s",
-                    "所有轉折點紀錄": turningPoints.length > 0  ? turningPoints.map(pt => `${pt.x < -startXOffset ? '左' : '右'}:${pt.y.toFixed(2)}m`).join(' ➔ ')   : "無",
+                    "左側最高高度": (cart.maxLeftY !== undefined ? cart.maxLeftY.toFixed(2) : "0.00") + " m",
+                    "右側最高高度": (cart.maxRightY !== undefined ? cart.maxRightY.toFixed(2) : "0.00") + " m",
+        
                     "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
                     "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
                     "目前組別設定": currentGroupName || "(空白)",
-                    "表格狀態": `目前有 ${records.length} 筆資料`,
+                    "表格狀態": `目前有 ${records.length} 筆資料 (上限120筆)`,
+                    "詳細實驗數據(全部)": recordsDetailString,
                     "圖表設定": `X軸:${chartXText}, Y軸:${chartYText}`,
                     ...details
                 };
@@ -1151,7 +1171,25 @@
             if (chartModeSelect.value === 'continuous') updateChartConfig();
         }
 
-        function addTableRecord() {
+        function addTableRecord(isAuto = false) {
+            // 1. 檢查是否已經達到 120 筆上限
+            if (records.length >= 120) {
+                if (isRunning) {
+                    isRunning = false;
+                    updateBtnState();
+                }
+                
+                // 改用畫面正中央的醒目提示
+                const limitEl = document.createElement('div');
+                limitEl.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-6 py-4 rounded-xl font-bold shadow-2xl z-[9999] text-xl border-4 border-red-800';
+                limitEl.innerHTML = '🛑 表格已達 120 筆上限！<br><span class="text-sm font-normal">已自動暫停紀錄，請先清理數據。</span>';
+                document.body.appendChild(limitEl);
+                setTimeout(() => { if(limitEl.parentNode) limitEl.parentNode.removeChild(limitEl); }, 4000);
+
+                broadcastStateToParent("嘗試紀錄數據，但表格已達120筆上限，自動暫停");
+                return;
+            }
+
             const rec = { id: Date.now(), group: currentGroupName };
             if (rec.group) assignGroupColor(rec.group);
 
@@ -1188,10 +1226,12 @@
             tbody.parentElement.parentElement.scrollTop = tbody.parentElement.parentElement.scrollHeight; 
             updateHighlights();
             
-            // 廣播：紀錄數據 (附帶本次紀錄的內容)
-            broadcastStateToParent("手動/自動紀錄數據", {
-                "本次紀錄數據": recordedDataStrArr.length > 0 ? recordedDataStrArr.join(', ') : "無(未勾選任何欄位)"
-            });
+            // 如果是手動紀錄，才單獨發送廣播；自動紀錄則交由「暫停」時統一發送
+            if (!isAuto) {
+                broadcastStateToParent("手動紀錄數據", {
+                    "本次紀錄數據": recordedDataStrArr.length > 0 ? recordedDataStrArr.join(', ') : "無(未勾選任何欄位)"
+                });
+            }
         }
 
         function renderTable() {
@@ -1237,10 +1277,13 @@
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
         }
 
-        btnRecord.addEventListener('click', addTableRecord);
+        btnRecord.addEventListener('click', () => addTableRecord(false));
         btnClearRecord.addEventListener('click', () => { 
             records = []; renderTable(); renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
+            
+            // 廣播：清空表格
+            broadcastStateToParent("清空數據紀錄表");
         });
         
         btnExport.addEventListener('click', () => {
@@ -1297,7 +1340,7 @@
 
                     if (toggles.snapshot.checked) {
                         snapshotFrames.push({ t: timeElapsed, x: cart.x, y: cart.y, theta: cart.theta, width: cart.width, height: cart.height });
-                        addTableRecord();
+                        addTableRecord(true); // 傳入 true，表示是自動紀錄，不要一直廣播
                         didSnap = true;
                     }
 
@@ -1316,6 +1359,11 @@
                         
                         alertContainer.appendChild(el);
                         setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 2000);
+                        
+                        // 若因為 autoPause 觸發暫停，此時發送一次廣播總結
+                        if (didPause) {
+                            broadcastStateToParent("自動暫停 (含自動紀錄總結)");
+                        }
                     }
                 }
             }
@@ -1450,7 +1498,7 @@
             }
             updateBtnState();
             
-            // 廣播：播放/暫停
+            // 廣播：播放/暫停 (若為暫停，會順便把剛剛自動紀錄的數據一起送出)
             broadcastStateToParent(isRunning ? "開始播放" : "暫停播放");
         });
 
@@ -1495,5 +1543,6 @@ const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實�
 
         };
     </script>
+
 
 </body></html>
