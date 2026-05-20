@@ -58,8 +58,6 @@
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
 
-        /* Sidebar State Classes */
-        .left-sidebar-collapsed { width: 0px !important; padding-left: 0px !important; padding-right: 0px !important; border: none !important; opacity: 0; margin-right: -0.75rem; overflow: hidden;}
         .right-sidebar-collapsed { width: 0px !important; padding-left: 0px !important; padding-right: 0px !important; border: none !important; opacity: 0; margin-left: -0.75rem; overflow: hidden;}
 
         details > summary { list-style: none; }
@@ -103,69 +101,71 @@
 
     <main class="flex flex-row gap-3 flex-1 overflow-hidden min-h-0 w-full">
         
-        <aside id="leftSidebar" class="w-[280px] xl:w-[300px] shrink-0 bg-white rounded-xl shadow-sm border border-slate-200 p-3 flex flex-col gap-3 transition-all duration-300 overflow-hidden relative z-10">
-            <h2 class="text-base font-bold text-slate-800 border-b border-slate-100 pb-1 flex items-center gap-2 whitespace-nowrap shrink-0">
-                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                實驗參數設定
-            </h2>
-
-            <div class="flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar pb-1">
-                <div class="flex flex-col gap-2.5">
-                    <div>
-                        <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                            <span class="whitespace-nowrap">左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-1.5 rounded">30°</span>
-                        </label>
-                        <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
-                    </div>
-                    <div>
-                        <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                            <span class="whitespace-nowrap">右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-1.5 rounded">30°</span>
-                        </label>
-                        <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
-                    </div>
-                    <div>
-                        <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                            <span class="whitespace-nowrap">軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-1.5 rounded font-bold whitespace-nowrap">一般軌道</span>
-                        </label>
-                        <div class="flex gap-1.5">
-                            <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1 rounded text-xs transition-colors whitespace-nowrap">✨ 變光滑</button>
-                            <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1 rounded text-xs transition-colors whitespace-nowrap">🧱 變粗糙</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-                            <span class="whitespace-nowrap">滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-1.5 rounded">1.0</span>
-                        </label>
-                        <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
-                    </div>
-                </div>
-
-                <hr class="border-slate-200 my-0">
-
-                <div class="bg-cyan-50 p-2 rounded-lg border border-cyan-100">
-                    <label class="flex justify-between items-center text-xs font-semibold text-slate-700 mb-1.5">
-                        <span class="text-cyan-800 whitespace-nowrap">🚀 滑車推力 (N)</span>
-                        <div class="flex gap-1.5 items-center">
-                            <button id="btnZeroThrust" class="text-[10px] bg-white border border-cyan-200 hover:bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">歸零</button>
-                            <span id="valThrust" class="text-cyan-700 bg-white border border-cyan-200 px-1.5 rounded w-8 text-center font-bold">0.0</span>
-                        </div>
-                    </label>
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-[10px] text-cyan-600 font-bold">-10</span>
-                        <input type="range" id="thrustSlider" min="-10" max="10" step="0.5" value="0">
-                        <span class="text-[10px] text-cyan-600 font-bold">+10</span>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
         <div class="flex-1 flex flex-col gap-2 min-w-[400px] h-full relative">
         
             <div class="relative w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 min-h-[300px]">
                 <canvas id="simulationCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
                 <div id="statusAlertContainer"></div>
 
-                <div class="absolute top-2 left-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[130px]">
+                <!-- 實驗參數設定 (移至左上角懸浮) -->
+                <div class="absolute top-2 left-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[260px]">
+                    <div id="paramPanelHeader" class="text-slate-800 bg-slate-50 rounded-t-lg p-2 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100">
+                        <span class="flex items-center gap-1.5 font-bold">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                            實驗參數設定
+                        </span>
+                        <span id="paramPanelIcon" class="transform transition-transform duration-300 text-[10px] rotate-180">▼</span>
+                    </div>
+                    <div id="paramPanelContent" class="flex flex-col gap-3 p-3">
+                        <div class="flex flex-col gap-2.5">
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-1.5 rounded">30°</span>
+                                </label>
+                                <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-1.5 rounded">30°</span>
+                                </label>
+                                <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-1.5 rounded font-bold whitespace-nowrap">一般軌道</span>
+                                </label>
+                                <div class="flex gap-1.5">
+                                    <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1 rounded text-xs transition-colors whitespace-nowrap">✨ 變光滑</button>
+                                    <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1 rounded text-xs transition-colors whitespace-nowrap">🧱 變粗糙</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-1.5 rounded">1.0</span>
+                                </label>
+                                <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+                            </div>
+                        </div>
+                        <hr class="border-slate-200 my-0">
+                        <div class="bg-cyan-50 p-2 rounded-lg border border-cyan-100">
+                            <label class="flex justify-between items-center text-xs font-semibold text-slate-700 mb-1.5">
+                                <span class="text-cyan-800 whitespace-nowrap">🚀 滑車推力 (N)</span>
+                                <div class="flex gap-1.5 items-center">
+                                    <button id="btnZeroThrust" class="text-[10px] bg-white border border-cyan-200 hover:bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">歸零</button>
+                                    <span id="valThrust" class="text-cyan-700 bg-white border border-cyan-200 px-1.5 rounded w-8 text-center font-bold">0.0</span>
+                                </div>
+                            </label>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] text-cyan-600 font-bold">-10</span>
+                                <input type="range" id="thrustSlider" min="-10" max="10" step="0.5" value="0">
+                                <span class="text-[10px] text-cyan-600 font-bold">+10</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 顯示物理量向量 (移至右上角) -->
+                <div class="absolute top-2 right-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[130px]">
                     <div id="vectorPanelHeader" class="text-slate-600 bg-slate-50 rounded-t-lg p-1.5 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100">
                         <span>顯示物理量向量</span>
                         <span id="vectorPanelIcon" class="transform transition-transform duration-300 text-[9px] rotate-0">▼</span>
@@ -184,14 +184,10 @@
             </div>
 
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2 shrink-0 flex flex-wrap items-center gap-3">
-                <button id="btnToggleSidebar" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-1.5 px-2.5 rounded-lg border border-slate-300 transition-all text-xs whitespace-nowrap flex items-center shrink-0">
-                    <span id="toggleSidebarText">◀ 收合設定</span>
-                </button>
-                <div class="w-px h-6 bg-slate-200 shrink-0"></div>
                 <div class="flex gap-2 shrink-0">
                     <button id="btnStart" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg shadow-sm active:scale-95 flex items-center gap-1.5 text-sm whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
-                        <span>放開滑車</span>
+                        <span>開始播放</span>
                     </button>
                     <button id="btnReset" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-1.5 px-3 rounded-lg active:scale-95 flex items-center gap-1.5 text-sm whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -207,7 +203,6 @@
                         <span id="valReplayTime" class="text-[11px] font-mono font-bold bg-indigo-50 border border-indigo-200 px-1 rounded text-right whitespace-nowrap w-12 shrink-0">0.00s</span>
                     </div>
                     <div class="flex items-center gap-3 justify-center sm:justify-start shrink-0 bg-amber-50/50 px-2 py-1 rounded-lg border border-amber-100 flex-wrap">
-                        <!-- 調整後的自動暫停與紀錄設定區塊 -->
                         <div class="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
                             <span>每</span>
                             <input 
@@ -326,7 +321,6 @@
                 </div>
             </div>
 
-            <!-- 新增：實驗報告區塊 -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 shrink-0 flex flex-col">
                 <h3 class="font-bold text-slate-800 text-sm mb-2 border-b pb-1.5">📝 撰寫實驗報告</h3>
                 <textarea id="labReportText" class="w-full h-32 p-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y" placeholder="請在此輸入您的實驗觀察、心得或結論..."></textarea>
@@ -335,7 +329,6 @@
         </aside>
     </main>
     
-    <!-- 版權宣告 Footer (純文字徽章版) -->
     <footer class="shrink-0 flex justify-center items-center gap-2 text-[11px] text-slate-400 py-1 mt-1">
         <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" class="flex items-center gap-1 hover:opacity-80 transition-opacity">
             <span class="bg-gray-200 text-gray-700 font-bold px-1.5 py-0.5 rounded text-[10px] tracking-wider border border-gray-300">
@@ -436,16 +429,6 @@
         const chartModeSelect = document.getElementById('chartMode'); const chartXSelect = document.getElementById('chartX'); const trendlineTypeSelect = document.getElementById('trendlineType'); const trendlineEqsDiv = document.getElementById('trendlineEqs'); const yAxisSelectorsDiv = document.getElementById('yAxisSelectors'); const trendlineContainer = document.getElementById('trendlineContainer');
         const replaySlider = document.getElementById('replaySlider'); const valReplayTime = document.getElementById('valReplayTime');
 
-        // Sidebar Toggles
-        const btnToggleSidebar = document.getElementById('btnToggleSidebar'); const leftSidebar = document.getElementById('leftSidebar'); const toggleSidebarText = document.getElementById('toggleSidebarText');
-        let isLeftSidebarOpen = true;
-        btnToggleSidebar.addEventListener('click', () => {
-            isLeftSidebarOpen = !isLeftSidebarOpen;
-            if(isLeftSidebarOpen) { leftSidebar.classList.remove('left-sidebar-collapsed'); toggleSidebarText.textContent = '◀ 收合設定'; btnToggleSidebar.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300'); btnToggleSidebar.classList.add('bg-slate-100', 'text-slate-600', 'border-slate-300'); } 
-            else { leftSidebar.classList.add('left-sidebar-collapsed'); toggleSidebarText.textContent = '▶ 展開設定'; btnToggleSidebar.classList.remove('bg-slate-100', 'text-slate-600', 'border-slate-300'); btnToggleSidebar.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-300'); }
-            setTimeout(() => { resize(); draw(); }, 310);
-        });
-
         const btnToggleRightPanel = document.getElementById('btnToggleRightPanel'); const rightSidebar = document.getElementById('rightSidebar'); const toggleRightPanelText = document.getElementById('toggleRightPanelText');
         let isRightSidebarOpen = false;
         btnToggleRightPanel.addEventListener('click', () => {
@@ -510,6 +493,15 @@
         currentGroupInput.addEventListener('input', (e) => { currentGroupName = e.target.value; });
         currentGroupInput.addEventListener('change', (e) => { currentGroupName = e.target.value.trim(); e.target.value = currentGroupName; });
         clearCurrentGroupBtn.addEventListener('click', () => { currentGroupInput.value = ""; currentGroupName = ""; });
+
+        // 參數面板收合邏輯
+        let isParamPanelOpen = true;
+        const paramPanelHeader = document.getElementById('paramPanelHeader'); const paramPanelContent = document.getElementById('paramPanelContent'); const paramPanelIcon = document.getElementById('paramPanelIcon');
+        paramPanelHeader.addEventListener('click', () => {
+            isParamPanelOpen = !isParamPanelOpen;
+            if (isParamPanelOpen) { paramPanelContent.classList.remove('hidden'); paramPanelIcon.style.transform = 'rotate(180deg)'; paramPanelHeader.classList.add('border-b'); } 
+            else { paramPanelContent.classList.add('hidden'); paramPanelIcon.style.transform = 'rotate(0deg)'; paramPanelHeader.classList.remove('border-b'); }
+        });
 
         let isVectorPanelOpen = false;
         const vectorPanelHeader = document.getElementById('vectorPanelHeader'); const vectorPanelContent = document.getElementById('vectorPanelContent'); const vectorPanelIcon = document.getElementById('vectorPanelIcon');
@@ -909,6 +901,7 @@
             
             draw();
             updateHighlights();
+            updateBtnState(); // 更新按鈕文字
         });
 
         function renderTableColumnsUI() {
@@ -1139,16 +1132,14 @@
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
         });
         
-        // 🌟 更新的匯出邏輯：包含實驗報告文字
         btnExport.addEventListener('click', () => {
             if(records.length === 0) return alert("沒有數據可以下載！");
             
-            // 取得報告文字並處理引號，以符合 CSV 格式
             const reportText = document.getElementById('labReportText').value;
             const escapedReport = reportText.replace(/"/g, '""');
             
             let csv = "【實驗報告】\n";
-            csv += `"${escapedReport}"\n\n`; // 用雙引號包起來，允許內容有換行與逗號
+            csv += `"${escapedReport}"\n\n`; 
             
             csv += "【實驗數據】\n";
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
@@ -1263,7 +1254,10 @@
                 btnStart.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>手動暫停</span>`;
                 btnStart.classList.replace('bg-blue-600', 'bg-amber-500'); btnStart.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
             } else {
-                let text = cart.s === 0 && cart.state !== 'flying' ? '放開滑車' : '繼續播放';
+                let text = '開始播放';
+                if (timeElapsed > 0 && cart.state !== 'flying') {
+                    text = '繼續播放';
+                }
                 if (cart.state === 'stopped' && cart.y < -1) text = '已落地 (請重置)';
                 
                 btnStart.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg><span>${text}</span>`;
