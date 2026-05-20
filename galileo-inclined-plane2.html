@@ -23,6 +23,10 @@
             width: 100%; height: 5px; cursor: pointer; background: #cbd5e1; border-radius: 3px;
         }
 
+        /* 小尺寸拉桿 */
+        .range-sm::-webkit-slider-thumb { height: 12px; width: 12px; margin-top: -4px; }
+        .range-sm::-webkit-slider-runnable-track { height: 4px; }
+
         table { width: 100%; border-collapse: collapse; min-width: max-content; }
         th, td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 0.85rem; white-space: nowrap; transition: background-color 0.1s, color 0.1s; }
         th { position: sticky; top: 0; background: #f8fafc; z-index: 1; color: #475569; font-weight: 700; }
@@ -107,7 +111,7 @@
                 <canvas id="simulationCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
                 <div id="statusAlertContainer"></div>
 
-                <!-- 實驗參數設定 (移至左上角懸浮) -->
+                <!-- 實驗參數設定 (左上角懸浮) -->
                 <div class="absolute top-2 left-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[260px]">
                     <div id="paramPanelHeader" class="text-slate-800 bg-slate-50 rounded-t-lg p-2 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100">
                         <span class="flex items-center gap-1.5 font-bold">
@@ -164,8 +168,8 @@
                     </div>
                 </div>
 
-                <!-- 顯示物理量向量 (移至右上角) -->
-                <div class="absolute top-2 right-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[130px]">
+                <!-- 顯示物理量向量 (右上角) -->
+                <div class="absolute top-2 right-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[140px]">
                     <div id="vectorPanelHeader" class="text-slate-600 bg-slate-50 rounded-t-lg p-1.5 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100">
                         <span>顯示物理量向量</span>
                         <span id="vectorPanelIcon" class="transform transition-transform duration-300 text-[9px] rotate-0">▼</span>
@@ -178,6 +182,21 @@
                         <label class="check-item"><input type="checkbox" id="showFn"> <span class="text-blue-500">正向力 (Fn)</span></label>
                         <label class="check-item"><input type="checkbox" id="showFf"> <span class="text-red-500">摩擦力 (Ff)</span></label>
                         <label class="check-item"><input type="checkbox" id="showFnet"> <span class="text-purple-600">合力 (Fnet)</span></label>
+                        
+                        <hr class="border-slate-200 my-1">
+                        <div class="text-[10px] text-slate-500 mb-0.5 font-bold">向量顯示比例：</div>
+                        <label class="flex justify-between items-center text-[10px] gap-1">
+                            <span class="text-indigo-600">速度</span>
+                            <input type="range" id="scaleVSlider" min="0.5" max="10" step="0.5" value="3" class="w-14 range-sm">
+                        </label>
+                        <label class="flex justify-between items-center text-[10px] gap-1">
+                            <span class="text-pink-600">加速</span>
+                            <input type="range" id="scaleASlider" min="0.5" max="10" step="0.5" value="2" class="w-14 range-sm">
+                        </label>
+                        <label class="flex justify-between items-center text-[10px] gap-1">
+                            <span class="text-slate-600">力</span>
+                            <input type="range" id="scaleFSlider" min="0.1" max="5" step="0.1" value="1" class="w-14 range-sm">
+                        </label>
                     </div>
                 </div>
                 <div id="hoverTooltip"></div>
@@ -390,28 +409,10 @@
         let groupColors = {};
         const DEFAULT_COLORS = ["#d9485f", "#2d6cdf", "#1f9d61", "#d97706", "#8b5cf6", "#0891b2", "#db2777", "#65a30d", "#dc2626", "#9333ea", "#0d9488", "#ea580c"];
 
-        function getChartConfigDescription() {
-            const xLabel = document.getElementById('chartX').options[document.getElementById('chartX').selectedIndex]?.text || "";
-            const yIds = Array.from(chartYSelections);
-            const yLabels = yIds.map(id => sysVars.find(v => v.id === id)?.label || id).join("、");
-            const modeLabel = document.getElementById('chartMode').options[document.getElementById('chartMode').selectedIndex]?.text || "";
-            const trendLabel = document.getElementById('trendlineType').options[document.getElementById('trendlineType').selectedIndex]?.text || "";
-            return `橫軸為「${xLabel}」，縱軸「${yLabels || '無'}」。模式：「${modeLabel}」。擬合線：「${trendLabel}」。`;
-        }
-
-        function broadcastStateToParent(actionName, details = {}) {
-            try {
-                const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
-                const payload = {
-                    "學生動作": actionName, "時間": timeElapsed.toFixed(3) + " s", "狀態": cart.state,
-                    "軌道位置_s": cart.s.toFixed(2) + " m", "水平位置_X": cart.x.toFixed(2) + " m", "高度_Y": cart.y.toFixed(2) + " m",
-                    "速度_v": cart.v.toFixed(2) + " m/s", "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
-                    "組別": currentGroupName || "(空白)", "圖表": getChartConfigDescription(), ...details
-                };
-                console.log("【廣播】", payload);
-                window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
-            } catch (e) {}
-        }
+        let vectorScales = { v: 3, a: 2, f: 1 };
+        document.getElementById('scaleVSlider').addEventListener('input', (e) => { vectorScales.v = parseFloat(e.target.value); if(!isRunning) draw(); });
+        document.getElementById('scaleASlider').addEventListener('input', (e) => { vectorScales.a = parseFloat(e.target.value); if(!isRunning) draw(); });
+        document.getElementById('scaleFSlider').addEventListener('input', (e) => { vectorScales.f = parseFloat(e.target.value); if(!isRunning) draw(); });
 
         const canvas = document.getElementById('simulationCanvas'); const ctx = canvas.getContext('2d');
         const tooltip = document.getElementById('hoverTooltip'); const alertContainer = document.getElementById('statusAlertContainer');
@@ -476,7 +477,6 @@
             if (activeChart) setTimeout(() => activeChart.resize(), 50);
         });
 
-        // Modals
         const btnHelp = document.getElementById('btnHelp'); const helpModal = document.getElementById('helpModal'); const closeHelpBtn = document.getElementById('closeHelpBtn'); const helpBackdrop = document.getElementById('helpBackdrop');
         btnHelp.addEventListener('click', () => { helpModal.classList.remove('hidden'); document.body.classList.add('modal-open'); });
         const closeModal = () => { helpModal.classList.add('hidden'); document.body.classList.remove('modal-open'); };
@@ -494,7 +494,6 @@
         currentGroupInput.addEventListener('change', (e) => { currentGroupName = e.target.value.trim(); e.target.value = currentGroupName; });
         clearCurrentGroupBtn.addEventListener('click', () => { currentGroupInput.value = ""; currentGroupName = ""; });
 
-        // 參數面板收合邏輯
         let isParamPanelOpen = true;
         const paramPanelHeader = document.getElementById('paramPanelHeader'); const paramPanelContent = document.getElementById('paramPanelContent'); const paramPanelIcon = document.getElementById('paramPanelIcon');
         paramPanelHeader.addEventListener('click', () => {
@@ -516,7 +515,7 @@
 
         let params = { thetaL: 30 * Math.PI / 180, thetaR: 30 * Math.PI / 180, mu: 0.2, mass: 1.0, thrust: 0.0, R: 1.0, H: 4.0, L_flat: 1.5, max_X: 12.0 };
         let trackS = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, total: 0 }; let trackBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 }; let trackPoints = []; 
-        let cart = { state: 'stopped', s: 0, x: 0, y: 0, theta: 0, v: 0, a: 0, vx: 0, vy: 0, Fg: 0, Fn: 0, Ff: 0, Fnet: 0, F_thrust: 0, K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0, width: 0.6, height: 0.3, color: '#ef4444' };
+        let cart = { state: 'stopped', s: 0, x: 0, y: 0, theta: 0, v: 0, a: 0, vx: 0, vy: 0, Fg: 0, Fn: 0, Ff: 0, dirFf: 0, Fnet: 0, F_thrust: 0, K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0, width: 0.6, height: 0.3, color: '#ef4444' };
         let isRunning = false; let timeElapsed = 0; let lastTime = 0; let isDraggingCart = false; let nextPauseTime = Infinity;
 
         let replayFrames = []; let turningPoints = []; let snapshotFrames = []; 
@@ -675,6 +674,31 @@
         }
         const sx = (px) => cx + px * scale; const sy = (py) => cy - py * scale;
 
+        function updateStaticPhysics() {
+            if (cart.state === 'flying') return;
+            const pos = getPos(cart.s);
+            cart.theta = pos.theta;
+            cart.F_thrust = params.thrust;
+            
+            let fGravity = -params.mass * g * Math.sin(pos.theta);
+            let fNormal = params.mass * (g * Math.cos(pos.theta)); // 靜止時無向心力
+            let fParallel = fGravity + cart.F_thrust;
+            let fFriction = 0;
+
+            if (Math.abs(fParallel) <= params.mu * fNormal) { 
+                fFriction = -fParallel; 
+            } else { 
+                fFriction = -Math.sign(fParallel) * params.mu * fNormal; 
+            }
+
+            cart.Fg = params.mass * g; 
+            cart.Fn = fNormal; 
+            cart.Ff = Math.abs(fFriction); 
+            cart.dirFf = fFriction === 0 ? 0 : Math.sign(fFriction);
+            cart.Fnet = fParallel + fFriction; 
+            cart.a = cart.Fnet / params.mass;
+        }
+
         function updatePhysics(dt) {
             if (cart.state === 'stopped' || isDraggingCart) return;
             const subSteps = 10; const stepDt = dt / subSteps; let hitTurningPoint = null;
@@ -689,7 +713,8 @@
                     if (Math.abs(cart.v) > 0.01) { fFriction = -Math.sign(cart.v) * params.mu * fNormal; } 
                     else { if (Math.abs(fParallel) <= params.mu * fNormal) { fFriction = -fParallel; cart.v = 0; } else { fFriction = -Math.sign(fParallel) * params.mu * fNormal; } }
 
-                    cart.Fg = params.mass * g; cart.Fn = fNormal; cart.Ff = Math.abs(fFriction); cart.Fnet = fParallel + fFriction; cart.a = cart.Fnet / params.mass;
+                    cart.Fg = params.mass * g; cart.Fn = fNormal; cart.Ff = Math.abs(fFriction); cart.dirFf = fFriction === 0 ? 0 : Math.sign(fFriction); 
+                    cart.Fnet = fParallel + fFriction; cart.a = cart.Fnet / params.mass;
                     
                     let v_old = cart.v; let v_new = cart.v + cart.a * stepDt; cart.s += cart.v * stepDt;
                     cart.Wf += cart.Ff * Math.abs(cart.v * stepDt); cart.W_thrust += cart.F_thrust * cart.v * stepDt; cart.v = v_new;
@@ -714,7 +739,7 @@
                     cart.F_thrust = params.thrust; let ax = (cart.F_thrust * Math.cos(cart.theta)) / params.mass; let ay = -g + (cart.F_thrust * Math.sin(cart.theta)) / params.mass;
                     cart.vy += ay * stepDt; cart.vx += ax * stepDt; cart.x += cart.vx * stepDt; cart.y += cart.vy * stepDt;
                     cart.v = Math.sqrt(cart.vx*cart.vx + cart.vy*cart.vy); cart.theta = Math.atan2(cart.vy, cart.vx); cart.W_thrust += cart.F_thrust * cart.v * stepDt;
-                    cart.Fg = params.mass * g; cart.Fn = 0; cart.Ff = 0; cart.Fnet = Math.sqrt(Math.pow(cart.F_thrust * Math.cos(cart.theta), 2) + Math.pow(cart.F_thrust * Math.sin(cart.theta) - cart.Fg, 2)); cart.a = cart.Fnet / params.mass;
+                    cart.Fg = params.mass * g; cart.Fn = 0; cart.Ff = 0; cart.dirFf = 0; cart.Fnet = Math.sqrt(Math.pow(cart.F_thrust * Math.cos(cart.theta), 2) + Math.pow(cart.F_thrust * Math.sin(cart.theta) - cart.Fg, 2)); cart.a = cart.Fnet / params.mass;
                     if (cart.y < -1.0) { cart.state = 'stopped'; isRunning = false; updateBtnState(); break; }
                     cart.K = 0.5 * params.mass * cart.v * cart.v; cart.U = params.mass * g * Math.max(0, cart.y); 
                 }
@@ -788,22 +813,35 @@
             ctx.font = `${cw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.scale(-1, 1); ctx.fillText("🚗", 0, - (ch * 0.15)); ctx.restore();
 
             const screenCx = sx(carX); const screenCy = sy(carY);
-            if (toggles.Fg.checked) drawArrow(screenCx, screenCy, 0, -cart.Fg, '#10b981');
-            if (cart.state === 'running' || isDraggingCart) {
-                if (toggles.Fn.checked) drawArrow(screenCx, screenCy, -cart.Fn * Math.sin(cart.theta), cart.Fn * Math.cos(cart.theta), '#3b82f6');
-                if (toggles.Ff.checked && cart.Ff > 0) { const dir = -Math.sign(cart.v || cart.Fnet); drawArrow(screenCx, screenCy, cart.Ff * dir * Math.cos(cart.theta), cart.Ff * dir * Math.sin(cart.theta), '#ef4444'); }
+            const sf = vectorScales.f;
+            
+            if (toggles.Fg.checked) drawArrow(screenCx, screenCy, 0, -cart.Fg * sf, '#10b981');
+            
+            if (cart.state !== 'flying') {
+                if (toggles.Fn.checked) drawArrow(screenCx, screenCy, -cart.Fn * sf * Math.sin(cart.theta), cart.Fn * sf * Math.cos(cart.theta), '#3b82f6');
+                if (toggles.Ff.checked && cart.Ff > 0) { 
+                    drawArrow(screenCx, screenCy, cart.Ff * sf * cart.dirFf * Math.cos(cart.theta), cart.Ff * sf * cart.dirFf * Math.sin(cart.theta), '#ef4444'); 
+                }
             }
-            if (toggles.Fthrust.checked && cart.F_thrust !== 0) drawArrow(screenCx, screenCy, cart.F_thrust * Math.cos(cart.theta), cart.F_thrust * Math.sin(cart.theta), '#06b6d4');
+            
+            if (toggles.Fthrust.checked && cart.F_thrust !== 0) drawArrow(screenCx, screenCy, cart.F_thrust * sf * Math.cos(cart.theta), cart.F_thrust * sf * Math.sin(cart.theta), '#06b6d4');
+            
             if (toggles.Fnet.checked) {
                 let netX = cart.state==='flying' ? (cart.F_thrust * Math.cos(cart.theta)) : cart.Fnet * Math.cos(cart.theta);
-                let netY = cart.state==='flying' ? (cart.F_thrust * Math.sin(cart.theta) - cart.Fg) : cart.Fnet * Math.sin(cart.theta); drawArrow(screenCx, screenCy, netX, netY, '#9333ea');
+                let netY = cart.state==='flying' ? (cart.F_thrust * Math.sin(cart.theta) - cart.Fg) : cart.Fnet * Math.sin(cart.theta); 
+                drawArrow(screenCx, screenCy, netX * sf, netY * sf, '#9333ea');
             }
+            
             if (toggles.v.checked) {
-                let vx = cart.state==='flying' ? cart.vx : cart.v * Math.cos(cart.theta); let vy = cart.state==='flying' ? cart.vy : cart.v * Math.sin(cart.theta); drawArrow(screenCx, screenCy, vx*3, vy*3, '#4f46e5'); 
+                let vx = cart.state==='flying' ? cart.vx : cart.v * Math.cos(cart.theta); 
+                let vy = cart.state==='flying' ? cart.vy : cart.v * Math.sin(cart.theta); 
+                drawArrow(screenCx, screenCy, vx * vectorScales.v, vy * vectorScales.v, '#4f46e5'); 
             }
+            
             if (toggles.a.checked) {
                 let ax = cart.state==='flying' ? (cart.F_thrust * Math.cos(cart.theta))/params.mass : cart.a * Math.cos(cart.theta);
-                let ay = cart.state==='flying' ? -g + (cart.F_thrust * Math.sin(cart.theta))/params.mass : cart.a * Math.sin(cart.theta); drawArrow(screenCx, screenCy, ax*2, ay*2, '#db2777');
+                let ay = cart.state==='flying' ? -g + (cart.F_thrust * Math.sin(cart.theta))/params.mass : cart.a * Math.sin(cart.theta); 
+                drawArrow(screenCx, screenCy, ax * vectorScales.a, ay * vectorScales.a, '#db2777');
             }
         }
 
@@ -830,7 +868,9 @@
             if (isDraggingCart) {
                 const px = (mx - cx) / scale; const py = (cy - my) / scale; let minDist = Infinity; let bestS = 0;
                 for (let i = 0; i < trackPoints.length; i++) { const dist = Math.hypot(trackPoints[i].x - px, trackPoints[i].y - py); if (dist < minDist) { minDist = dist; bestS = trackPoints[i].s; } }
-                cart.s = bestS; const np = getPos(cart.s); cart.x = np.x; cart.y = np.y; cart.theta = np.theta; cart.v = 0; cart.a = 0; cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; draw(); 
+                cart.s = bestS; const np = getPos(cart.s); cart.x = np.x; cart.y = np.y; cart.theta = np.theta; cart.v = 0; cart.a = 0; cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; 
+                updateStaticPhysics();
+                draw(); 
 
                 tooltip.innerHTML = `<div class="font-bold text-amber-400 mb-1 border-b border-white/20 pb-1">📍 拖曳滑車中</div><div class="mt-1">水平 X: <span class="text-blue-200">${cart.x.toFixed(2)} m</span></div><div>高度 Y: <span class="text-emerald-200">${cart.y.toFixed(2)} m</span></div>`;
                 tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 40) + 'px'; tooltip.style.opacity = 1; return;
@@ -899,9 +939,10 @@
             params.thrust = frame.F_thrust; sliders.thrust.value = params.thrust; labels.thrust.textContent = params.thrust.toFixed(1);
             valReplayTime.textContent = timeElapsed.toFixed(2) + "s";
             
+            updateStaticPhysics();
             draw();
             updateHighlights();
-            updateBtnState(); // 更新按鈕文字
+            updateBtnState(); 
         });
 
         function renderTableColumnsUI() {
@@ -1233,6 +1274,8 @@
             const initPos = getPos(cart.s); cart.x = initPos.x; cart.y = initPos.y; cart.theta = initPos.theta; cart.F_thrust = params.thrust;
             cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
 
+            updateStaticPhysics();
+
             replayFrames = [{
                 t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
                 v: cart.v, a: cart.a, K: cart.K, U: cart.U, Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
@@ -1285,6 +1328,7 @@
                         if(cart.s > trackS.total) cart.s = trackS.total;
                         const np = getPos(cart.s); cart.x = np.x; cart.y = np.y; cart.theta = np.theta;
                         cart.U = params.mass * g * Math.max(0, cart.y); cart.E0 = cart.U + cart.K;
+                        updateStaticPhysics();
                     }
                     draw(); 
                 }
@@ -1292,7 +1336,8 @@
         });
 
         document.getElementById('btnZeroThrust').addEventListener('click', () => {
-            sliders.thrust.value = 0; params.thrust = 0; labels.thrust.textContent = '0.0'; if (!isRunning) draw();
+            sliders.thrust.value = 0; params.thrust = 0; labels.thrust.textContent = '0.0'; 
+            if (!isRunning) { applyParams(); updateStaticPhysics(); draw(); }
         });
 
         btnStart.addEventListener('click', () => {
@@ -1334,7 +1379,7 @@
             else if (currentFrictionIndex === 3) { text = "一般軌道"; colorClass = "text-blue-500 bg-blue-50"; }
             else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
             valFrictionText.textContent = text; valFrictionText.className = `px-1.5 rounded font-bold whitespace-nowrap ${colorClass}`;
-            if (isRunning) resetSimulation();
+            if (isRunning) resetSimulation(); else { updateStaticPhysics(); draw(); }
         }
 
         btnSmoother.addEventListener('click', () => { if (currentFrictionIndex > 0) { currentFrictionIndex--; applyFrictionChange(); } });
