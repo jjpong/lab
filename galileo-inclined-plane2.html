@@ -550,9 +550,7 @@
                     "水平位置_X": cart.x.toFixed(2) + " m",
                     "高度_Y": cart.y.toFixed(2) + " m",
                     "速度_v": cart.v.toFixed(2) + " m/s",
-                    "左側最高高度": (cart.maxLeftY !== undefined ? cart.maxLeftY.toFixed(2) : "0.00") + " m",
-                    "右側最高高度": (cart.maxRightY !== undefined ? cart.maxRightY.toFixed(2) : "0.00") + " m",
-        
+                    "所有轉折點紀錄": turningPoints.length > 0  ? turningPoints.map(pt => `${pt.x < -startXOffset ? '左' : '右'}:${pt.y.toFixed(2)}m`).join(' ➔ ')   : "無",
                     "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
                     "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
                     "目前組別設定": currentGroupName || "(空白)",
