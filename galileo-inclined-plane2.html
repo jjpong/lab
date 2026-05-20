@@ -1,69 +1,50 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
+<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>伽利略理想斜面與運動學實驗</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+    <title>伽利略理想斜面虛擬實驗2.0</title>
+    <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;🚗&lt;/text&gt;&lt;/svg&gt;">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --panel-bg: #ffffff;
-            --bg: #f8fafc;
-        }
-
-        body {
-            font-family: 'Inter', "Noto Sans TC", sans-serif;
-            background-color: var(--bg);
-            color: #1e293b;
-        }
-
+        :root { --primary: #2563eb; --bg: #f1f5f9; }
+        body { font-family: 'Inter', "Noto Sans TC", sans-serif; background-color: var(--bg); color: #1e293b; overflow: hidden; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        input[type=range] {
-            -webkit-appearance: none; width: 100%; background: transparent;
-        }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 18px; width: 18px;
-            border-radius: 50%; background: var(--primary);
-            cursor: pointer; margin-top: -7px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s;
+            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: var(--primary);
+            cursor: pointer; margin-top: -7px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s;
         }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 5px; cursor: pointer;
-            background: #cbd5e1; border-radius: 3px;
+            width: 100%; height: 5px; cursor: pointer; background: #cbd5e1; border-radius: 3px;
         }
 
-        .table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; width: 100%; }
+        /* 小尺寸拉桿 */
+        .range-sm::-webkit-slider-thumb { height: 12px; width: 12px; margin-top: -4px; }
+        .range-sm::-webkit-slider-runnable-track { height: 4px; }
+
         table { width: 100%; border-collapse: collapse; min-width: max-content; }
-        th, td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 0.92rem; white-space: nowrap; }
+        th, td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 0.85rem; white-space: nowrap; transition: background-color 0.1s, color 0.1s; }
         th { position: sticky; top: 0; background: #f8fafc; z-index: 1; color: #475569; font-weight: 700; }
         tbody tr:nth-child(even) { background: #fcfdff; }
-        .row-delete-btn { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 4px 10px; font-size: 0.9rem; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; }
+        .row-delete-btn { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 2px 8px; font-size: 0.8rem; border-radius: 4px; cursor: pointer; font-weight: 700; transition: 0.2s; }
         .row-delete-btn:hover { background: #fecaca; }
-
         .check-item { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem; font-weight:600; }
-        .check-item input { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; }
+        .check-item input { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
 
         #hoverTooltip {
-            position: absolute; pointer-events: none; opacity: 0;
-            background: rgba(15, 23, 42, 0.95); color: white;
-            padding: 12px 16px; border-radius: 8px; font-size: 0.85rem;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.15); transition: opacity 0.15s;
-            z-index: 100; font-family: monospace; line-height: 1.6;
-            transform: translate(-50%, -100%); margin-top: -15px;
+            position: absolute; pointer-events: none; opacity: 0; background: rgba(15, 23, 42, 0.95); color: white;
+            padding: 10px 14px; border-radius: 8px; font-size: 0.8rem; box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            transition: opacity 0.15s; z-index: 100; font-family: monospace; line-height: 1.6;
+            transform: translate(-50%, -100%); margin-top: -15px; white-space: nowrap;
         }
         #hoverTooltip::after {
-            content: ''; position: absolute; top: 100%; left: 50%;
-            margin-left: -6px; border-width: 6px; border-style: solid;
-            border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+            content: ''; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px;
+            border-style: solid; border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
         }
 
         @keyframes flyoutAlert {
@@ -73,339 +54,347 @@
             100% { opacity: 0; transform: scale(0.9) translateX(-50%); }
         }
         .flyout-text {
-            position: absolute; top: 20%; left: 50%;
-            background: rgba(220, 38, 38, 0.9); color: white;
-            padding: 12px 24px; border-radius: 12px; font-weight: 800; font-size: 1.2rem;
-            animation: flyoutAlert 3s forwards; pointer-events: none;
-            box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+            position: absolute; top: 20%; left: 50%; background: rgba(220, 38, 38, 0.9); color: white;
+            padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 1.1rem;
+            animation: flyoutAlert 3s forwards; pointer-events: none; box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4); z-index: 90;
         }
-        
+
         .cursor-grab { cursor: grab !important; }
         .cursor-grabbing { cursor: grabbing !important; }
 
-        /* Modal 樣式 */
+        .right-sidebar-collapsed { width: 0px !important; padding-left: 0px !important; padding-right: 0px !important; border: none !important; opacity: 0; margin-left: -0.75rem; overflow: hidden;}
+
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+
+        /* Resizable Container */
+        .resizable-y { resize: vertical; overflow: auto; min-height: 150px; max-height: calc(100vh - 200px); }
+
+        /* Modal / Floating Window */
         .modal { position: fixed; inset: 0; z-index: 999; display: flex; align-items: center; justify-content: center; padding: 18px; }
         .modal-backdrop { position: absolute; inset: 0; background: rgba(18, 29, 51, 0.6); backdrop-filter: blur(2px); }
         .modal-card { position: relative; width: min(800px, 100%); max-height: calc(100vh - 40px); overflow: auto; background: #fff; border-radius: 20px; padding: 24px; z-index: 1001; box-shadow: 0 25px 50px rgba(18, 29, 51, 0.25); }
         .modal-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 20px; }
         .modal-head h2 { margin: 0; font-size: 1.5rem; color: #1e293b; font-weight: 800; }
-        .help-content { display: grid; gap: 16px; color: var(--text); line-height: 1.7; font-size: 0.95rem; }
-        .help-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+        .help-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px;}
         .help-block h3 { margin: 0 0 10px; font-size: 1.1rem; color: #2563eb; font-weight: 700; display: flex; align-items: center; gap: 6px; }
         .help-block ul { margin: 0; padding-left: 1.4rem; }
         .help-block li { margin: 6px 0; }
-        .help-block b { color: #334155; }
-        
         body.modal-open { overflow: hidden; }
 
-        /* 組別與管理樣式 */
-        .group-input-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .group-input-wrap label { font-weight: 800; color: #92400e; white-space: nowrap; font-size: 0.92rem; }
-        .group-input-wrap input[type="text"] { flex: 1; min-width: 140px; border: 1px solid #fcd34d; border-radius: 8px; padding: 7px 10px; font-size: 0.92rem; background: #fff; }
-        .group-input-wrap input[type="text"]:focus { outline: none; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15); }
-        
-        .group-manager { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: #fbfdff; border: 1px dashed #cbd5e1; border-radius: 12px; margin-bottom: 12px; }
-        .group-manager-title { font-weight: 800; color: var(--primary); font-size: 0.92rem; }
-        .group-color-item { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 10px 4px 6px; font-size: 0.9rem; font-weight: 700; }
-        .group-color-picker { width: 26px; height: 26px; border: none; border-radius: 4px; cursor: pointer; padding: 0; background: transparent; }
-        .group-color-item .group-count { color: #64748b; font-weight: 500; font-size: 0.82rem; }
-
+        .group-color-item { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 8px 2px 4px; font-size: 0.85rem; font-weight: 700; margin: 2px; }
+        .group-color-picker { width: 20px; height: 20px; border: none; border-radius: 4px; cursor: pointer; padding: 0; background: transparent; }
         .editable-group { cursor: pointer; position: relative; transition: background 0.15s; }
         .editable-group:hover { background: #fef3c7 !important; }
-        .editable-group::after { content: "✎"; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; }
-        .editable-group:hover::after { opacity: 1; }
-        .editable-group .empty-group { color: #cbd5e1; font-style: italic; }
-        .editable-group .group-tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 800; color: #fff; font-size: 0.88rem; }
-        .group-edit-input { width: 100%; border: 2px solid var(--primary); border-radius: 6px; padding: 4px 8px; font-size: 0.92rem; background: #fff; font-family: inherit; }
-
-        /* 大本子收合動畫相關 CSS */
-        .data-panel-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
-            opacity: 0;
-        }
-        #dataPanelWrap.open .data-panel-content {
-            max-height: 2500px;
-            opacity: 1;
-        }
-        .data-panel-toggle {
-            transition: background-color 0.2s, color 0.2s;
-        }
+        .editable-group .group-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-weight: 800; color: #fff; font-size: 0.8rem; }
+        .group-edit-input { width: 100%; border: 2px solid var(--primary); border-radius: 4px; padding: 2px 4px; font-size: 0.85rem; background: #fff; }
     </style>
 </head>
-<body class="p-4 md:p-5 min-h-screen flex flex-col gap-5">
+<body class="p-2 md:p-3 h-screen flex flex-col gap-2">
 
-    <header class="flex justify-between items-center shrink-0 max-w-[1600px] mx-auto w-full">
+    <header class="flex justify-between items-center shrink-0 w-full px-2">
         <div class="text-left">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight mb-1">伽利略理想斜面虛擬實驗</h1>
-            <p class="text-slate-600 font-medium">探索慣性、能量守恆、受力與運動軌跡</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-0.5">伽利略理想斜面虛擬實驗2</h1>
+            <p class="text-xs md:text-sm text-slate-600 font-medium">探索慣性、能量守恆、受力與運動軌跡</p>
         </div>
-        <button id="btnHelp" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2 px-4 rounded-xl border border-indigo-200 shadow-sm transition-colors flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <button id="btnHelp" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-1.5 px-3 rounded-lg border border-indigo-200 shadow-sm transition-colors flex items-center gap-1.5 text-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             操作說明
         </button>
     </header>
 
-    <main class="flex flex-col xl:flex-row gap-5 flex-1 max-w-[1600px] mx-auto w-full">
-        <aside class="w-full xl:w-[320px] shrink-0 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-4">
-            <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                實驗參數設定
-            </h2>
-
-            <div class="flex flex-col gap-4">
-                
-                <div class="flex flex-col gap-3">
-                    <div>
-                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                            <span>左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-2 rounded">30°</span>
-                        </label>
-                        <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
-                    </div>
-                    <div>
-                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                            <span>右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-2 rounded">30°</span>
-                        </label>
-                        <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
-                    </div>
-                    <div>
-                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1.5">
-                            <span>軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-2 rounded font-bold">一般軌道</span>
-                        </label>
-                        <div class="flex gap-2">
-                            <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">✨ 變光滑</button>
-                            <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1.5 rounded-lg text-sm transition-colors">🧱 變粗糙</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="flex justify-between text-sm font-semibold text-slate-700 mb-1">
-                            <span>滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-2 rounded">1.0</span>
-                        </label>
-                        <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
-                    </div>
-                </div>
-
-                <hr class="border-slate-200 my-0.5">
-
-                <div class="bg-cyan-50 p-2.5 rounded-xl border border-cyan-100">
-                    <label class="flex justify-between items-center text-sm font-semibold text-slate-700 mb-2">
-                        <span class="text-cyan-800">🚀 滑車推力 (N)</span>
-                        <div class="flex gap-2 items-center">
-                            <button id="btnZeroThrust" class="text-[10px] bg-white border border-cyan-200 hover:bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded transition-colors shadow-sm">歸零</button>
-                            <span id="valThrust" class="text-cyan-700 bg-white border border-cyan-200 px-2 rounded w-10 text-center font-bold">0.0</span>
-                        </div>
-                    </label>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-cyan-600 font-bold">-10</span>
-                        <input type="range" id="thrustSlider" min="-10" max="10" step="0.5" value="0">
-                        <span class="text-xs text-cyan-600 font-bold">+10</span>
-                    </div>
-                </div>
-
-                <hr class="border-slate-200 my-0.5">
-                
-                <div class="flex gap-3">
-                    <button id="btnStart" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-md transition-all active:scale-95 flex justify-center items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
-                        <span>放開滑車</span>
-                    </button>
-                    <button id="btnReset" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition-all active:scale-95 flex justify-center items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        <span>重置實驗</span>
-                    </button>
-                </div>
-
-                <hr class="border-slate-200 my-0.5">
-
-                <div class="flex flex-col gap-3">
-                    <div class="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
-                        <label class="flex items-center justify-between text-sm font-bold text-indigo-800 mb-1">
-                            <span>⏪ 實驗重播</span>
-                            <span id="valReplayTime" class="font-mono bg-white px-2 py-0.5 rounded border border-indigo-200 text-xs">0.00s</span>
-                        </label>
-                        <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="w-full">
-                    </div>
-
-                    <div class="p-2 bg-amber-50 border border-amber-200 rounded-xl">
-                        <label class="flex items-center gap-2 text-sm font-bold text-amber-800 cursor-pointer">
-                            <input type="checkbox" id="autoPauseToggle" class="w-4 h-4 accent-amber-600">
-                            自動暫停(每 <input type="number" id="autoPauseInterval" value="0.1" step="0.05" min="0.05" max="2.0" class="w-12 px-1 rounded border border-amber-300 text-center font-mono text-xs"> s)
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <div class="w-full flex flex-col gap-5 min-w-0">
+    <main class="flex flex-row gap-3 flex-1 overflow-hidden min-h-0 w-full">
         
-            <div class="relative w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1" style="min-height: 350px;">
+        <div class="flex-1 flex flex-col gap-2 min-w-[400px] h-full relative">
+        
+            <div class="relative w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 min-h-[300px]">
                 <canvas id="simulationCanvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
-                
                 <div id="statusAlertContainer"></div>
 
-                <div class="absolute top-3 right-3 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all duration-300 z-10 w-[140px]">
-                    <div id="vectorPanelHeader" class="text-slate-600 bg-slate-50 rounded-t-lg p-2 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100 transition-colors">
-                        <span>顯示物理量向量</span>
-                        <span id="vectorPanelIcon" class="transform transition-transform duration-300 text-[10px]">▼</span>
+                <!-- 實驗參數設定 (左上角懸浮) -->
+                <div class="absolute top-2 left-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[260px]">
+                    <div id="paramPanelHeader" class="text-slate-800 bg-slate-50 rounded-t-lg p-2 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100">
+                        <span class="flex items-center gap-1.5 font-bold">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                            實驗參數設定
+                        </span>
+                        <span id="paramPanelIcon" class="transform transition-transform duration-300 text-[10px] rotate-180">▼</span>
                     </div>
-                    <div id="vectorPanelContent" class="flex flex-col gap-2 p-2">
-                        <label class="check-item"><input type="checkbox" id="showV" checked> <span class="text-indigo-600">速度 (v)</span></label>
+                    <div id="paramPanelContent" class="flex flex-col gap-3 p-3">
+                        <div class="flex flex-col gap-2.5">
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">左斜面角度 (°)</span><span id="valLeftAngle" class="text-blue-600 bg-blue-50 px-1.5 rounded">30°</span>
+                                </label>
+                                <input type="range" id="leftAngleSlider" min="0" max="75" value="30">
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">右斜面角度 (°)</span><span id="valRightAngle" class="text-indigo-600 bg-indigo-50 px-1.5 rounded">30°</span>
+                                </label>
+                                <input type="range" id="rightAngleSlider" min="0" max="75" value="30">
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">軌道表面狀態</span><span id="valFrictionText" class="text-blue-500 bg-blue-50 px-1.5 rounded font-bold whitespace-nowrap">一般軌道</span>
+                                </label>
+                                <div class="flex gap-1.5">
+                                    <button id="btnSmoother" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1 rounded text-xs transition-colors whitespace-nowrap">✨ 變光滑</button>
+                                    <button id="btnRougher" class="flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 font-bold py-1 rounded text-xs transition-colors whitespace-nowrap">🧱 變粗糙</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                                    <span class="whitespace-nowrap">滑車質量 (kg)</span><span id="valMass" class="text-emerald-600 bg-emerald-50 px-1.5 rounded">1.0</span>
+                                </label>
+                                <input type="range" id="massSlider" min="0.1" max="5.0" step="0.1" value="1.0">
+                            </div>
+                        </div>
+                        <hr class="border-slate-200 my-0">
+                        <div class="bg-cyan-50 p-2 rounded-lg border border-cyan-100">
+                            <label class="flex justify-between items-center text-xs font-semibold text-slate-700 mb-1.5">
+                                <span class="text-cyan-800 whitespace-nowrap">🚀 滑車推力 (N)</span>
+                                <div class="flex gap-1.5 items-center">
+                                    <button id="btnZeroThrust" class="text-[10px] bg-white border border-cyan-200 hover:bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">歸零</button>
+                                    <span id="valThrust" class="text-cyan-700 bg-white border border-cyan-200 px-1.5 rounded w-8 text-center font-bold">0.0</span>
+                                </div>
+                            </label>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] text-cyan-600 font-bold">-10</span>
+                                <input type="range" id="thrustSlider" min="-10" max="10" step="0.5" value="0">
+                                <span class="text-[10px] text-cyan-600 font-bold">+10</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 顯示物理量向量 (右上角) -->
+                <div class="absolute top-2 right-2 bg-white/95 backdrop-blur rounded-lg shadow border border-slate-200 text-xs font-semibold text-slate-700 flex flex-col pointer-events-auto transition-all z-10 w-[140px]">
+                    <div id="vectorPanelHeader" class="text-slate-600 bg-slate-50 rounded-t-lg p-1.5 border-b border-slate-200 flex justify-between items-center cursor-pointer select-none hover:bg-slate-100">
+                        <span>顯示物理量向量</span>
+                        <span id="vectorPanelIcon" class="transform transition-transform duration-300 text-[9px] rotate-0">▼</span>
+                    </div>
+                    <div id="vectorPanelContent" class="flex flex-col gap-1 p-1.5 hidden">
+                        <label class="check-item"><input type="checkbox" id="showV" checked=""> <span class="text-indigo-600">速度 (v)</span></label>
                         <label class="check-item"><input type="checkbox" id="showA"> <span class="text-pink-600">加速度 (a)</span></label>
-                        <label class="check-item"><input type="checkbox" id="showFthrust" checked> <span class="text-cyan-500">推力 (F_push)</span></label>
+                        <label class="check-item"><input type="checkbox" id="showFthrust" checked=""> <span class="text-cyan-500">推力 (F_push)</span></label>
                         <label class="check-item"><input type="checkbox" id="showFg"> <span class="text-emerald-600">重力 (Fg)</span></label>
                         <label class="check-item"><input type="checkbox" id="showFn"> <span class="text-blue-500">正向力 (Fn)</span></label>
                         <label class="check-item"><input type="checkbox" id="showFf"> <span class="text-red-500">摩擦力 (Ff)</span></label>
                         <label class="check-item"><input type="checkbox" id="showFnet"> <span class="text-purple-600">合力 (Fnet)</span></label>
+                        
+                        <hr class="border-slate-200 my-1">
+                        <div class="text-[10px] text-slate-500 mb-0.5 font-bold">向量顯示比例：</div>
+                        <label class="flex justify-between items-center text-[10px] gap-1">
+                            <span class="text-indigo-600">速度</span>
+                            <input type="range" id="scaleVSlider" min="0.5" max="10" step="0.5" value="3" class="w-14 range-sm">
+                        </label>
+                        <label class="flex justify-between items-center text-[10px] gap-1">
+                            <span class="text-pink-600">加速</span>
+                            <input type="range" id="scaleASlider" min="0.5" max="10" step="0.5" value="2" class="w-14 range-sm">
+                        </label>
+                        <label class="flex justify-between items-center text-[10px] gap-1">
+                            <span class="text-slate-600">力</span>
+                            <input type="range" id="scaleFSlider" min="0.1" max="5" step="0.1" value="1" class="w-14 range-sm">
+                        </label>
                     </div>
                 </div>
-
                 <div id="hoverTooltip"></div>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" id="dataPanelWrap">
-                <button type="button" class="w-full flex justify-between items-center p-3 bg-gradient-to-r from-slate-50 to-blue-50/20 hover:from-slate-100 hover:to-blue-100/30 text-slate-700 font-extrabold text-base transition-colors data-panel-toggle" id="dataPanelToggle">
-                    <span class="flex items-center gap-2">
-                        📊 <span id="dataPanelLabel">📈 打開實驗記錄簿（查看表格與數據圖表）</span>
-                    </span>
-                    <span id="dataPanelIcon" class="transform transition-transform duration-300 text-slate-400 text-xs">▼</span>
-                </button>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2 shrink-0 flex flex-wrap items-center gap-3">
+                <div class="flex gap-2 shrink-0">
+                    <button id="btnStart" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg shadow-sm active:scale-95 flex items-center gap-1.5 text-sm whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                        <span>開始播放</span>
+                    </button>
+                    <button id="btnReset" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-1.5 px-3 rounded-lg active:scale-95 flex items-center gap-1.5 text-sm whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span>重置</span>
+                    </button>
+                </div>
+                <div class="w-px h-6 bg-slate-200 hidden sm:block shrink-0"></div>
                 
-                <div class="data-panel-content" id="dataPanelContent">
-                    <div class="p-3 flex flex-col gap-5 border-t border-slate-100">
-                        
-                        <div class="bg-amber-50 rounded-xl border border-amber-200 p-3 flex flex-col sm:flex-row gap-2 items-center justify-between shadow-sm">
-                            <div class="group-input-wrap flex-1 w-full">
-                                <label for="currentGroupInput" class="text-amber-900">🏷️ 目前組別：</label>
-                                <input type="text" id="currentGroupInput" placeholder="例：質量1kg組（可留空）" maxlength="20">
-                                <button type="button" class="bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors" id="clearCurrentGroupBtn">清除</button>
-                            </div>
-                            <button id="btnRecord" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center gap-2">
-                                ➕ 記錄當下狀態
-                            </button>
+                <div class="flex flex-wrap flex-1 min-w-[250px] gap-2 items-center px-1">
+                    <div class="flex items-center gap-2 flex-1 min-w-[150px]">
+                        <span class="text-[11px] font-bold text-indigo-800 whitespace-nowrap">⏪重播:</span>
+                        <input type="range" id="replaySlider" min="0" max="0" value="0" step="1" class="flex-1 min-w-[100px]">
+                        <span id="valReplayTime" class="text-[11px] font-mono font-bold bg-indigo-50 border border-indigo-200 px-1 rounded text-right whitespace-nowrap w-12 shrink-0">0.00s</span>
+                    </div>
+                    <div class="flex items-center gap-3 justify-center sm:justify-start shrink-0 bg-amber-50/50 px-2 py-1 rounded-lg border border-amber-100 flex-wrap">
+                        <div class="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
+                            <span>每</span>
+                            <input 
+                                type="number" 
+                                id="autoPauseInterval" 
+                                value="0.1" 
+                                step="0.05" 
+                                min="0.05" 
+                                max="2.0" 
+                                class="w-14 h-6 border border-amber-400 rounded px-1 text-center font-mono text-xs text-black bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            >
+                            <span>秒</span>
+                            <label class="flex items-center gap-1 cursor-pointer hover:text-amber-800 transition-colors ml-1">
+                                <input type="checkbox" id="autoPauseToggle" class="w-3.5 h-3.5 accent-amber-600 cursor-pointer">
+                                <span>⏸ 暫停</span>
+                            </label>
                         </div>
-
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            
-                            <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col">
-                                <div class="flex items-center justify-between border-b pb-2 mb-3">
-                                    <h3 class="font-bold text-slate-800">📋 實驗數據紀錄表</h3>
-                                    <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-1 px-3 rounded transition-colors">
-                                        清空
-                                    </button>
-                                    <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition-colors">
-                                        💾 下載 CSV
-                                    </button>
-                                </div>
-                                
-                                <div class="mb-3 text-sm border p-2 bg-slate-50 rounded-lg">
-                                    <span class="text-slate-600 font-bold block mb-1">勾選要在表格與圖表顯示的欄位：</span>
-                                    <div class="flex flex-wrap gap-x-4 gap-y-2" id="columnCheckboxes"></div>
-                                </div>
-
-                                <div class="table-wrap flex-1 max-h-[300px] overflow-y-auto">
-                                    <table id="dataTable">
-                                        <thead id="dataTableHead"></thead>
-                                        <tbody id="dataTableBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-3">
-                                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b pb-3 mb-2 gap-3">
-                                    <h3 class="font-bold text-slate-800 text-lg flex items-center shrink-0">📊 自訂關係圖</h3>
-                                    
-                                    <div class="flex flex-wrap gap-2 items-center text-sm font-medium">
-                                        <div class="flex items-center gap-1 bg-indigo-50 text-indigo-900 px-2 py-1 rounded border border-indigo-200">
-                                            <span class="text-indigo-700">模式:</span>
-                                            <select id="chartMode" class="bg-transparent font-bold outline-none cursor-pointer text-indigo-800">
-                                                <option value="custom" selected>自訂關係圖 (散佈點)</option>
-                                                <option value="continuous">完整關係圖 (連續線)</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border">
-                                            <span class="text-slate-600">橫軸(X):</span>
-                                            <select id="chartX" class="bg-transparent font-bold outline-none cursor-pointer">
-                                                <option value="t" selected>時間 (s)</option>
-                                                <option value="s">軌道位置 (m)</option>
-                                                <option value="x">水平位置 X (m)</option>
-                                                <option value="v">速度 (m/s)</option>
-                                            </select>
-                                        </div>
-
-                                        <div id="trendlineContainer" class="flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 transition-opacity">
-                                            <span class="text-amber-700">📈 擬合線:</span>
-                                            <select id="trendlineType" class="bg-transparent font-bold outline-none cursor-pointer text-amber-800">
-                                                <option value="none" selected>關閉</option>
-                                                <option value="linear">線性一次 (y = ax+b)</option>
-                                                <option value="quadratic">拋物線二次 (y = ax²+bx+c)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="group-manager hidden" id="groupManager"></div>
-                                
-                                <div class="flex flex-wrap gap-2 text-sm bg-slate-50 p-2 rounded-lg border border-slate-100 min-h-[38px]" id="yAxisSelectors">
-                                </div>
-
-                                <div class="relative w-full h-[260px] mt-2">
-                                    <canvas id="customChart"></canvas>
-                                </div>
-
-                                <div id="trendlineEqs" class="min-h-[24px] text-xs font-mono font-bold text-slate-700 bg-slate-100 p-2 rounded overflow-x-auto whitespace-nowrap hidden">
-                                </div>
-                            </div>
-
-                        </div>
+                        <label class="flex items-center gap-1 text-[11px] font-bold cursor-pointer text-rose-600 whitespace-nowrap" title="連續播放不暫停，留下軌跡並自動抄表">
+                            <input type="checkbox" id="snapshotToggle" class="w-3.5 h-3.5 accent-rose-500"> 📸 快照
+                        </label>
                     </div>
                 </div>
+                
+                <div class="shrink-0">
+                    <button id="btnToggleRightPanel" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-1.5 px-3 rounded-lg shadow-sm border border-emerald-600 transition-all text-xs whitespace-nowrap flex items-center gap-1">
+                        <span id="toggleRightPanelText">📊 打開紀錄簿 ▶</span>
+                    </button>
+                </div>
             </div>
-            
         </div>
+
+        <aside id="rightSidebar" class="right-sidebar-collapsed w-[400px] xl:w-[450px] shrink-0 flex flex-col gap-3 transition-all duration-300 h-full overflow-y-auto pr-1 pb-1">
+            
+            <details class="bg-white rounded-xl shadow-sm border border-slate-200 shrink-0 group">
+                <summary class="font-bold text-slate-800 text-sm px-4 py-2.5 cursor-pointer flex justify-between items-center list-none outline-none hover:bg-slate-50 rounded-xl transition-colors">
+                    <span class="flex items-center gap-2">⚙️ 設定顯示欄位與分組</span>
+                    <span class="text-slate-400 text-xs transition-transform duration-300 group-open:rotate-180">▼</span>
+                </summary>
+                <div class="px-4 pb-3 pt-1 border-t border-slate-100 flex flex-col gap-3">
+                    <div class="flex w-full gap-2 items-center">
+                        <label for="currentGroupInput" class="text-amber-900 text-xs font-bold whitespace-nowrap">🏷️ 分組：</label>
+                        <input type="text" id="currentGroupInput" placeholder="例:1kg組" maxlength="20" class="flex-1 min-w-0 border border-amber-300 rounded px-2 py-1 text-xs">
+                        <button type="button" class="bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 px-2 py-1 rounded text-xs font-bold whitespace-nowrap" id="clearCurrentGroupBtn">清除</button>
+                    </div>
+                    <div class="text-xs">
+                        <span class="text-slate-500 font-bold block mb-1">☑ 勾選要顯示在「表格」與「游標」的資料：</span>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1.5" id="columnCheckboxes"></div>
+                    </div>
+                    <div class="group-manager hidden text-xs" id="groupManager"></div>
+                </div>
+            </details>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col resizable-y relative pb-2 shrink-0" style="height: 300px;">
+                <div class="flex items-center justify-between border-b px-3 py-2 shrink-0">
+                    <h3 class="font-bold text-slate-800 text-sm">📋 數據紀錄表</h3>
+                    <div class="flex gap-1.5">
+                        <button id="btnRecord" class="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold py-1 px-2 rounded shadow transition-colors">➕ 手動記錄</button>
+                        <button id="btnClearRecord" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-bold py-1 px-2 rounded">清空</button>
+                        <button id="btnExport" class="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold py-1 px-2 rounded shadow">💾 下載實驗結果</button>
+                    </div>
+                </div>
+                <div class="overflow-auto flex-1 text-xs px-1 relative">
+                    <table id="dataTable" class="w-full">
+                        <thead id="dataTableHead" class="bg-white sticky top-0 border-b border-slate-200 z-10"></thead>
+                        <tbody id="dataTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="absolute bottom-0 left-0 w-full h-2 bg-slate-50 cursor-ns-resize border-t border-slate-200 flex justify-center items-center pointer-events-none">
+                    <div class="w-8 h-0.5 bg-slate-300 rounded-full"></div>
+                </div>
+            </div>
+
+            <div id="rightSidebarChartContainer" class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 shrink-0 flex flex-col" style="min-height: 300px;">
+                <div class="flex justify-between items-center border-b pb-1.5 mb-1.5 shrink-0">
+                    <h3 class="font-bold text-slate-800 text-sm">📊 統計圖表</h3>
+                    <button id="btnPopOutChart" class="bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold py-1 px-2 rounded text-[10px] transition-colors shadow-sm">↗️ 獨立視窗</button>
+                </div>
+                
+                <div id="chartPanelContent" class="flex-1 flex flex-col min-h-0">
+                    <div class="flex flex-col gap-1.5 text-[11px] font-medium shrink-0">
+                        <div class="flex gap-2">
+                            <div class="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded border flex-1">
+                                <span class="text-slate-600 font-bold whitespace-nowrap">X軸:</span>
+                                <select id="chartX" class="bg-transparent font-bold outline-none cursor-pointer w-full">
+                                    <option value="t" selected="">時間 (s)</option>
+                                    <option value="s">軌道位置 (m)</option>
+                                    <option value="x">水平位置 X (m)</option>
+                                    <option value="v">速度 (m/s)</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-1 bg-indigo-50 text-indigo-900 px-1.5 py-0.5 rounded border border-indigo-200 flex-1">
+                                <span class="text-indigo-700 font-bold whitespace-nowrap">連線:</span>
+                                <select id="chartMode" class="bg-transparent font-bold outline-none cursor-pointer w-full text-indigo-800">
+                                    <option value="custom" selected="">散佈點</option>
+                                    <option value="continuous">連續線</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="trendlineContainer" class="flex items-center gap-1 bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded border border-amber-200 transition-opacity">
+                            <span class="text-amber-700 font-bold whitespace-nowrap">📈 擬合線:</span>
+                            <select id="trendlineType" class="bg-transparent font-bold outline-none cursor-pointer w-full text-amber-800">
+                                <option value="none" selected="">關閉</option>
+                                <option value="linear">線性一次 (y = ax+b)</option>
+                                <option value="quadratic">拋物線二次 (y = ax²+bx+c)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-1.5 text-[11px] bg-slate-50 p-1.5 rounded border border-slate-100 mt-1.5 min-h-[30px] shrink-0" id="yAxisSelectors"></div>
+
+                    <div class="relative w-full flex-1 mt-1 bg-white min-h-0">
+                        <canvas id="customChart"></canvas>
+                    </div>
+
+                    <div id="trendlineEqs" class="min-h-[20px] text-[10px] font-mono font-bold text-slate-700 bg-slate-100 p-1.5 rounded overflow-x-auto whitespace-nowrap hidden shrink-0 mt-1"></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 shrink-0 flex flex-col">
+                <h3 class="font-bold text-slate-800 text-sm mb-2 border-b pb-1.5">📝 撰寫實驗報告</h3>
+                <textarea id="labReportText" class="w-full h-32 p-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y" placeholder="請在此輸入您的實驗觀察、心得或結論..."></textarea>
+            </div>
+
+        </aside>
     </main>
+    
+    <footer class="shrink-0 flex justify-center items-center gap-2 text-[11px] text-slate-400 py-1 mt-1">
+        <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" class="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <span class="bg-gray-200 text-gray-700 font-bold px-1.5 py-0.5 rounded text-[10px] tracking-wider border border-gray-300">
+                CC BY-NC-SA
+            </span>
+        </a>
+        <span>
+            &copy; 2026 <strong>[鄭志鵬(小p老師)]</strong>。
+            本虛擬實驗室採用 <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" class="text-blue-500 hover:underline font-medium">創用 CC 姓名標示-非商業性-相同方式分享 4.0 國際 授權條款</a> 授權。
+        </span>
+    </footer>
+
+    <div id="floatChartWin" class="fixed hidden bg-white/95 backdrop-blur-md rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.4)] border border-slate-300 flex flex-col z-[100] w-[600px] h-[450px]" style="top: 80px; left: 100px; resize: both; overflow: hidden; min-width: 400px; min-height: 300px;">
+        <div id="floatChartHead" class="bg-slate-800 text-white px-4 py-2 flex justify-between items-center cursor-move select-none rounded-t-xl shrink-0">
+            <span class="font-bold flex items-center gap-2 text-sm">📊 實驗統計圖表 (浮動分析模式)</span>
+            <button id="closeFloatChartBtn" class="hover:text-red-400 font-bold text-lg leading-none transition-colors">✖</button>
+        </div>
+        <div id="floatChartBody" class="p-4 flex-1 flex flex-col overflow-hidden min-h-0">
+            </div>
+    </div>
 
     <div id="helpModal" class="modal hidden" aria-hidden="true">
         <div class="modal-backdrop" id="helpBackdrop"></div>
         <div class="modal-card">
             <div class="modal-head">
                 <h2>🧪 伽利略理想斜面虛擬實驗 - 操作說明</h2>
-                <button type="button" id="closeHelpBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors border border-slate-300">
-                    關閉
-                </button>
+                <button type="button" id="closeHelpBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-1.5 px-4 rounded-lg transition-colors border border-slate-300 text-sm">關閉</button>
             </div>
-            <div class="help-content">
+            <div class="help-content text-sm">
                 <div class="help-block">
                     <h3>💡 實驗簡介</h3>
-                    <p>這是一個模擬物體在斜面上滑動的物理實驗室。你可以透過調整斜面角度、軌道摩擦力與滑車質量，來探索<b>慣性</b>、<b>受力與加速度 (牛頓第二定律)</b>、以及<b>力學能守恆與耗散</b>等物理概念。</p>
+                    <p>這是一個模擬物體在斜面上滑動的物理實驗室。你可以調整斜面角度、軌道摩擦力與質量，來探索<b>慣性</b>、<b>加速度 (牛頓第二定律)</b>、以及<b>力學能守恆</b>等概念。</p>
                 </div>
                 <div class="help-block">
-                    <h3>🎮 畫面操作與互動</h3>
+                    <h3>🎮 畫面操作與排版</h3>
                     <ul>
-                        <li><b>拖曳滑車</b>：在靜止或暫停狀態下，可以直接用滑鼠拖曳紅色的滑車到軌道上的任意位置。此時會即時顯示水平 (X) 與高度 (Y) 座標。</li>
-                        <li><b>顯示向量</b>：右上角的半透明面板可自由勾選要顯示的物理向量箭頭，包含：<b>速度(v)、加速度(a)、各種作用力(Fg, Fn, Ff, F_push, Fnet)</b>。</li>
-                        <li><b>滑鼠懸停 (Tooltip)</b>：將滑鼠移到滑車上方，可以即時查看精確的運動學與能量數據。</li>
-                        <li><b>動態比例尺</b>：軌道下方會根據目前的縮放程度自動顯示水平刻度，最左側的軌道起點永遠對齊 X = 0 m。</li>
+                        <li><b>收合左右面板</b>：點擊下方控制列的【收合設定】或【打開紀錄簿】，可以自由調整版面。</li>
+                        <li><b>浮動圖表視窗</b>：點擊圖表右上角的【↗️ 獨立視窗】，圖表會跳出成為一個可拖曳、右下角可拉伸放大的懸浮視窗，讓您專心分析圖形。</li>
+                        <li><b>調整表格大小</b>：您可以拖曳右側「數據紀錄表」底部的橫線，自由拉長表格的高度。若圖表被擠下去，只要捲動右側區域即可查看。</li>
                     </ul>
                 </div>
                 <div class="help-block">
-                    <h3>⚙️ 實驗參數與控制</h3>
+                    <h3>⏱️ 殘影抄表與時空回溯機制</h3>
                     <ul>
-                        <li><b>斜面角度與摩擦力</b>：左側斜面甚至可以調整為 0°（水平直線），這非常適合搭配推力來做 \(F=ma\) 的驗證實驗！點擊「✨ 變光滑 / 🧱 變粗糙」可以調整摩擦係數。</li>
-                        <li><b>滑車推進器</b>：可以為滑車施加額外的定力（正值向右、負值向左）。<b>即使在播放中，你也可以像踩油門一樣即時拉動拉桿</b>來改變推力。</li>
-                        <li><b>定時自動暫停</b>：若勾選，系統會每隔固定時間（例如 0.1秒）自動暫停。你可以在暫停時把滑鼠移到車上並按下「記錄當下狀態」按鈕。</li>
-                    </ul>
-                </div>
-                <div class="help-block">
-                    <h3>📊 數據紀錄與圖表分析</h3>
-                    <ul>
-                        <li><b>分組紀錄</b>：在「目前組別」輸入框打字（如「1kg組」）再按紀錄，即可將數據歸類。表格內也可直接點擊組別名稱快速修改。統計圖會自動將不同組別以不同顏色繪製！</li>
-                        <li><b>實驗回放 (重播)</b>：左下角有一個「時間軸拉桿」。你可以隨時拖拉它回到過去的任何時間點查看狀態！<b>在歷史點按下「記錄當下狀態」一樣能把過去的數據存進表格！</b>如果倒轉後按下播放，未來的歷史紀錄會被抹除並重新開始。</li>
-                        <li><b>自訂圖表與擬合線</b>：有兩種模式：
-                            <br>1. <b>自訂關係圖 (散佈點)</b>：圖上只會出現你「手動記錄」在表格裡的那幾顆點。這時可以開啟<b>線性或二次擬合線</b>，系統會幫每組數據算出趨勢方程式以及 \(R^2\) 決定係數！
-                            <br>2. <b>完整關係圖 (連續線)</b>：系統會自動把整個實驗的過程畫成連續的曲線，方便老師教學講述。
-                        </li>
+                        <li><b>[留殘影並記錄]</b>：勾選後，車子每隔設定的時間會<b>印出半透明殘影</b>，同時<b>自動把數據抄寫進右側表格中</b>！</li>
+                        <li><b>時空回溯醒目標示</b>：當您拉動重播時間軸「倒轉」時，系統會在表格中把該時間點的數據變成<b>紅色粗體</b>並自動捲動對齊，圖表上的資料點也會瞬間<b>放大變紅</b>，完美連動！</li>
+                        <li><b>改變未來</b>：如果您在倒轉的時間點按下了【放開滑車(繼續)】，系統會認定您進入了新的時間線，此時未來的舊數據與殘影才會真正被抹除。</li>
                     </ul>
                 </div>
             </div>
@@ -420,222 +409,116 @@
         let groupColors = {};
         const DEFAULT_COLORS = ["#d9485f", "#2d6cdf", "#1f9d61", "#d97706", "#8b5cf6", "#0891b2", "#db2777", "#65a30d", "#dc2626", "#9333ea", "#0d9488", "#ea580c"];
 
-        function getChartConfigDescription() {
-            const xLabel = document.getElementById('chartX').options[document.getElementById('chartX').selectedIndex]?.text || "";
-            const yIds = Array.from(chartYSelections);
-            const yLabels = yIds.map(id => sysVars.find(v => v.id === id)?.label || id).join("、");
-            const modeLabel = document.getElementById('chartMode').options[document.getElementById('chartMode').selectedIndex]?.text || "";
-            const trendLabel = document.getElementById('trendlineType').options[document.getElementById('trendlineType').selectedIndex]?.text || "";
-            return `目前橫軸為「${xLabel}」，縱軸勾選了「${yLabels || '無'}」。模式：「${modeLabel}」。擬合線：「${trendLabel}」。`;
-        }
+        let vectorScales = { v: 3, a: 2, f: 1 };
+        document.getElementById('scaleVSlider').addEventListener('input', (e) => { vectorScales.v = parseFloat(e.target.value); if(!isRunning) draw(); });
+        document.getElementById('scaleASlider').addEventListener('input', (e) => { vectorScales.a = parseFloat(e.target.value); if(!isRunning) draw(); });
+        document.getElementById('scaleFSlider').addEventListener('input', (e) => { vectorScales.f = parseFloat(e.target.value); if(!isRunning) draw(); });
 
-        // 核心廣播功能
-        function broadcastStateToParent(actionName, details = {}) {
-            try {
-                const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
-                
-                const payload = {
-                    "學生最後的動作": actionName,
-                    "實驗時間": timeElapsed.toFixed(3) + " s",
-                    "滑車狀態": cart.state,
-                    "軌道位置_s": cart.s.toFixed(2) + " m",
-                    "水平位置_X": cart.x.toFixed(2) + " m",
-                    "高度_Y": cart.y.toFixed(2) + " m",
-                    "速度_v": cart.v.toFixed(2) + " m/s",
-                    "推力_Fpush": cart.F_thrust.toFixed(2) + " N",
-                    "總力學能_E": (cart.K + cart.U).toFixed(2) + " J",
-                    "目前組別設定": currentGroupName || "(空白)",
-                    "表格狀態": `目前有 ${records.length} 筆資料，勾選顯示欄位：${activeTableCols.join("、") || '無'}`,
-                    "圖表設定": getChartConfigDescription(),
-                    ...details
-                };
-                console.log("【廣播送到AI】", payload);
-                window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
-            } catch (e) { console.error("狀態廣播失敗:", e); }
-        }
+        const canvas = document.getElementById('simulationCanvas'); const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('hoverTooltip'); const alertContainer = document.getElementById('statusAlertContainer');
 
-        const canvas = document.getElementById('simulationCanvas');
-        const ctx = canvas.getContext('2d');
-        const tooltip = document.getElementById('hoverTooltip');
-        const alertContainer = document.getElementById('statusAlertContainer');
-
-        const sliders = {
-            thetaL: document.getElementById('leftAngleSlider'),
-            thetaR: document.getElementById('rightAngleSlider'),
-            mass: document.getElementById('massSlider'),
-            thrust: document.getElementById('thrustSlider')
-        };
-        const labels = {
-            thetaL: document.getElementById('valLeftAngle'),
-            thetaR: document.getElementById('valRightAngle'),
-            mass: document.getElementById('valMass'),
-            thrust: document.getElementById('valThrust')
-        };
+        const sliders = { thetaL: document.getElementById('leftAngleSlider'), thetaR: document.getElementById('rightAngleSlider'), mass: document.getElementById('massSlider'), thrust: document.getElementById('thrustSlider') };
+        const labels = { thetaL: document.getElementById('valLeftAngle'), thetaR: document.getElementById('valRightAngle'), mass: document.getElementById('valMass'), thrust: document.getElementById('valThrust') };
         
-        const btnSmoother = document.getElementById('btnSmoother');
-        const btnRougher = document.getElementById('btnRougher');
-        const btnZeroThrust = document.getElementById('btnZeroThrust');
-        const valFrictionText = document.getElementById('valFrictionText');
+        const toggles = { autoPause: document.getElementById('autoPauseToggle'), autoInterval: document.getElementById('autoPauseInterval'), snapshot: document.getElementById('snapshotToggle'), v: document.getElementById('showV'), a: document.getElementById('showA'), Fthrust: document.getElementById('showFthrust'), Fg: document.getElementById('showFg'), Fn: document.getElementById('showFn'), Ff: document.getElementById('showFf'), Fnet: document.getElementById('showFnet') };
 
-        const toggles = {
-            autoPause: document.getElementById('autoPauseToggle'),
-            autoInterval: document.getElementById('autoPauseInterval'),
-            v: document.getElementById('showV'),
-            a: document.getElementById('showA'),
-            Fthrust: document.getElementById('showFthrust'),
-            Fg: document.getElementById('showFg'),
-            Fn: document.getElementById('showFn'),
-            Ff: document.getElementById('showFf'),
-            Fnet: document.getElementById('showFnet')
-        };
+        const btnStart = document.getElementById('btnStart'); const btnReset = document.getElementById('btnReset');
+        const btnRecord = document.getElementById('btnRecord'); const btnClearRecord = document.getElementById('btnClearRecord'); const btnExport = document.getElementById('btnExport');
 
-        const btnStart = document.getElementById('btnStart');
-        const btnReset = document.getElementById('btnReset');
-        const btnRecord = document.getElementById('btnRecord');
-        const btnClearRecord = document.getElementById('btnClearRecord');
-        const btnExport = document.getElementById('btnExport');
-
-        const currentGroupInput = document.getElementById('currentGroupInput');
-        const clearCurrentGroupBtn = document.getElementById('clearCurrentGroupBtn');
+        const currentGroupInput = document.getElementById('currentGroupInput'); const clearCurrentGroupBtn = document.getElementById('clearCurrentGroupBtn');
         const groupManager = document.getElementById('groupManager');
+        const chartModeSelect = document.getElementById('chartMode'); const chartXSelect = document.getElementById('chartX'); const trendlineTypeSelect = document.getElementById('trendlineType'); const trendlineEqsDiv = document.getElementById('trendlineEqs'); const yAxisSelectorsDiv = document.getElementById('yAxisSelectors'); const trendlineContainer = document.getElementById('trendlineContainer');
+        const replaySlider = document.getElementById('replaySlider'); const valReplayTime = document.getElementById('valReplayTime');
 
-        const chartModeSelect = document.getElementById('chartMode');
-        const chartXSelect = document.getElementById('chartX');
-        const trendlineTypeSelect = document.getElementById('trendlineType');
-        const trendlineEqsDiv = document.getElementById('trendlineEqs');
-        const yAxisSelectorsDiv = document.getElementById('yAxisSelectors');
-        const trendlineContainer = document.getElementById('trendlineContainer');
-
-        const replaySlider = document.getElementById('replaySlider');
-        const valReplayTime = document.getElementById('valReplayTime');
-
-        const vectorPanelHeader = document.getElementById('vectorPanelHeader');
-        const vectorPanelContent = document.getElementById('vectorPanelContent');
-        const vectorPanelIcon = document.getElementById('vectorPanelIcon');
-
-        const dataPanelWrap = document.getElementById('dataPanelWrap');
-        const dataPanelToggle = document.getElementById('dataPanelToggle');
-        const dataPanelLabel = document.getElementById('dataPanelLabel');
-        const dataPanelIcon = document.getElementById('dataPanelIcon');
-
-        const btnHelp = document.getElementById('btnHelp');
-        const helpModal = document.getElementById('helpModal');
-        const closeHelpBtn = document.getElementById('closeHelpBtn');
-        const helpBackdrop = document.getElementById('helpBackdrop');
-
-        btnHelp.addEventListener('click', () => { 
-            helpModal.classList.remove('hidden'); 
-            document.body.classList.add('modal-open');
-            broadcastStateToParent("開啟了「操作說明」視窗");
+        const btnToggleRightPanel = document.getElementById('btnToggleRightPanel'); const rightSidebar = document.getElementById('rightSidebar'); const toggleRightPanelText = document.getElementById('toggleRightPanelText');
+        let isRightSidebarOpen = false;
+        btnToggleRightPanel.addEventListener('click', () => {
+            isRightSidebarOpen = !isRightSidebarOpen;
+            if(isRightSidebarOpen) { rightSidebar.classList.remove('right-sidebar-collapsed'); toggleRightPanelText.textContent = '📊 收合紀錄簿 ▶'; btnToggleRightPanel.classList.remove('bg-emerald-500', 'hover:bg-emerald-600', 'text-white', 'border-emerald-600'); btnToggleRightPanel.classList.add('bg-emerald-100', 'hover:bg-emerald-200', 'text-emerald-800', 'border-emerald-300'); } 
+            else { rightSidebar.classList.add('right-sidebar-collapsed'); toggleRightPanelText.textContent = '📊 打開紀錄簿 ◀'; btnToggleRightPanel.classList.remove('bg-emerald-100', 'hover:bg-emerald-200', 'text-emerald-800', 'border-emerald-300'); btnToggleRightPanel.classList.add('bg-emerald-500', 'hover:bg-emerald-600', 'text-white', 'border-emerald-600'); }
+            setTimeout(() => { resize(); draw(); if (isRightSidebarOpen && activeChart) activeChart.resize(); }, 310);
         });
-        const closeModal = () => { 
-            helpModal.classList.add('hidden'); 
-            document.body.classList.remove('modal-open');
-            broadcastStateToParent("關閉了「操作說明」視窗");
-        };
-        closeHelpBtn.addEventListener('click', closeModal);
-        helpBackdrop.addEventListener('click', closeModal);
+
+        // Floating Chart Window Logic
+        const btnPopOutChart = document.getElementById('btnPopOutChart');
+        const closeFloatChartBtn = document.getElementById('closeFloatChartBtn');
+        const floatChartWin = document.getElementById('floatChartWin');
+        const floatChartBody = document.getElementById('floatChartBody');
+        const chartPanelContent = document.getElementById('chartPanelContent');
+        const rightSidebarChartContainer = document.getElementById('rightSidebarChartContainer');
+
+        function makeDraggable(elmnt, header) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            header.onpointerdown = dragMouseDown;
+            function dragMouseDown(e) {
+                e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY;
+                document.onpointerup = closeDragElement; document.onpointermove = elementDrag;
+                elmnt.style.zIndex = '1000';
+            }
+            function elementDrag(e) {
+                e.preventDefault(); pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY; pos3 = e.clientX; pos4 = e.clientY;
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px"; elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+            function closeDragElement() { document.onpointerup = null; document.onpointermove = null; }
+        }
+        makeDraggable(floatChartWin, document.getElementById('floatChartHead'));
+
+        btnPopOutChart.addEventListener('click', () => {
+            floatChartBody.appendChild(chartPanelContent);
+            floatChartWin.classList.remove('hidden');
+            rightSidebarChartContainer.classList.add('hidden');
+            if (activeChart) setTimeout(() => activeChart.resize(), 50);
+        });
+
+        closeFloatChartBtn.addEventListener('click', () => {
+            rightSidebarChartContainer.appendChild(chartPanelContent);
+            floatChartWin.classList.add('hidden');
+            rightSidebarChartContainer.classList.remove('hidden');
+            if (activeChart) setTimeout(() => activeChart.resize(), 50);
+        });
+
+        const btnHelp = document.getElementById('btnHelp'); const helpModal = document.getElementById('helpModal'); const closeHelpBtn = document.getElementById('closeHelpBtn'); const helpBackdrop = document.getElementById('helpBackdrop');
+        btnHelp.addEventListener('click', () => { helpModal.classList.remove('hidden'); document.body.classList.add('modal-open'); });
+        const closeModal = () => { helpModal.classList.add('hidden'); document.body.classList.remove('modal-open'); };
+        closeHelpBtn.addEventListener('click', closeModal); helpBackdrop.addEventListener('click', closeModal);
 
         Object.keys(toggles).forEach(key => {
-            if(key !== 'autoPause' && key !== 'autoInterval') {
-                toggles[key].addEventListener('change', (e) => {
-                    const labelSpan = e.target.nextElementSibling.textContent;
-                    broadcastStateToParent(`將物理量向量 ${labelSpan} 設定為：${e.target.checked ? '顯示' : '隱藏'}`);
-                    draw();
-                });
-            }
+            if(key !== 'autoPause' && key !== 'autoInterval' && key !== 'snapshot') toggles[key].addEventListener('change', draw);
         });
 
-        toggles.autoPause.addEventListener('change', () => {
-            if(toggles.autoPause.checked) {
-                nextPauseTime = timeElapsed + parseFloat(toggles.autoInterval.value);
-            } else {
-                nextPauseTime = Infinity;
-            }
-            broadcastStateToParent(`定時暫停功能已${toggles.autoPause.checked ? '開啟' : '關閉'} (間隔: ${toggles.autoInterval.value}s)`);
-        });
-
-        toggles.autoInterval.addEventListener('change', () => {
-             if(toggles.autoPause.checked) {
-                 broadcastStateToParent(`定時暫停間隔更改為: ${toggles.autoInterval.value}s`);
-             }
-        });
+        toggles.autoPause.addEventListener('change', () => { if(toggles.autoPause.checked) nextPauseTime = timeElapsed + parseFloat(toggles.autoInterval.value); else if (!toggles.snapshot.checked) nextPauseTime = Infinity; });
+        toggles.snapshot.addEventListener('change', () => { if(toggles.snapshot.checked) { let interval = parseFloat(toggles.autoInterval.value); if (nextPauseTime === Infinity || nextPauseTime > timeElapsed + interval) nextPauseTime = timeElapsed + interval; } else if (!toggles.autoPause.checked) nextPauseTime = Infinity; });
+        toggles.autoInterval.addEventListener('change', () => { if(toggles.autoPause.checked || toggles.snapshot.checked) nextPauseTime = timeElapsed + parseFloat(toggles.autoInterval.value); });
 
         currentGroupInput.addEventListener('input', (e) => { currentGroupName = e.target.value; });
-        currentGroupInput.addEventListener('change', (e) => {
-            currentGroupName = e.target.value.trim();
-            e.target.value = currentGroupName;
-            if (isSimInitialized && currentGroupName) {
-                broadcastStateToParent(`設定「目前組別」為「${currentGroupName}」，之後加入的紀錄都會歸入此組`);
-            } else if (isSimInitialized && currentGroupName === "") {
-                broadcastStateToParent("清空了「目前組別」設定，之後加入的紀錄將為未分組");
-            }
-        });
-        clearCurrentGroupBtn.addEventListener('click', () => {
-            currentGroupInput.value = "";
-            currentGroupName = "";
-            if (isSimInitialized) broadcastStateToParent("清空了「目前組別」輸入框");
+        currentGroupInput.addEventListener('change', (e) => { currentGroupName = e.target.value.trim(); e.target.value = currentGroupName; });
+        clearCurrentGroupBtn.addEventListener('click', () => { currentGroupInput.value = ""; currentGroupName = ""; });
+
+        let isParamPanelOpen = true;
+        const paramPanelHeader = document.getElementById('paramPanelHeader'); const paramPanelContent = document.getElementById('paramPanelContent'); const paramPanelIcon = document.getElementById('paramPanelIcon');
+        paramPanelHeader.addEventListener('click', () => {
+            isParamPanelOpen = !isParamPanelOpen;
+            if (isParamPanelOpen) { paramPanelContent.classList.remove('hidden'); paramPanelIcon.style.transform = 'rotate(180deg)'; paramPanelHeader.classList.add('border-b'); } 
+            else { paramPanelContent.classList.add('hidden'); paramPanelIcon.style.transform = 'rotate(0deg)'; paramPanelHeader.classList.remove('border-b'); }
         });
 
-        let isVectorPanelOpen = true;
+        let isVectorPanelOpen = false;
+        const vectorPanelHeader = document.getElementById('vectorPanelHeader'); const vectorPanelContent = document.getElementById('vectorPanelContent'); const vectorPanelIcon = document.getElementById('vectorPanelIcon');
         vectorPanelHeader.addEventListener('click', () => {
             isVectorPanelOpen = !isVectorPanelOpen;
-            if (isVectorPanelOpen) {
-                vectorPanelContent.style.display = 'flex';
-                vectorPanelIcon.style.transform = 'rotate(0deg)';
-                vectorPanelHeader.classList.replace('rounded-lg', 'rounded-t-lg');
-                vectorPanelHeader.classList.add('border-b');
-                broadcastStateToParent("展開了「顯示物理量向量」面板");
-            } else {
-                vectorPanelContent.style.display = 'none';
-                vectorPanelIcon.style.transform = 'rotate(-90deg)';
-                vectorPanelHeader.classList.replace('rounded-t-lg', 'rounded-lg');
-                vectorPanelHeader.classList.remove('border-b');
-                broadcastStateToParent("收合了「顯示物理量向量」面板");
-            }
+            if (isVectorPanelOpen) { vectorPanelContent.classList.remove('hidden'); vectorPanelIcon.style.transform = 'rotate(180deg)'; vectorPanelHeader.classList.add('border-b'); } 
+            else { vectorPanelContent.classList.add('hidden'); vectorPanelIcon.style.transform = 'rotate(0deg)'; vectorPanelHeader.classList.remove('border-b'); }
         });
 
-        const g = 9.81;
-        let scale = 60; 
-        let cx = 0, cy = 0; 
-        let startXOffset = 0; 
-        
-        const frictionLevels = [0.0, 0.02, 0.1, 0.2, 0.5];
-        let currentFrictionIndex = 3; 
+        const g = 9.81; let scale = 60; let cx = 0, cy = 0; let startXOffset = 0; 
+        const frictionLevels = [0.0, 0.02, 0.1, 0.2, 0.5]; let currentFrictionIndex = 3; 
 
-        let params = {
-            thetaL: 30 * Math.PI / 180,
-            thetaR: 30 * Math.PI / 180,
-            mu: 0.2, 
-            mass: 1.0,
-            thrust: 0.0,
-            R: 1.0,
-            H: 4.0,
-            L_flat: 1.5,
-            max_X: 12.0
-        };
+        let params = { thetaL: 30 * Math.PI / 180, thetaR: 30 * Math.PI / 180, mu: 0.2, mass: 1.0, thrust: 0.0, R: 1.0, H: 4.0, L_flat: 1.5, max_X: 12.0 };
+        let trackS = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, total: 0 }; let trackBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 }; let trackPoints = []; 
+        let cart = { state: 'stopped', s: 0, x: 0, y: 0, theta: 0, v: 0, a: 0, vx: 0, vy: 0, Fg: 0, Fn: 0, Ff: 0, dirFf: 0, Fnet: 0, F_thrust: 0, K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0, width: 0.6, height: 0.3, color: '#ef4444' };
+        let isRunning = false; let timeElapsed = 0; let lastTime = 0; let isDraggingCart = false; let nextPauseTime = Infinity;
 
-        let trackS = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, total: 0 };
-        let trackBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
-        let trackPoints = []; 
-
-        let cart = {
-            state: 'stopped', 
-            s: 0, x: 0, y: 0, theta: 0,
-            v: 0, a: 0, vx: 0, vy: 0,
-            Fg: 0, Fn: 0, Ff: 0, Fnet: 0, F_thrust: 0,
-            K: 0, U: 0, E0: 0, Wf: 0, W_thrust: 0,
-            width: 0.6, height: 0.3, color: '#ef4444'
-        };
-
-        let isRunning = false;
-        let timeElapsed = 0;
-        let lastTime = 0;
-        let isDraggingCart = false; 
-        let nextPauseTime = Infinity;
-
-        let replayFrames = [];
-        let turningPoints = [];
+        let replayFrames = []; let turningPoints = []; let snapshotFrames = []; 
 
         const sysVars = [
             { id: 't', label: '時間(s)', color: '#475569', showInTable: false, get: r => r.t },
@@ -653,141 +536,62 @@
             { id: 'Fnet', label: '合力(N)', color: '#9333ea', showInTable: false, get: r => r.Fnet }
         ];
 
-        let records = []; 
-        let systemDataStore = {}; 
-        sysVars.forEach(v => systemDataStore[v.id] = []);
-
-        let activeChart = null;
-        let chartYSelections = new Set(); 
+        let records = []; let systemDataStore = {}; sysVars.forEach(v => systemDataStore[v.id] = []);
+        let activeChart = null; let chartYSelections = new Set(); 
 
         function assignGroupColor(groupName) {
             if (!groupName || groupName === "") return "#94a3b8"; 
             if (groupColors[groupName]) return groupColors[groupName];
-            const usedColors = Object.values(groupColors);
-            let picked = DEFAULT_COLORS.find(c => !usedColors.includes(c));
+            const usedColors = Object.values(groupColors); let picked = DEFAULT_COLORS.find(c => !usedColors.includes(c));
             if (!picked) picked = DEFAULT_COLORS[Object.keys(groupColors).length % DEFAULT_COLORS.length];
-            groupColors[groupName] = picked;
-            return picked;
+            groupColors[groupName] = picked; return picked;
         }
 
         function getUniqueNamedGroups() {
-            const groups = new Set();
-            records.forEach(r => {
-                const g = (r.group || "").trim();
-                if (g !== "") groups.add(g);
-            });
-            return Array.from(groups);
+            const groups = new Set(); records.forEach(r => { const g = (r.group || "").trim(); if (g !== "") groups.add(g); }); return Array.from(groups);
         }
 
         function renderGroupManager() {
             const groups = getUniqueNamedGroups();
-            if (groups.length === 0) {
-                groupManager.classList.add("hidden");
-                groupManager.innerHTML = '';
-                return;
-            }
+            if (groups.length === 0) { groupManager.classList.add("hidden"); groupManager.innerHTML = ''; return; }
             groupManager.classList.remove("hidden");
-            const counts = {};
-            records.forEach(r => {
-                const g = (r.group || "").trim();
-                if (g !== "") counts[g] = (counts[g] || 0) + 1;
-            });
-            let html = '<span class="group-manager-title">🎨 組別顏色（可點擊修改）：</span>';
+            const counts = {}; records.forEach(r => { const g = (r.group || "").trim(); if (g !== "") counts[g] = (counts[g] || 0) + 1; });
+            let html = '<span class="font-bold text-primary text-[11px]">🎨 組別設定：</span><div class="flex flex-wrap gap-1">';
             groups.forEach(g => {
                 const color = assignGroupColor(g);
-                html += `<div class="group-color-item">
-                    <input type="color" value="${color}" data-group="${escapeAttr(g)}" class="group-color-picker" title="點擊修改顏色" />
-                    <span>${escapeHtml(g)}</span>
-                    <span class="group-count">(${counts[g]} 筆)</span>
-                </div>`;
+                html += `<div class="group-color-item"><input type="color" value="${color}" data-group="${escapeAttr(g)}" class="group-color-picker" title="點擊修改顏色" /><span>${escapeHtml(g)}</span><span class="text-[9px] text-slate-500">(${counts[g]})</span></div>`;
             });
-            groupManager.innerHTML = html;
-            
+            html += '</div>'; groupManager.innerHTML = html;
             groupManager.querySelectorAll('.group-color-picker').forEach(picker => {
-                picker.addEventListener('input', (e) => {
-                    const groupName = e.target.dataset.group;
-                    groupColors[groupName] = e.target.value;
-                    renderTable();
-                    if(activeChart && chartModeSelect.value === 'custom') updateChartConfig();
-                });
-                picker.addEventListener('change', (e) => {
-                    const groupName = e.target.dataset.group;
-                    if (isSimInitialized) broadcastStateToParent(`將組別「${groupName}」的顏色修改為 ${e.target.value}`);
-                });
+                picker.addEventListener('input', (e) => { const groupName = e.target.dataset.group; groupColors[groupName] = e.target.value; renderTable(); if(activeChart) updateChartConfig(); });
             });
         }
 
         function startEditGroupCell(cell) {
-            const recordId = parseInt(cell.dataset.recordId);
-            const record = records.find(r => r.id === recordId);
-            if (!record) return;
-
-            const oldValue = record.group || "";
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = oldValue;
-            input.maxLength = 20;
-            input.className = 'group-edit-input';
-            input.placeholder = '輸入組別名稱（空白=未分組）';
-
-            cell.innerHTML = '';
-            cell.appendChild(input);
-            input.focus();
-            input.select();
-
+            const recordId = parseInt(cell.dataset.recordId); const record = records.find(r => r.id === recordId); if (!record) return;
+            const oldValue = record.group || ""; const input = document.createElement('input'); input.type = 'text'; input.value = oldValue; input.maxLength = 20; input.className = 'group-edit-input';
+            cell.innerHTML = ''; cell.appendChild(input); input.focus(); input.select();
             let finished = false;
             function finishEdit(save) {
-                if (finished) return;
-                finished = true;
+                if (finished) return; finished = true;
                 if (save) {
                     const newValue = input.value.trim();
                     if (newValue !== oldValue) {
-                        record.group = newValue;
-                        if (newValue) assignGroupColor(newValue);
-                        
-                        records.sort((a, b) => {
-                            const gA = (a.group || "").trim();
-                            const gB = (b.group || "").trim();
-                            if (gA !== gB) return gA.localeCompare(gB, 'zh-TW');
-                            return a.t - b.t;
-                        });
-                        
-                        renderTable();
-                        renderGroupManager();
-                        if(activeChart && chartModeSelect.value === 'custom') updateChartConfig();
-                        
-                        if (isSimInitialized) {
-                            if (oldValue === "" && newValue !== "") {
-                                broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄歸類到「${newValue}」組`);
-                            } else if (newValue === "") {
-                                broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄從「${oldValue}」組改為未分組`);
-                            } else {
-                                broadcastStateToParent(`在表格中將第 ${record.id} 筆紀錄從「${oldValue}」改為「${newValue}」組`);
-                            }
-                        }
-                    } else {
-                        renderTable();
-                    }
-                } else {
-                    renderTable();
-                }
+                        record.group = newValue; if (newValue) assignGroupColor(newValue);
+                        records.sort((a, b) => { const gA = (a.group || "").trim(); const gB = (b.group || "").trim(); if (gA !== gB) return gA.localeCompare(gB, 'zh-TW'); return a.t - b.t; });
+                        renderTable(); renderGroupManager(); if(activeChart) updateChartConfig();
+                    } else renderTable();
+                } else renderTable();
             }
-
             input.addEventListener('blur', () => finishEdit(true));
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); }
-                if (e.key === 'Escape') { e.preventDefault(); finishEdit(false); }
-            });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); } if (e.key === 'Escape') { e.preventDefault(); finishEdit(false); } });
         }
 
         function solveLinearSystem(matrix, vector) {
-            let m = [[...matrix[0]], [...matrix[1]], [...matrix[2]]];
-            let v = [...vector];
+            let m = [[...matrix[0]], [...matrix[1]], [...matrix[2]]]; let v = [...vector];
             for (let i = 0; i < 3; i++) {
                 let maxEl = Math.abs(m[i][i]), maxRow = i;
-                for (let k = i + 1; k < 3; k++) {
-                    if (Math.abs(m[k][i]) > maxEl) { maxEl = Math.abs(m[k][i]); maxRow = k; }
-                }
+                for (let k = i + 1; k < 3; k++) { if (Math.abs(m[k][i]) > maxEl) { maxEl = Math.abs(m[k][i]); maxRow = k; } }
                 for (let k = i; k < 3; k++) { let tmp = m[maxRow][k]; m[maxRow][k] = m[i][k]; m[i][k] = tmp; }
                 let tmp = v[maxRow]; v[maxRow] = v[i]; v[i] = tmp;
                 if (Math.abs(m[i][i]) < 1e-10) return null;
@@ -808,283 +612,147 @@
         function getRegression(dataPoints, type, labelName, color) {
             if (dataPoints.length < 3) return null;
             let result = { type, fn: null, eqStr: '', color, labelName };
-            
-            let n = 0, sY = 0;
-            dataPoints.forEach(p => { n++; sY += p.y; });
-            let meanY = sY / n;
-            let ssTot = 0;
-            dataPoints.forEach(p => { ssTot += Math.pow(p.y - meanY, 2); });
+            let n = 0, sY = 0; dataPoints.forEach(p => { n++; sY += p.y; });
+            let meanY = sY / n; let ssTot = 0; dataPoints.forEach(p => { ssTot += Math.pow(p.y - meanY, 2); });
 
             if (type === 'linear') {
                 let sX = 0, sXY = 0, sXX = 0;
-                dataPoints.forEach(p => {
-                    sX += p.x; sXY += p.x*p.y; sXX += p.x*p.x;
-                });
-                let denom = n * sXX - sX * sX;
-                if (Math.abs(denom) < 1e-10) return null;
-                let a = (n * sXY - sX * sY) / denom;
-                let b = (sY - a * sX) / n;
+                dataPoints.forEach(p => { sX += p.x; sXY += p.x*p.y; sXX += p.x*p.x; });
+                let denom = n * sXX - sX * sX; if (Math.abs(denom) < 1e-10) return null;
+                let a = (n * sXY - sX * sY) / denom; let b = (sY - a * sX) / n;
                 result.fn = (x) => a * x + b;
-                const signB = b >= 0 ? '+' : '-';
-                result.eqStr = `${labelName} = ${a.toFixed(3)}x ${signB} ${Math.abs(b).toFixed(3)}`;
+                const signB = b >= 0 ? '+' : '-'; result.eqStr = `${labelName} = ${a.toFixed(3)}x ${signB} ${Math.abs(b).toFixed(3)}`;
             } 
             else if (type === 'quadratic') {
                 let sX=0, sX2=0, sX3=0, sX4=0, sXY=0, sX2Y=0;
-                dataPoints.forEach(p => {
-                    let vx2 = p.x * p.x;
-                    sX += p.x; sX2 += vx2; sX3 += vx2*p.x; sX4 += vx2*vx2;
-                    sXY += p.x*p.y; sX2Y += vx2*p.y;
-                });
-                let M = [[sX4, sX3, sX2], [sX3, sX2, sX], [sX2, sX, n]];
-                let V = [sX2Y, sXY, sY];
-                let coeffs = solveLinearSystem(M, V);
-                if (!coeffs) return null;
-                let [a, b, c] = coeffs;
+                dataPoints.forEach(p => { let vx2 = p.x * p.x; sX += p.x; sX2 += vx2; sX3 += vx2*p.x; sX4 += vx2*vx2; sXY += p.x*p.y; sX2Y += vx2*p.y; });
+                let M = [[sX4, sX3, sX2], [sX3, sX2, sX], [sX2, sX, n]]; let V = [sX2Y, sXY, sY];
+                let coeffs = solveLinearSystem(M, V); if (!coeffs) return null; let [a, b, c] = coeffs;
                 result.fn = (x) => a*x*x + b*x + c;
-                const signB = b >= 0 ? '+' : '-';
-                const signC = c >= 0 ? '+' : '-';
+                const signB = b >= 0 ? '+' : '-'; const signC = c >= 0 ? '+' : '-';
                 result.eqStr = `${labelName} = ${a.toFixed(3)}x² ${signB} ${Math.abs(b).toFixed(3)}x ${signC} ${Math.abs(c).toFixed(3)}`;
             }
 
-            let ssRes = 0;
-            dataPoints.forEach(p => {
-                ssRes += Math.pow(p.y - result.fn(p.x), 2);
-            });
-            let rSquared = ssTot === 0 ? 1 : 1 - (ssRes / ssTot);
-            rSquared = Math.max(0, Math.min(1, rSquared)); 
-            result.eqStr += ` (R² = ${rSquared.toFixed(3)})`;
-
+            let ssRes = 0; dataPoints.forEach(p => { ssRes += Math.pow(p.y - result.fn(p.x), 2); });
+            let rSquared = ssTot === 0 ? 1 : 1 - (ssRes / ssTot); rSquared = Math.max(0, Math.min(1, rSquared)); result.eqStr += ` (R² = ${rSquared.toFixed(3)})`;
             return result;
         }
 
         function getRawPos(s) {
-            const { thetaL, thetaR, R, L_flat } = params;
-            let x, y, theta, k = 0;
-            if (s < trackS.s1) {
-                const d = trackS.s1 - s;
-                x = -L_flat/2 - R * Math.sin(thetaL) - d * Math.cos(thetaL);
-                y = R - R * Math.cos(thetaL) + d * Math.sin(thetaL); theta = -thetaL; 
-            } else if (s < trackS.s2) {
-                const alpha = thetaL - (s - trackS.s1) / R;
-                x = -L_flat/2 - R * Math.sin(alpha);
-                y = R - R * Math.cos(alpha); theta = -alpha; k = 1 / R; 
-            } else if (s < trackS.s3) {
-                x = -L_flat/2 + (s - trackS.s2); y = 0; theta = 0;
-            } else if (s < trackS.s4) {
-                const alpha = (s - trackS.s3) / R;
-                x = L_flat/2 + R * Math.sin(alpha);
-                y = R - R * Math.cos(alpha); theta = alpha; k = 1 / R;
-            } else {
-                const d = s - trackS.s4;
-                x = L_flat/2 + R * Math.sin(thetaR) + d * Math.cos(thetaR);
-                y = (thetaR > 0.01 ? R - R * Math.cos(thetaR) : 0) + d * Math.sin(thetaR); theta = thetaR;
-            }
+            const { thetaL, thetaR, R, L_flat } = params; let x, y, theta, k = 0;
+            if (s < trackS.s1) { const d = trackS.s1 - s; x = -L_flat/2 - R * Math.sin(thetaL) - d * Math.cos(thetaL); y = R - R * Math.cos(thetaL) + d * Math.sin(thetaL); theta = -thetaL; 
+            } else if (s < trackS.s2) { const alpha = thetaL - (s - trackS.s1) / R; x = -L_flat/2 - R * Math.sin(alpha); y = R - R * Math.cos(alpha); theta = -alpha; k = 1 / R; 
+            } else if (s < trackS.s3) { x = -L_flat/2 + (s - trackS.s2); y = 0; theta = 0;
+            } else if (s < trackS.s4) { const alpha = (s - trackS.s3) / R; x = L_flat/2 + R * Math.sin(alpha); y = R - R * Math.cos(alpha); theta = alpha; k = 1 / R;
+            } else { const d = s - trackS.s4; x = L_flat/2 + R * Math.sin(thetaR) + d * Math.cos(thetaR); y = (thetaR > 0.01 ? R - R * Math.cos(thetaR) : 0) + d * Math.sin(thetaR); theta = thetaR; }
             return { x, y, theta, k };
         }
-
-        function getPos(s) {
-            let p = getRawPos(s);
-            p.x -= startXOffset;
-            return p;
-        }
+        function getPos(s) { let p = getRawPos(s); p.x -= startXOffset; return p; }
 
         function updateTrackGeometry() {
             const { thetaL, thetaR, R, H, L_flat, max_X } = params;
-            
-            if (thetaL > 0.01) {
-                const h_curve_L = R * (1 - Math.cos(thetaL));
-                trackS.s1 = (H - h_curve_L) / Math.sin(thetaL);
-            } else {
-                trackS.s1 = max_X - L_flat/2;
-            }
-            
-            trackS.s2 = trackS.s1 + R * thetaL;
-            trackS.s3 = trackS.s2 + L_flat;
-
-            if (thetaR > 0.01) {
-                const h_curve_R = R * (1 - Math.cos(thetaR));
-                let expectedLength = (H * 1.5 - h_curve_R) / Math.sin(thetaR);
-                let current_X = L_flat/2 + R * Math.sin(thetaR);
-                let allowed_L = (max_X - current_X) / Math.cos(thetaR);
-                trackS.s4 = trackS.s3 + R * thetaR;
-                trackS.s5 = trackS.s4 + Math.min(expectedLength, Math.max(1, allowed_L));
-            } else {
-                trackS.s4 = trackS.s3;
-                trackS.s5 = trackS.s4 + (max_X - L_flat/2);
-            }
+            if (thetaL > 0.01) { const h_curve_L = R * (1 - Math.cos(thetaL)); trackS.s1 = (H - h_curve_L) / Math.sin(thetaL); } else { trackS.s1 = max_X - L_flat/2; }
+            trackS.s2 = trackS.s1 + R * thetaL; trackS.s3 = trackS.s2 + L_flat;
+            if (thetaR > 0.01) { const h_curve_R = R * (1 - Math.cos(thetaR)); let expectedLength = (H * 1.5 - h_curve_R) / Math.sin(thetaR); let current_X = L_flat/2 + R * Math.sin(thetaR); let allowed_L = (max_X - current_X) / Math.cos(thetaR); trackS.s4 = trackS.s3 + R * thetaR; trackS.s5 = trackS.s4 + Math.min(expectedLength, Math.max(1, allowed_L)); } else { trackS.s4 = trackS.s3; trackS.s5 = trackS.s4 + (max_X - L_flat/2); }
             trackS.total = trackS.s5;
-
-            startXOffset = 0; 
-            startXOffset = getRawPos(0).x; 
-
-            trackPoints = [];
-            trackBounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+            startXOffset = 0; startXOffset = getRawPos(0).x; 
+            trackPoints = []; trackBounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
             for (let s = 0; s <= trackS.total; s += 0.01) {
                 let p = getPos(s); p.s = s; trackPoints.push(p);
-                if(p.x < trackBounds.minX) trackBounds.minX = p.x;
-                if(p.x > trackBounds.maxX) trackBounds.maxX = p.x;
-                if(p.y < trackBounds.minY) trackBounds.minY = p.y;
-                if(p.y > trackBounds.maxY) trackBounds.maxY = p.y;
+                if(p.x < trackBounds.minX) trackBounds.minX = p.x; if(p.x > trackBounds.maxX) trackBounds.maxX = p.x;
+                if(p.y < trackBounds.minY) trackBounds.minY = p.y; if(p.y > trackBounds.maxY) trackBounds.maxY = p.y;
             }
         }
 
         function resize() {
             canvasRect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = canvasRect.width * 2;
-            canvas.height = canvasRect.height * 2;
-            ctx.scale(2, 2);
-            
-            const padX = 2;  
-            const padY = 2;  
-            const logicalWidth = trackBounds.maxX - trackBounds.minX + padX;
-            const logicalHeight = Math.max(trackBounds.maxY, params.H) + padY;
-            
+            canvas.width = canvasRect.width * 2; canvas.height = canvasRect.height * 2; ctx.scale(2, 2);
+            const padX = 2; const padY = 2;  
+            const logicalWidth = trackBounds.maxX - trackBounds.minX + padX; const logicalHeight = Math.max(trackBounds.maxY, params.H) + padY;
             scale = Math.min(canvasRect.width / logicalWidth, canvasRect.height / logicalHeight);
-            
-            cx = canvasRect.width / 2 - ((trackBounds.maxX + trackBounds.minX) / 2) * scale;
-            cy = canvasRect.height - 50; 
+            cx = canvasRect.width / 2 - ((trackBounds.maxX + trackBounds.minX) / 2) * scale; cy = canvasRect.height - 40; 
         }
+        const sx = (px) => cx + px * scale; const sy = (py) => cy - py * scale;
 
-        const sx = (px) => cx + px * scale;
-        const sy = (py) => cy - py * scale;
+        function updateStaticPhysics() {
+            if (cart.state === 'flying') return;
+            const pos = getPos(cart.s);
+            cart.theta = pos.theta;
+            cart.F_thrust = params.thrust;
+            
+            let fGravity = -params.mass * g * Math.sin(pos.theta);
+            let fNormal = params.mass * (g * Math.cos(pos.theta)); // 靜止時無向心力
+            let fParallel = fGravity + cart.F_thrust;
+            let fFriction = 0;
+
+            if (Math.abs(fParallel) <= params.mu * fNormal) { 
+                fFriction = -fParallel; 
+            } else { 
+                fFriction = -Math.sign(fParallel) * params.mu * fNormal; 
+            }
+
+            cart.Fg = params.mass * g; 
+            cart.Fn = fNormal; 
+            cart.Ff = Math.abs(fFriction); 
+            cart.dirFf = fFriction === 0 ? 0 : Math.sign(fFriction);
+            cart.Fnet = fParallel + fFriction; 
+            cart.a = cart.Fnet / params.mass;
+        }
 
         function updatePhysics(dt) {
             if (cart.state === 'stopped' || isDraggingCart) return;
-            const subSteps = 10;
-            const stepDt = dt / subSteps;
-            
-            let hitTurningPoint = null;
+            const subSteps = 10; const stepDt = dt / subSteps; let hitTurningPoint = null;
 
             for (let i = 0; i < subSteps; i++) {
                 if (cart.state === 'running') {
-                    const pos = getPos(cart.s);
-                    cart.F_thrust = params.thrust; 
-                    
+                    const pos = getPos(cart.s); cart.F_thrust = params.thrust; 
                     let fGravity = -params.mass * g * Math.sin(pos.theta);
                     let fNormal = params.mass * (g * Math.cos(pos.theta) + pos.k * cart.v * cart.v);
-                    let fFriction = 0;
+                    let fFriction = 0; let fParallel = fGravity + cart.F_thrust;
 
-                    let fParallel = fGravity + cart.F_thrust;
+                    if (Math.abs(cart.v) > 0.01) { fFriction = -Math.sign(cart.v) * params.mu * fNormal; } 
+                    else { if (Math.abs(fParallel) <= params.mu * fNormal) { fFriction = -fParallel; cart.v = 0; } else { fFriction = -Math.sign(fParallel) * params.mu * fNormal; } }
 
-                    if (Math.abs(cart.v) > 0.01) { 
-                        fFriction = -Math.sign(cart.v) * params.mu * fNormal; 
-                    } else {
-                        if (Math.abs(fParallel) <= params.mu * fNormal) { 
-                            fFriction = -fParallel; 
-                            cart.v = 0; 
-                        } else { 
-                            fFriction = -Math.sign(fParallel) * params.mu * fNormal; 
-                        }
-                    }
-
-                    cart.Fg = params.mass * g; 
-                    cart.Fn = fNormal; 
-                    cart.Ff = Math.abs(fFriction);
-                    cart.Fnet = fParallel + fFriction;
-                    cart.a = cart.Fnet / params.mass;
+                    cart.Fg = params.mass * g; cart.Fn = fNormal; cart.Ff = Math.abs(fFriction); cart.dirFf = fFriction === 0 ? 0 : Math.sign(fFriction); 
+                    cart.Fnet = fParallel + fFriction; cart.a = cart.Fnet / params.mass;
                     
-                    let v_old = cart.v;
-                    let v_new = cart.v + cart.a * stepDt; 
-                    cart.s += cart.v * stepDt;
-                    
-                    cart.Wf += cart.Ff * Math.abs(cart.v * stepDt);
-                    cart.W_thrust += cart.F_thrust * cart.v * stepDt;
-                    cart.v = v_new;
+                    let v_old = cart.v; let v_new = cart.v + cart.a * stepDt; cart.s += cart.v * stepDt;
+                    cart.Wf += cart.Ff * Math.abs(cart.v * stepDt); cart.W_thrust += cart.F_thrust * cart.v * stepDt; cart.v = v_new;
 
-                    const newPos = getPos(cart.s);
-                    cart.x = newPos.x; cart.y = newPos.y; cart.theta = newPos.theta;
+                    const newPos = getPos(cart.s); cart.x = newPos.x; cart.y = newPos.y; cart.theta = newPos.theta;
                     
                     if (v_old * cart.v <= 0 && Math.abs(v_old - cart.v) > 0.001) {
                         if (cart.y > 0.05) {
-                            let addPt = true;
-                            if (turningPoints.length > 0) {
-                                let lastPt = turningPoints[turningPoints.length - 1];
-                                if (timeElapsed - lastPt.t < 0.2) addPt = false;
-                            }
-                            if (addPt) {
-                                turningPoints.push({ x: cart.x, y: cart.y, t: timeElapsed });
-                                hitTurningPoint = { x: cart.x, y: cart.y, t: timeElapsed };
-                            }
+                            let addPt = true; if (turningPoints.length > 0) { let lastPt = turningPoints[turningPoints.length - 1]; if (timeElapsed - lastPt.t < 0.2) addPt = false; }
+                            if (addPt) { turningPoints.push({ x: cart.x, y: cart.y, t: timeElapsed }); hitTurningPoint = { x: cart.x, y: cart.y, t: timeElapsed }; }
                         }
                     }
 
-                    if (cart.s < 0) {
-                        cart.state = 'flying'; 
-                        cart.vx = cart.v * Math.cos(cart.theta); 
-                        cart.vy = cart.v * Math.sin(cart.theta);
-                        showFlyoutAlert(); 
-                        broadcastStateToParent("滑車飛出軌道左側進入拋體運動！"); 
-                        break; 
-                    } else if (cart.s > trackS.total) {
-                        cart.state = 'flying'; 
-                        cart.vx = cart.v * Math.cos(cart.theta); 
-                        cart.vy = cart.v * Math.sin(cart.theta);
-                        showFlyoutAlert(); 
-                        broadcastStateToParent("滑車飛出軌道右側末端進入拋體運動！"); 
-                        break; 
+                    if (cart.s < 0 || cart.s > trackS.total) {
+                        cart.state = 'flying'; cart.vx = cart.v * Math.cos(cart.theta); cart.vy = cart.v * Math.sin(cart.theta); showFlyoutAlert(); break; 
                     } else {
-                        cart.U = params.mass * g * Math.max(0, cart.y);
-                        let idealE = cart.E0 - cart.Wf + cart.W_thrust;
-                        let idealK = idealE - cart.U;
-                        
-                        if (idealK > 0) {
-                            cart.K = idealK;
-                            cart.v = Math.sign(cart.v === 0 ? cart.a : cart.v) * Math.sqrt(2 * cart.K / params.mass);
-                        } else {
-                            cart.K = 0.5 * params.mass * cart.v * cart.v;
-                        }
+                        cart.U = params.mass * g * Math.max(0, cart.y); let idealE = cart.E0 - cart.Wf + cart.W_thrust; let idealK = idealE - cart.U;
+                        if (idealK > 0) { cart.K = idealK; cart.v = Math.sign(cart.v === 0 ? cart.a : cart.v) * Math.sqrt(2 * cart.K / params.mass); } else { cart.K = 0.5 * params.mass * cart.v * cart.v; }
                     }
                 } 
                 else if (cart.state === 'flying') {
-                    cart.F_thrust = params.thrust;
-                    
-                    let ax = (cart.F_thrust * Math.cos(cart.theta)) / params.mass;
-                    let ay = -g + (cart.F_thrust * Math.sin(cart.theta)) / params.mass;
-
-                    cart.vy += ay * stepDt; 
-                    cart.vx += ax * stepDt;
-                    cart.x += cart.vx * stepDt; 
-                    cart.y += cart.vy * stepDt;
-                    
-                    cart.v = Math.sqrt(cart.vx*cart.vx + cart.vy*cart.vy);
-                    cart.theta = Math.atan2(cart.vy, cart.vx);
-                    
-                    cart.W_thrust += cart.F_thrust * cart.v * stepDt;
-                    
-                    cart.Fg = params.mass * g; 
-                    cart.Fn = 0; 
-                    cart.Ff = 0; 
-                    cart.Fnet = Math.sqrt(Math.pow(cart.F_thrust * Math.cos(cart.theta), 2) + Math.pow(cart.F_thrust * Math.sin(cart.theta) - cart.Fg, 2)); 
-                    cart.a = cart.Fnet / params.mass;
-
-                    if (cart.y < -1.0) { 
-                        cart.state = 'stopped'; isRunning = false; updateBtnState();
-                        broadcastStateToParent("滑車落地，實驗結束"); break;
-                    }
-                    cart.K = 0.5 * params.mass * cart.v * cart.v;
-                    cart.U = params.mass * g * Math.max(0, cart.y); 
+                    cart.F_thrust = params.thrust; let ax = (cart.F_thrust * Math.cos(cart.theta)) / params.mass; let ay = -g + (cart.F_thrust * Math.sin(cart.theta)) / params.mass;
+                    cart.vy += ay * stepDt; cart.vx += ax * stepDt; cart.x += cart.vx * stepDt; cart.y += cart.vy * stepDt;
+                    cart.v = Math.sqrt(cart.vx*cart.vx + cart.vy*cart.vy); cart.theta = Math.atan2(cart.vy, cart.vx); cart.W_thrust += cart.F_thrust * cart.v * stepDt;
+                    cart.Fg = params.mass * g; cart.Fn = 0; cart.Ff = 0; cart.dirFf = 0; cart.Fnet = Math.sqrt(Math.pow(cart.F_thrust * Math.cos(cart.theta), 2) + Math.pow(cart.F_thrust * Math.sin(cart.theta) - cart.Fg, 2)); cart.a = cart.Fnet / params.mass;
+                    if (cart.y < -1.0) { cart.state = 'stopped'; isRunning = false; updateBtnState(); break; }
+                    cart.K = 0.5 * params.mass * cart.v * cart.v; cart.U = params.mass * g * Math.max(0, cart.y); 
                 }
-            }
-
-            if (hitTurningPoint) {
-                broadcastStateToParent("滑車到達最高點(速度為0)，記錄高度", { "最高高度(m)": hitTurningPoint.y.toFixed(2), "水平位置_X(m)": hitTurningPoint.x.toFixed(2), "發生時間(s)": hitTurningPoint.t.toFixed(2) });
             }
         }
 
         function drawArrow(x, y, vectorX, vectorY, color) {
-            const len = Math.sqrt(vectorX*vectorX + vectorY*vectorY);
-            if(len < 0.01) return;
-            const vScale = 8;
-            const endX = x + vectorX * vScale;
-            const endY = y - vectorY * vScale; 
-            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(endX, endY);
-            ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
-
+            const len = Math.sqrt(vectorX*vectorX + vectorY*vectorY); if(len < 0.01) return;
+            const vScale = 8; const endX = x + vectorX * vScale; const endY = y - vectorY * vScale; 
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(endX, endY); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
             const angle = Math.atan2(-vectorY, vectorX);
             ctx.beginPath(); ctx.moveTo(endX, endY);
-            ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI/6), endY - 10 * Math.sin(angle - Math.PI/6));
-            ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI/6), endY - 10 * Math.sin(angle + Math.PI/6));
-            ctx.fillStyle = color; ctx.fill();
+            ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI/6), endY - 10 * Math.sin(angle - Math.PI/6)); ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI/6), endY - 10 * Math.sin(angle + Math.PI/6)); ctx.fillStyle = color; ctx.fill();
         }
 
         function draw() {
@@ -1102,192 +770,132 @@
             ctx.stroke();
 
             ctx.lineWidth = 4; ctx.strokeStyle = '#cbd5e1';
-            trackPoints.forEach((p, idx) => {
-                if(idx % 100 === 0 && p.y > 0.1) {
-                    ctx.beginPath(); ctx.moveTo(sx(p.x), sy(p.y)); ctx.lineTo(sx(p.x), sy(0)); ctx.stroke();
-                }
-            });
+            trackPoints.forEach((p, idx) => { if(idx % 100 === 0 && p.y > 0.1) { ctx.beginPath(); ctx.moveTo(sx(p.x), sy(p.y)); ctx.lineTo(sx(p.x), sy(0)); ctx.stroke(); } });
 
-            ctx.fillStyle = '#475569';
-            ctx.font = 'bold 11px Inter, "Noto Sans TC", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#475569'; ctx.font = 'bold 11px Inter, "Noto Sans TC", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
             const groundY = sy(0);
-            
-            ctx.beginPath();
-            ctx.moveTo(sx(trackBounds.minX), groundY + 8);
-            ctx.lineTo(sx(trackBounds.maxX), groundY + 8);
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(sx(trackBounds.minX), groundY + 8); ctx.lineTo(sx(trackBounds.maxX), groundY + 8); ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.stroke();
 
             for (let i = Math.floor(trackBounds.minX); i <= Math.ceil(trackBounds.maxX); i++) {
-                let px = sx(i);
-                ctx.beginPath();
-                ctx.moveTo(px, groundY + 8);
-                let tickHeight = (i % 5 === 0) ? 8 : 4; 
-                ctx.lineTo(px, groundY + 8 + tickHeight);
-                ctx.stroke();
-                
+                let px = sx(i); ctx.beginPath(); ctx.moveTo(px, groundY + 8);
+                let tickHeight = (i % 5 === 0) ? 8 : 4; ctx.lineTo(px, groundY + 8 + tickHeight); ctx.stroke();
                 let step = scale < 15 ? 10 : (scale < 30 ? 5 : (scale < 50 ? 2 : 1));
-                if (i % step === 0) {
-                    ctx.fillText(i + 'm', px, groundY + 8 + tickHeight + 4);
-                }
+                if (i % step === 0) ctx.fillText(i + 'm', px, groundY + 8 + tickHeight + 4);
             }
 
             turningPoints.forEach((pt) => {
-                let px = sx(pt.x);
-                let py = sy(pt.y);
+                if (pt.t > timeElapsed + 0.001) return;
                 
-                ctx.beginPath();
-                ctx.moveTo(px, py);
-                ctx.lineTo(px, sy(0));
-                ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
-                ctx.setLineDash([4, 4]);
-                ctx.lineWidth = 1;
-                ctx.stroke();
-                ctx.setLineDash([]);
+                let px = sx(pt.x); let py = sy(pt.y);
+                ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, sy(0)); ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+                ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fillStyle = '#ef4444'; ctx.fill();
+                let text = `H=${pt.y.toFixed(2)}m`; ctx.font = 'bold 11px Inter, "Noto Sans TC", sans-serif'; ctx.textAlign = 'center'; let metrics = ctx.measureText(text);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'; ctx.fillRect(px - metrics.width/2 - 4, py - 48, metrics.width + 8, 16);
+                ctx.fillStyle = '#ef4444'; ctx.fillText(text, px, py - 36);
+            });
+
+            snapshotFrames.forEach(snap => {
+                if (snap.t > timeElapsed + 0.001) return;
                 
-                ctx.beginPath();
-                ctx.arc(px, py, 4, 0, Math.PI*2);
-                ctx.fillStyle = '#ef4444';
-                ctx.fill();
-                
-                let text = `H=${pt.y.toFixed(2)}m`;
-                ctx.font = 'bold 11px Inter, "Noto Sans TC", sans-serif';
-                ctx.textAlign = 'center';
-                let metrics = ctx.measureText(text);
-                
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-                ctx.fillRect(px - metrics.width/2 - 4, py - 22, metrics.width + 8, 14);
-                
-                ctx.fillStyle = '#ef4444';
-                ctx.fillText(text, px, py - 30);
+                const scw = snap.width * scale; const sch = snap.height * scale; const soffset = (snap.height / 2) + 0.08; 
+                let scarX = snap.x - soffset * Math.sin(snap.theta); let scarY = snap.y + soffset * Math.cos(snap.theta);
+                ctx.save(); ctx.translate(sx(scarX), sy(scarY)); ctx.rotate(-snap.theta); 
+                ctx.globalAlpha = 0.35; ctx.font = `${scw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.scale(-1, 1); ctx.fillText("🚗", 0, - (sch * 0.15)); ctx.restore();
             });
 
             if(cart.y < -2) return;
-
-            const cw = cart.width * scale; const ch = cart.height * scale;
-            const offset = (cart.height / 2) + 0.08; 
+            const cw = cart.width * scale; const ch = cart.height * scale; const offset = (cart.height / 2) + 0.08; 
             let carX = cart.x - offset * Math.sin(cart.theta); let carY = cart.y + offset * Math.cos(cart.theta);
 
             ctx.save(); ctx.translate(sx(carX), sy(carY)); ctx.rotate(-cart.theta); 
             ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 3;
-            
-            ctx.font = `${cw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.scale(-1, 1);
-            ctx.fillText("🚗", 0, - (ch * 0.15));
-            ctx.restore();
+            ctx.font = `${cw * 1.4}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.scale(-1, 1); ctx.fillText("🚗", 0, - (ch * 0.15)); ctx.restore();
 
             const screenCx = sx(carX); const screenCy = sy(carY);
-            if (toggles.Fg.checked) drawArrow(screenCx, screenCy, 0, -cart.Fg, '#10b981');
-            if (cart.state === 'running' || isDraggingCart) {
-                if (toggles.Fn.checked) drawArrow(screenCx, screenCy, -cart.Fn * Math.sin(cart.theta), cart.Fn * Math.cos(cart.theta), '#3b82f6');
-                if (toggles.Ff.checked && cart.Ff > 0) {
-                    const dir = -Math.sign(cart.v || cart.Fnet); 
-                    drawArrow(screenCx, screenCy, cart.Ff * dir * Math.cos(cart.theta), cart.Ff * dir * Math.sin(cart.theta), '#ef4444');
+            const sf = vectorScales.f;
+            
+            if (toggles.Fg.checked) drawArrow(screenCx, screenCy, 0, -cart.Fg * sf, '#10b981');
+            
+            if (cart.state !== 'flying') {
+                if (toggles.Fn.checked) drawArrow(screenCx, screenCy, -cart.Fn * sf * Math.sin(cart.theta), cart.Fn * sf * Math.cos(cart.theta), '#3b82f6');
+                if (toggles.Ff.checked && cart.Ff > 0) { 
+                    drawArrow(screenCx, screenCy, cart.Ff * sf * cart.dirFf * Math.cos(cart.theta), cart.Ff * sf * cart.dirFf * Math.sin(cart.theta), '#ef4444'); 
                 }
             }
-            if (toggles.Fthrust.checked && cart.F_thrust !== 0) {
-                drawArrow(screenCx, screenCy, cart.F_thrust * Math.cos(cart.theta), cart.F_thrust * Math.sin(cart.theta), '#06b6d4');
-            }
+            
+            if (toggles.Fthrust.checked && cart.F_thrust !== 0) drawArrow(screenCx, screenCy, cart.F_thrust * sf * Math.cos(cart.theta), cart.F_thrust * sf * Math.sin(cart.theta), '#06b6d4');
+            
             if (toggles.Fnet.checked) {
                 let netX = cart.state==='flying' ? (cart.F_thrust * Math.cos(cart.theta)) : cart.Fnet * Math.cos(cart.theta);
-                let netY = cart.state==='flying' ? (cart.F_thrust * Math.sin(cart.theta) - cart.Fg) : cart.Fnet * Math.sin(cart.theta);
-                drawArrow(screenCx, screenCy, netX, netY, '#9333ea');
+                let netY = cart.state==='flying' ? (cart.F_thrust * Math.sin(cart.theta) - cart.Fg) : cart.Fnet * Math.sin(cart.theta); 
+                drawArrow(screenCx, screenCy, netX * sf, netY * sf, '#9333ea');
             }
+            
             if (toggles.v.checked) {
-                let vx = cart.state==='flying' ? cart.vx : cart.v * Math.cos(cart.theta);
-                let vy = cart.state==='flying' ? cart.vy : cart.v * Math.sin(cart.theta);
-                drawArrow(screenCx, screenCy, vx*3, vy*3, '#4f46e5'); 
+                let vx = cart.state==='flying' ? cart.vx : cart.v * Math.cos(cart.theta); 
+                let vy = cart.state==='flying' ? cart.vy : cart.v * Math.sin(cart.theta); 
+                drawArrow(screenCx, screenCy, vx * vectorScales.v, vy * vectorScales.v, '#4f46e5'); 
             }
+            
             if (toggles.a.checked) {
                 let ax = cart.state==='flying' ? (cart.F_thrust * Math.cos(cart.theta))/params.mass : cart.a * Math.cos(cart.theta);
-                let ay = cart.state==='flying' ? -g + (cart.F_thrust * Math.sin(cart.theta))/params.mass : cart.a * Math.sin(cart.theta);
-                drawArrow(screenCx, screenCy, ax*2, ay*2, '#db2777');
+                let ay = cart.state==='flying' ? -g + (cart.F_thrust * Math.sin(cart.theta))/params.mass : cart.a * Math.sin(cart.theta); 
+                drawArrow(screenCx, screenCy, ax * vectorScales.a, ay * vectorScales.a, '#db2777');
             }
         }
 
         function getCarScreenRect() {
-            const offset = (cart.height / 2) + 0.08; 
-            const screenX = sx(cart.x - offset * Math.sin(cart.theta));
-            const screenY = sy(cart.y + offset * Math.cos(cart.theta));
-            return { x: screenX, y: screenY, r: 45 }; 
+            const offset = (cart.height / 2) + 0.08; const screenX = sx(cart.x - offset * Math.sin(cart.theta)); const screenY = sy(cart.y + offset * Math.cos(cart.theta)); return { x: screenX, y: screenY, r: 45 }; 
         }
 
         canvas.addEventListener('pointerdown', (e) => {
             if (isRunning) return; 
             const mx = e.offsetX; const my = e.offsetY; const carRect = getCarScreenRect();
             if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
-                isDraggingCart = true;
-                turningPoints = []; 
+                isDraggingCart = true; turningPoints = []; snapshotFrames = []; 
                 canvas.classList.remove('cursor-crosshair', 'cursor-grab'); canvas.classList.add('cursor-grabbing');
-                if (cart.state === 'flying') cart.state = 'running';
-                cart.v = 0; cart.a = 0; cart.K = 0; 
-                updateBtnState();
+                if (cart.state === 'flying') cart.state = 'running'; cart.v = 0; cart.a = 0; cart.K = 0; updateBtnState();
             }
         });
 
         canvas.addEventListener('pointermove', (e) => {
             const mx = e.offsetX; const my = e.offsetY; const carRect = getCarScreenRect();
-
             if (!isRunning && !isDraggingCart) {
-                if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
-                    canvas.classList.remove('cursor-crosshair'); canvas.classList.add('cursor-grab');
-                } else {
-                    canvas.classList.remove('cursor-grab', 'cursor-grabbing'); canvas.classList.add('cursor-crosshair');
-                }
+                if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) { canvas.classList.remove('cursor-crosshair'); canvas.classList.add('cursor-grab'); } 
+                else { canvas.classList.remove('cursor-grab', 'cursor-grabbing'); canvas.classList.add('cursor-crosshair'); }
             }
-
             if (isDraggingCart) {
-                const px = (mx - cx) / scale; const py = (cy - my) / scale;
-                let minDist = Infinity; let bestS = 0;
-                for (let i = 0; i < trackPoints.length; i++) {
-                    const dist = Math.hypot(trackPoints[i].x - px, trackPoints[i].y - py);
-                    if (dist < minDist) { minDist = dist; bestS = trackPoints[i].s; }
-                }
-                cart.s = bestS; const np = getPos(cart.s);
-                cart.x = np.x; cart.y = np.y; cart.theta = np.theta;
-                cart.v = 0; cart.a = 0; cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0;
+                const px = (mx - cx) / scale; const py = (cy - my) / scale; let minDist = Infinity; let bestS = 0;
+                for (let i = 0; i < trackPoints.length; i++) { const dist = Math.hypot(trackPoints[i].x - px, trackPoints[i].y - py); if (dist < minDist) { minDist = dist; bestS = trackPoints[i].s; } }
+                cart.s = bestS; const np = getPos(cart.s); cart.x = np.x; cart.y = np.y; cart.theta = np.theta; cart.v = 0; cart.a = 0; cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; 
+                updateStaticPhysics();
                 draw(); 
 
-                tooltip.innerHTML = `
-                    <div class="font-bold text-amber-400 mb-1" style="border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:4px;">📍 拖曳滑車中</div>
-                    <div class="mt-1">水平 X: <span class="text-blue-200">${cart.x.toFixed(2)} m</span></div>
-                    <div>高度 Y: <span class="text-emerald-200">${cart.y.toFixed(2)} m</span></div>
-                `;
-                tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 40) + 'px'; tooltip.style.opacity = 1;
-                return;
+                tooltip.innerHTML = `<div class="font-bold text-amber-400 mb-1 border-b border-white/20 pb-1">📍 拖曳滑車中</div><div class="mt-1">水平 X: <span class="text-blue-200">${cart.x.toFixed(2)} m</span></div><div>高度 Y: <span class="text-emerald-200">${cart.y.toFixed(2)} m</span></div>`;
+                tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 40) + 'px'; tooltip.style.opacity = 1; return;
             }
-
             if (Math.hypot(mx - carRect.x, my - carRect.y) < carRect.r) {
-                tooltip.innerHTML = `時間: ${timeElapsed.toFixed(2)}s<br>軌道位置: ${cart.state==='flying'?'拋體中':cart.s.toFixed(2)+'m'}<br>位置_X: ${cart.x.toFixed(2)}m<br>高度_Y: ${cart.y.toFixed(2)}m<br>速度: ${cart.v.toFixed(2)} m/s<br>加速度: ${cart.a.toFixed(2)} m/s²<br>動能: ${cart.K.toFixed(1)} J<br>位能: ${cart.U.toFixed(1)} J<br>推力: ${cart.F_thrust.toFixed(1)} N`;
-                tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 20) + 'px'; tooltip.style.opacity = 1;
-            } else {
-                tooltip.style.opacity = 0;
-            }
+                let html = `<div class="font-bold text-slate-300 mb-1 border-b border-white/20 pb-1">⏱ 時間: <span class="text-white font-mono">${timeElapsed.toFixed(2)}s</span></div>`;
+                let hasExtra = false;
+                sysVars.forEach(v => {
+                    if (v.id !== 't' && v.showInTable) {
+                        hasExtra = true;
+                        let val = v.get({ t: timeElapsed, s: cart.state==='flying' ? '拋體' : cart.s, x: cart.x, y: cart.y, v: cart.v, a: cart.a, F_push: cart.F_thrust, K: cart.K, U: cart.U, E: cart.K+cart.U, Ff: cart.Ff, Fn: cart.Fn, Fnet: cart.Fnet });
+                        let displayVal = typeof val === 'number' ? val.toFixed(2) : val; html += `<div>${v.label}: <span class="text-white font-mono">${displayVal}</span></div>`;
+                    }
+                });
+                if(!hasExtra) html += `<div class="text-slate-400 text-[9px] mt-1">(勾選右側表格顯示更多數值)</div>`;
+                tooltip.innerHTML = html; tooltip.style.left = mx + 'px'; tooltip.style.top = (my - 20) + 'px'; tooltip.style.opacity = 1;
+            } else { tooltip.style.opacity = 0; }
         });
 
         window.addEventListener('pointerup', () => {
             if (isDraggingCart) {
-                isDraggingCart = false;
-                canvas.classList.remove('cursor-grabbing'); canvas.classList.add('cursor-grab');
-                cart.U = params.mass * g * Math.max(0, cart.y);
-                cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
-
-                replayFrames.push({
-                    t: timeElapsed,
-                    s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
-                    v: cart.v, a: cart.a, K: cart.K, U: cart.U,
-                    Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
-                    state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust
-                });
-                replaySlider.max = replayFrames.length - 1;
-                replaySlider.value = replayFrames.length - 1;
-
-                broadcastStateToParent("放開了拖曳的滑車，設定了新位置", { "軌道位置_s": cart.s.toFixed(2), "水平_X": cart.x.toFixed(2), "高度_Y": cart.y.toFixed(2) });
+                isDraggingCart = false; canvas.classList.remove('cursor-grabbing'); canvas.classList.add('cursor-grab');
+                cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
+                replayFrames.push({ t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, theta: cart.theta, v: cart.v, a: cart.a, K: cart.K, U: cart.U, Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust, state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust });
+                replaySlider.max = replayFrames.length - 1; replaySlider.value = replayFrames.length - 1;
             }
         });
         canvas.addEventListener('mouseleave', () => tooltip.style.opacity = 0);
@@ -1297,45 +905,50 @@
             alertContainer.appendChild(el); setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 3000);
         }
 
+        function updateHighlights() {
+            const tbody = document.getElementById('dataTableBody');
+            let foundTr = null;
+            tbody.querySelectorAll('tr').forEach(tr => {
+                const cell = tr.querySelector('.editable-group');
+                if (!cell) return;
+                const recordId = parseInt(cell.dataset.recordId);
+                const rec = records.find(r => r.id === recordId);
+                if (rec && Math.abs(rec.t - timeElapsed) < 0.035) {
+                    tr.classList.add('bg-rose-100', 'text-rose-700', 'font-bold');
+                    foundTr = tr;
+                } else {
+                    tr.classList.remove('bg-rose-100', 'text-rose-700', 'font-bold');
+                }
+            });
+            if (foundTr) foundTr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            
+            if(activeChart) updateChartConfig();
+        }
+
         replaySlider.addEventListener('input', (e) => {
             if (replayFrames.length === 0) return;
-            
-            if (isRunning) {
-                isRunning = false;
-                updateBtnState();
-            }
+            if (isRunning) { isRunning = false; updateBtnState(); }
 
-            let frameIdx = parseInt(e.target.value);
-            let frame = replayFrames[frameIdx];
+            let frameIdx = parseInt(e.target.value); let frame = replayFrames[frameIdx];
 
-            timeElapsed = frame.t;
-            cart.s = frame.s; cart.x = frame.x; cart.y = frame.y; cart.theta = frame.theta;
+            timeElapsed = frame.t; cart.s = frame.s; cart.x = frame.x; cart.y = frame.y; cart.theta = frame.theta;
             cart.v = frame.v; cart.a = frame.a; cart.K = frame.K; cart.U = frame.U;
-            cart.Fg = frame.Fg; cart.Fn = frame.Fn; cart.Ff = frame.Ff; cart.Fnet = frame.Fnet;
-            cart.F_thrust = frame.F_thrust;
+            cart.Fg = frame.Fg; cart.Fn = frame.Fn; cart.Ff = frame.Ff; cart.Fnet = frame.Fnet; cart.F_thrust = frame.F_thrust;
             cart.state = frame.state; cart.E0 = frame.E0; cart.Wf = frame.Wf; cart.W_thrust = frame.W_thrust;
 
-            params.thrust = frame.F_thrust;
-            sliders.thrust.value = params.thrust;
-            labels.thrust.textContent = params.thrust.toFixed(1);
-
+            params.thrust = frame.F_thrust; sliders.thrust.value = params.thrust; labels.thrust.textContent = params.thrust.toFixed(1);
             valReplayTime.textContent = timeElapsed.toFixed(2) + "s";
             
-            turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
+            updateStaticPhysics();
             draw();
-        });
-
-        replaySlider.addEventListener('change', (e) => {
-            let frameIdx = parseInt(e.target.value);
-            if (frameIdx < replayFrames.length - 1) {
-                broadcastStateToParent("使用了時間軸重播實驗", { "跳轉至歷史時間點": timeElapsed.toFixed(2) + "s" });
-            }
+            updateHighlights();
+            updateBtnState(); 
         });
 
         function renderTableColumnsUI() {
             const container = document.getElementById('columnCheckboxes');
             container.innerHTML = sysVars.filter(c => c.id !== 't').map(c => `
-                <label class="check-item">
+                <label class="check-item bg-white px-1.5 py-0.5 rounded border border-slate-200">
                     <input type="checkbox" value="${c.id}" ${c.showInTable ? 'checked' : ''} onchange="toggleTableCol('${c.id}')"> 
                     <span style="color:${c.color}">${c.label}</span>
                 </label>
@@ -1346,28 +959,19 @@
             const col = sysVars.find(c => c.id === id);
             if (col) {
                 col.showInTable = !col.showInTable;
-                if (!col.showInTable && chartYSelections.has(id)) {
-                    chartYSelections.delete(id);
-                }
+                if (!col.showInTable && chartYSelections.has(id)) chartYSelections.delete(id);
             }
-            renderTableColumnsUI();
-            renderTable();
-            renderChartYAxisUI();
-            updateChartConfig();
-            broadcastStateToParent(`改變了表格顯示欄位：${col.showInTable ? '顯示' : '隱藏'}了「${col.label}」`);
+            renderTableColumnsUI(); renderTable(); renderChartYAxisUI(); updateChartConfig();
         }
 
         function renderChartYAxisUI() {
             const availableVars = sysVars.filter(c => c.id !== 't' && c.showInTable);
-
             if (availableVars.length === 0) {
-                yAxisSelectorsDiv.innerHTML = '<span class="text-slate-400 font-bold self-center mr-1 ml-2">請先勾選左側表格要紀錄的欄位，即可產生對應圖表</span>';
-                return;
+                yAxisSelectorsDiv.innerHTML = '<span class="text-slate-400 font-bold self-center mr-1 ml-2">請先於上方勾選欄位，即可產生圖表</span>'; return;
             }
-
-            yAxisSelectorsDiv.innerHTML = '<span class="text-slate-600 font-bold self-center mr-1">縱軸(Y) 勾選:</span>' + 
+            yAxisSelectorsDiv.innerHTML = '<span class="text-slate-600 font-bold self-center mr-1">Y軸勾選:</span>' + 
                 availableVars.map(c => `
-                <label class="check-item bg-white px-2 py-0.5 rounded border border-slate-200">
+                <label class="check-item bg-white px-1.5 py-0.5 rounded border border-slate-200">
                     <input type="checkbox" value="${c.id}" ${chartYSelections.has(c.id) ? 'checked' : ''} onchange="toggleChartY('${c.id}')"> 
                     <span style="color:${c.color}">${c.label}</span>
                 </label>
@@ -1375,80 +979,50 @@
         }
 
         window.toggleChartY = function(id) {
-            const colLabel = sysVars.find(v => v.id === id)?.label || id;
-            if (chartYSelections.has(id)) {
-                chartYSelections.delete(id);
-                broadcastStateToParent(`將圖表縱軸取消勾選了「${colLabel}」`);
-            } else {
-                chartYSelections.add(id);
-                broadcastStateToParent(`將圖表縱軸新增勾選了「${colLabel}」`);
-            }
-            updateChartConfig();
-            renderChartYAxisUI();
+            if (chartYSelections.has(id)) chartYSelections.delete(id); else chartYSelections.add(id);
+            updateChartConfig(); renderChartYAxisUI();
         }
 
         function initChart() {
             const ctxC = document.getElementById('customChart').getContext('2d');
             Chart.defaults.font.family = 'Inter';
             activeChart = new Chart(ctxC, {
-                type: 'line',
-                data: { datasets: [] },
+                type: 'line', data: { datasets: [] },
                 options: {
                     responsive: true, maintainAspectRatio: false, animation: false,
                     interaction: { mode: 'index', intersect: false },
-                    scales: { 
-                        x: { type: 'linear', title: { display: true, text: '橫軸' } }, 
-                        y: { title: { display: true, text: '數值' } } 
-                    }
+                    scales: { x: { type: 'linear', title: { display: true, text: '橫軸' } }, y: { title: { display: true, text: '數值' } } }
                 }
             });
-            renderTableColumnsUI();
-            renderChartYAxisUI();
-            updateChartConfig();
-            renderTable();
+            renderTableColumnsUI(); renderChartYAxisUI(); updateChartConfig(); renderTable();
         }
 
         function updateChartConfig() {
             if (!activeChart) return;
-            const mode = chartModeSelect.value;
-            const xVar = chartXSelect.value;
-            const xDef = sysVars.find(v => v.id === xVar);
-            const trendType = trendlineTypeSelect.value;
+            const mode = chartModeSelect.value; const xVar = chartXSelect.value;
+            const xDef = sysVars.find(v => v.id === xVar); const trendType = trendlineTypeSelect.value;
             
             activeChart.options.scales.x.title.text = xDef ? xDef.label : 'X';
-            
-            let datasets = [];
-            let eqStrings = [];
+            let datasets = []; let eqStrings = [];
 
-            if (mode === 'continuous') {
-                trendlineContainer.style.opacity = '0.5';
-                trendlineTypeSelect.disabled = true;
-            } else {
-                trendlineContainer.style.opacity = '1';
-                trendlineTypeSelect.disabled = false;
-            }
+            if (mode === 'continuous') { trendlineContainer.style.opacity = '0.5'; trendlineTypeSelect.disabled = true; } 
+            else { trendlineContainer.style.opacity = '1'; trendlineTypeSelect.disabled = false; }
 
             const groupedRecords = {};
             records.forEach(rec => {
                 const g = (rec.group || "").trim() || "未分組";
-                if (!groupedRecords[g]) groupedRecords[g] = [];
-                groupedRecords[g].push(rec);
+                if (!groupedRecords[g]) groupedRecords[g] = []; groupedRecords[g].push(rec);
             });
 
             Array.from(chartYSelections).forEach(yId => {
-                const yDef = sysVars.find(v => v.id === yId);
-                if(!yDef) return;
+                const yDef = sysVars.find(v => v.id === yId); if(!yDef) return;
 
                 if (mode === 'custom') {
                     Object.keys(groupedRecords).forEach(gName => {
-                        const recs = groupedRecords[gName];
-                        let dataPoints = [];
+                        const recs = groupedRecords[gName]; let dataPoints = [];
                         recs.forEach(rec => {
-                            let xv = rec[xVar];
-                            let yv = rec[yId];
-                            if (typeof xv === 'number' && typeof yv === 'number') {
-                                dataPoints.push({x: xv, y: yv});
-                            }
+                            let xv = rec[xVar]; let yv = rec[yId];
+                            if (typeof xv === 'number' && typeof yv === 'number') dataPoints.push({x: xv, y: yv, t: rec.t}); 
                         });
 
                         if (dataPoints.length > 0) {
@@ -1456,37 +1030,24 @@
                             const dsColor = isGrouped ? assignGroupColor(gName) : yDef.color;
                             const dsLabel = isGrouped ? `${gName} (${yDef.label})` : yDef.label;
 
+                            let pointColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#ef4444' : dsColor);
+                            let pointRadii = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? 10 : 6);
+                            let borderColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#991b1b' : dsColor);
+
                             datasets.push({
-                                label: dsLabel,
-                                backgroundColor: dsColor, 
-                                borderColor: dsColor,
-                                data: dataPoints,
-                                borderWidth: 1,
-                                pointRadius: 6,
-                                pointHoverRadius: 8,
-                                showLine: false, 
-                                tension: 0
+                                label: dsLabel, backgroundColor: pointColors, borderColor: borderColors,
+                                data: dataPoints, borderWidth: 2, pointRadius: pointRadii, pointHoverRadius: 10, showLine: false, tension: 0
                             });
 
                             if (trendType !== 'none' && dataPoints.length > 2) {
                                 let fit = getRegression(dataPoints, trendType, dsLabel, dsColor);
                                 if (fit) {
-                                    let minX = Math.min(...dataPoints.map(p => p.x));
-                                    let maxX = Math.max(...dataPoints.map(p => p.x));
+                                    let minX = Math.min(...dataPoints.map(p => p.x)); let maxX = Math.max(...dataPoints.map(p => p.x));
                                     let fitLine = [];
-                                    for(let i=0; i<=50; i++) {
-                                        let px = minX + (maxX - minX) * (i/50);
-                                        fitLine.push({x: px, y: fit.fn(px)});
-                                    }
+                                    for(let i=0; i<=50; i++) { let px = minX + (maxX - minX) * (i/50); fitLine.push({x: px, y: fit.fn(px)}); }
                                     datasets.push({
-                                        label: `${dsLabel} 擬合線`,
-                                        data: fitLine,
-                                        borderColor: dsColor,
-                                        borderWidth: 2,
-                                        borderDash: [5, 5],
-                                        pointRadius: 0,
-                                        fill: false,
-                                        showLine: true
+                                        label: `${dsLabel} 擬合線`, data: fitLine, borderColor: dsColor, borderWidth: 2, borderDash: [5, 5],
+                                        pointRadius: 0, fill: false, showLine: true
                                     });
                                     eqStrings.push(`<span style="color:${fit.color}; margin-right: 15px;">${fit.eqStr}</span>`);
                                 }
@@ -1496,56 +1057,33 @@
                 } else {
                     let dataPoints = [];
                     for (let i = 0; i < systemDataStore[xVar].length; i++) {
-                        let xv = systemDataStore[xVar][i];
-                        let yv = systemDataStore[yId][i];
-                        if (typeof xv === 'number' && typeof yv === 'number') {
-                            dataPoints.push({x: xv, y: yv});
-                        }
+                        let xv = systemDataStore[xVar][i]; let yv = systemDataStore[yId][i]; let tv = systemDataStore['t'][i];
+                        if (typeof xv === 'number' && typeof yv === 'number') dataPoints.push({x: xv, y: yv, t: tv});
                     }
 
+                    let contColors = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? '#ef4444' : yDef.color);
+                    let contRadii = dataPoints.map(dp => Math.abs(dp.t - timeElapsed) < 0.035 ? 8 : 0);
+
                     datasets.push({
-                        label: yDef.label,
-                        backgroundColor: yDef.color, 
-                        borderColor: yDef.color,
-                        data: dataPoints,
-                        borderWidth: 2,
-                        pointRadius: 0, 
-                        pointHitRadius: 5,
-                        showLine: true,
-                        tension: 0.1
+                        label: yDef.label, backgroundColor: yDef.color, borderColor: yDef.color,
+                        data: dataPoints, borderWidth: 2, pointBackgroundColor: contColors, pointRadius: contRadii, pointHitRadius: 5, showLine: true, tension: 0.1
                     });
                 }
             });
 
-            activeChart.data.datasets = datasets;
-            activeChart.update();
+            activeChart.data.datasets = datasets; 
+            activeChart.update('none'); 
 
             if (eqStrings.length > 0 && mode === 'custom') {
-                trendlineEqsDiv.innerHTML = eqStrings.join(' | ');
-                trendlineEqsDiv.classList.remove('hidden');
+                trendlineEqsDiv.innerHTML = eqStrings.join(' | '); trendlineEqsDiv.classList.remove('hidden');
             } else {
-                trendlineEqsDiv.classList.add('hidden');
-                trendlineEqsDiv.innerHTML = '';
+                trendlineEqsDiv.classList.add('hidden'); trendlineEqsDiv.innerHTML = '';
             }
         }
 
-        chartModeSelect.addEventListener('change', (e) => {
-            const modeText = e.target.options[e.target.selectedIndex].text;
-            updateChartConfig();
-            broadcastStateToParent(`切換圖表模式為：「${modeText}」`);
-        });
-
-        chartXSelect.addEventListener('change', (e) => {
-            const xText = e.target.options[e.target.selectedIndex].text;
-            updateChartConfig();
-            broadcastStateToParent(`將圖表橫軸更改為：「${xText}」`);
-        });
-
-        trendlineTypeSelect.addEventListener('change', (e) => {
-            const trendText = e.target.options[e.target.selectedIndex].text;
-            updateChartConfig();
-            broadcastStateToParent(`更改了擬合線設定為：「${trendText}」`);
-        });
+        chartModeSelect.addEventListener('change', updateChartConfig);
+        chartXSelect.addEventListener('change', updateChartConfig);
+        trendlineTypeSelect.addEventListener('change', updateChartConfig);
 
         function recordToSystemData() {
             if (!isRunning) return;
@@ -1557,9 +1095,7 @@
                 systemDataStore[v.id].push(val);
                 if (systemDataStore[v.id].length > 1000) systemDataStore[v.id].shift();
             });
-            if (chartModeSelect.value === 'continuous') {
-                updateChartConfig();
-            }
+            if (chartModeSelect.value === 'continuous') updateChartConfig();
         }
 
         function addTableRecord() {
@@ -1577,28 +1113,17 @@
             records.push(rec);
             
             records.sort((a, b) => {
-                const gA = (a.group || "").trim();
-                const gB = (b.group || "").trim();
+                const gA = (a.group || "").trim(); const gB = (b.group || "").trim();
                 if (gA !== gB) return gA.localeCompare(gB, 'zh-TW');
                 return a.t - b.t;
             });
             
-            renderTable();
-            renderGroupManager();
-            
+            renderTable(); renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
             
-            const activeTableCols = sysVars.filter(c => c.showInTable).map(c => c.label);
-            const latestDataString = activeTableCols.map(colName => {
-                const colId = sysVars.find(v => v.label === colName)?.id;
-                return `${colName}: ${typeof rec[colId] === 'number' ? rec[colId].toFixed(2) : rec[colId]}`;
-            }).join(" | ");
-
-            broadcastStateToParent(`手動記錄了一筆實驗數據 (組別：${rec.group || '未分組'})`, {
-                "記錄時間": rec.t.toFixed(2),
-                "新增資料內容": latestDataString,
-                "表格全貌": `共 ${records.length} 筆資料`
-            });
+            const tbody = document.getElementById('dataTableBody');
+            tbody.parentElement.parentElement.scrollTop = tbody.parentElement.parentElement.scrollHeight; 
+            updateHighlights();
         }
 
         function renderTable() {
@@ -1606,69 +1131,67 @@
             const tbody = document.getElementById('dataTableBody');
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
             
-            let headHtml = '<tr><th>組別</th>';
-            activeCols.forEach(c => headHtml += `<th>${c.label}</th>`);
-            headHtml += '<th>操作</th></tr>';
+            let headHtml = '<tr><th class="bg-slate-100 border-r border-slate-200 shadow-sm">組別</th>';
+            activeCols.forEach(c => headHtml += `<th class="bg-slate-100">${c.label}</th>`);
+            headHtml += '<th class="bg-slate-100 text-center">操作</th></tr>';
             thead.innerHTML = headHtml;
 
             if (records.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊上方「記錄當下狀態」來收集實驗數據。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊上方「手動紀錄」或開啟自動留殘影功能。</td></tr>`;
                 return;
             }
             
             tbody.innerHTML = records.map(r => {
-                let rowHtml = '<tr>';
-                
-                const groupVal = r.group || "";
-                const color = groupVal ? assignGroupColor(groupVal) : null;
-                const content = groupVal 
-                    ? `<span class="group-tag" style="background:${color}">${escapeHtml(groupVal)}</span>`
-                    : `<span class="empty-group">—</span>`;
-                rowHtml += `<td class="editable-group" data-record-id="${r.id}">${content}</td>`;
+                let isHighlight = Math.abs(r.t - timeElapsed) < 0.035;
+                let rowClass = isHighlight ? 'bg-rose-100 text-rose-700 font-bold' : '';
+
+                let rowHtml = `<tr class="${rowClass}">`;
+                const groupVal = r.group || ""; const color = groupVal ? assignGroupColor(groupVal) : null;
+                const content = groupVal ? `<span class="group-tag" style="background:${color}">${escapeHtml(groupVal)}</span>` : `<span class="empty-group text-slate-300">—</span>`;
+                rowHtml += `<td class="editable-group border-r border-slate-100 bg-white/50" data-record-id="${r.id}">${content}</td>`;
 
                 activeCols.forEach(c => {
                     let displayVal = typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id];
-                    rowHtml += `<td class="font-mono">${displayVal}</td>`;
+                    let textClass = isHighlight ? 'text-rose-700' : 'text-slate-700';
+                    rowHtml += `<td class="font-mono ${textClass}">${displayVal}</td>`;
                 });
-                rowHtml += `<td><button class="row-delete-btn" onclick="deleteRecord(${r.id})">刪除</button></td></tr>`;
+                rowHtml += `<td class="text-center"><button class="row-delete-btn" onclick="deleteRecord(${r.id})">刪除</button></td></tr>`;
                 return rowHtml;
             }).join('');
 
-            tbody.querySelectorAll('.editable-group').forEach(cell => {
-                cell.addEventListener('click', () => startEditGroupCell(cell));
-            });
+            tbody.querySelectorAll('.editable-group').forEach(cell => { cell.addEventListener('click', () => startEditGroupCell(cell)); });
         }
         
         window.deleteRecord = function(id) {
-            records = records.filter(r => r.id !== id);
-            renderTable();
-            renderGroupManager();
+            records = records.filter(r => r.id !== id); renderTable(); renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
-            broadcastStateToParent("刪除了表格中的一筆歷史紀錄");
         }
 
         btnRecord.addEventListener('click', addTableRecord);
         btnClearRecord.addEventListener('click', () => { 
-            records = []; 
-            renderTable(); 
-            renderGroupManager();
+            records = []; renderTable(); renderGroupManager();
             if (activeChart && chartModeSelect.value === 'custom') updateChartConfig();
-            broadcastStateToParent("清空了數據表格");
         });
         
         btnExport.addEventListener('click', () => {
             if(records.length === 0) return alert("沒有數據可以下載！");
+            
+            const reportText = document.getElementById('labReportText').value;
+            const escapedReport = reportText.replace(/"/g, '""');
+            
+            let csv = "【實驗報告】\n";
+            csv += `"${escapedReport}"\n\n`; 
+            
+            csv += "【實驗數據】\n";
             const activeCols = sysVars.filter(c => c.id === 't' || c.showInTable);
-            let csv = "組別," + activeCols.map(c => c.label).join(",") + "\n";
+            csv += "組別," + activeCols.map(c => c.label).join(",") + "\n";
             records.forEach(r => { 
                 csv += `"${r.group || '未分組'}",` + activeCols.map(c => typeof r[c.id] === 'number' ? r[c.id].toFixed(2) : r[c.id]).join(",") + "\n"; 
             });
             
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = '伽利略斜面實驗數據.csv'; a.click();
-            broadcastStateToParent("下載了實驗數據 CSV 檔");
+            const url = URL.createObjectURL(blob); const a = document.createElement('a');
+            a.href = url; a.download = '伽利略斜面實驗結果與報告.csv'; a.click();
         });
 
         let dataUpdateTimer = 0;
@@ -1684,14 +1207,11 @@
                 dataUpdateTimer += safeDt;
 
                 replayFrames.push({
-                    t: timeElapsed,
-                    s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
-                    v: cart.v, a: cart.a, K: cart.K, U: cart.U,
-                    Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
+                    t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
+                    v: cart.v, a: cart.a, K: cart.K, U: cart.U, Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
                     state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust
                 });
-                replaySlider.max = replayFrames.length - 1;
-                replaySlider.value = replayFrames.length - 1;
+                replaySlider.max = replayFrames.length - 1; replaySlider.value = replayFrames.length - 1;
                 valReplayTime.textContent = timeElapsed.toFixed(2) + "s";
 
                 if (dataUpdateTimer >= 0.1) {
@@ -1699,17 +1219,31 @@
                     dataUpdateTimer = 0;
                 }
 
-                if (toggles.autoPause.checked && timeElapsed >= nextPauseTime) {
-                    isRunning = false;
+                if (timeElapsed >= nextPauseTime) {
+                    let didPause = false; let didSnap = false;
+
+                    if (toggles.snapshot.checked) {
+                        snapshotFrames.push({ t: timeElapsed, x: cart.x, y: cart.y, theta: cart.theta, width: cart.width, height: cart.height });
+                        addTableRecord();
+                        didSnap = true;
+                    }
+
+                    if (toggles.autoPause.checked) {
+                        isRunning = false; updateBtnState(); didPause = true;
+                    }
+
                     nextPauseTime += parseFloat(toggles.autoInterval.value);
-                    updateBtnState();
-                    broadcastStateToParent(`觸發定時暫停 (${timeElapsed.toFixed(2)}s)`);
                     
-                    const el = document.createElement('div');
-                    el.className = 'absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-1 rounded-full font-bold shadow-md';
-                    el.textContent = '⏸ 時間暫停 (可移動滑鼠查看數據)';
-                    alertContainer.appendChild(el);
-                    setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 2000);
+                    if (didPause || didSnap) {
+                        const el = document.createElement('div');
+                        el.className = 'absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-1 rounded-full font-bold shadow-md z-50';
+                        if (didPause && didSnap) el.textContent = '⏸ 暫停並已自動留影抄表';
+                        else if (didPause) el.textContent = '⏸ 時間暫停 (可移動滑鼠查看數據)';
+                        else if (didSnap) el.textContent = '📸 已印出殘影並自動抄表';
+                        
+                        alertContainer.appendChild(el);
+                        setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 2000);
+                    }
                 }
             }
             draw();
@@ -1734,48 +1268,42 @@
             isRunning = false; timeElapsed = 0; dataUpdateTimer = 0;
             applyParams();
             
-            cart.state = 'running'; cart.s = 0; cart.v = 0; cart.a = 0;
-            const initPos = getPos(0);
-            cart.x = initPos.x; cart.y = initPos.y; cart.theta = initPos.theta;
-            cart.F_thrust = params.thrust;
-            
-            cart.U = params.mass * g * Math.max(0, cart.y); 
-            cart.K = 0;
-            cart.E0 = cart.U + cart.K;
-            cart.Wf = 0; cart.W_thrust = 0;
+            cart.state = 'running'; 
+            if (params.thetaL > 0.01 && params.H > 3.0) { cart.s = (params.H - 3.0) / Math.sin(params.thetaL); } else { cart.s = 0; }
+            cart.v = 0; cart.a = 0;
+            const initPos = getPos(cart.s); cart.x = initPos.x; cart.y = initPos.y; cart.theta = initPos.theta; cart.F_thrust = params.thrust;
+            cart.U = params.mass * g * Math.max(0, cart.y); cart.K = 0; cart.E0 = cart.U + cart.K; cart.Wf = 0; cart.W_thrust = 0;
+
+            updateStaticPhysics();
 
             replayFrames = [{
-                t: timeElapsed,
-                s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
-                v: cart.v, a: cart.a, K: cart.K, U: cart.U,
-                Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
+                t: timeElapsed, s: cart.s, x: cart.x, y: cart.y, theta: cart.theta,
+                v: cart.v, a: cart.a, K: cart.K, U: cart.U, Fg: cart.Fg, Fn: cart.Fn, Ff: cart.Ff, Fnet: cart.Fnet, F_thrust: cart.F_thrust,
                 state: cart.state, E0: cart.E0, Wf: cart.Wf, W_thrust: cart.W_thrust
             }];
-            replaySlider.max = 0;
-            replaySlider.value = 0;
-            valReplayTime.textContent = "0.00s";
-            turningPoints = [];
+            replaySlider.max = 0; replaySlider.value = 0; valReplayTime.textContent = "0.00s";
+            turningPoints = []; snapshotFrames = []; 
 
             sysVars.forEach(v => systemDataStore[v.id] = []);
             if(activeChart) updateChartConfig();
             
-            nextPauseTime = toggles.autoPause.checked ? parseFloat(toggles.autoInterval.value) : Infinity;
-            updateBtnState(); draw();
-            
-            if (typeof isSimInitialized !== 'undefined' && isSimInitialized) {
-                broadcastStateToParent("重置了實驗環境", { "滑車質量": params.mass, "推力": params.thrust, "左斜角": sliders.thetaL.value, "右斜角": sliders.thetaR.value });
-            }
+            if(toggles.autoPause.checked || toggles.snapshot.checked) { nextPauseTime = parseFloat(toggles.autoInterval.value); } 
+            else { nextPauseTime = Infinity; }
+            updateBtnState(); draw(); renderTable();
         }
 
         function updateBtnState() {
             if (isRunning) {
-                btnStart.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>手動暫停</span>`;
+                btnStart.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>手動暫停</span>`;
                 btnStart.classList.replace('bg-blue-600', 'bg-amber-500'); btnStart.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
             } else {
-                let text = cart.s === 0 && cart.state !== 'flying' ? '放開滑車' : '繼續播放';
+                let text = '開始播放';
+                if (timeElapsed > 0 && cart.state !== 'flying') {
+                    text = '繼續播放';
+                }
                 if (cart.state === 'stopped' && cart.y < -1) text = '已落地 (請重置)';
                 
-                btnStart.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg><span>${text}</span>`;
+                btnStart.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg><span>${text}</span>`;
                 btnStart.classList.replace('bg-amber-500', 'bg-blue-600'); btnStart.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
                 
                 if(cart.state === 'stopped' && cart.y < -1) {
@@ -1789,50 +1317,27 @@
         window.addEventListener('resize', () => { resize(); draw(); });
         
         Object.values(sliders).forEach(slider => {
-            slider.addEventListener('change', () => {
-                if (!isRunning && (slider.id === 'leftAngleSlider' || slider.id === 'rightAngleSlider' || slider.id === 'massSlider')) {
-                    broadcastStateToParent(`在靜止狀態下調整了參數`, {
-                        "左斜角": sliders.thetaL.value + "°",
-                        "右斜角": sliders.thetaR.value + "°",
-                        "滑車質量": sliders.mass.value + " kg"
-                    });
-                }
-            });
-
             slider.addEventListener('input', () => {
                 if(isRunning) {
                     if(slider.id === 'thrustSlider') {
-                        params.thrust = parseFloat(slider.value);
-                        labels.thrust.textContent = params.thrust.toFixed(1);
-                        console.log("【廣播送到AI】實驗進行中即時調整推力", { "推力(N)": params.thrust.toFixed(1) });
-                    } else {
-                        resetSimulation();
-                    }
+                        params.thrust = parseFloat(slider.value); labels.thrust.textContent = params.thrust.toFixed(1);
+                    } else { resetSimulation(); }
                 } else { 
                     applyParams(); 
                     if(cart.state === 'running' || cart.state === 'stopped') {
                         if(cart.s > trackS.total) cart.s = trackS.total;
-                        const np = getPos(cart.s);
-                        cart.x = np.x; cart.y = np.y; cart.theta = np.theta;
-                        
-                        cart.U = params.mass * g * Math.max(0, cart.y);
-                        cart.E0 = cart.U + cart.K;
+                        const np = getPos(cart.s); cart.x = np.x; cart.y = np.y; cart.theta = np.theta;
+                        cart.U = params.mass * g * Math.max(0, cart.y); cart.E0 = cart.U + cart.K;
+                        updateStaticPhysics();
                     }
                     draw(); 
                 }
             });
         });
-        
-        sliders.thrust.addEventListener('change', () => {
-            broadcastStateToParent("調整了滑車推力", { "推力(N)": params.thrust.toFixed(1) });
-        });
 
         document.getElementById('btnZeroThrust').addEventListener('click', () => {
-            sliders.thrust.value = 0;
-            params.thrust = 0;
-            labels.thrust.textContent = '0.0';
-            if (!isRunning) draw();
-            broadcastStateToParent("已將推力歸零");
+            sliders.thrust.value = 0; params.thrust = 0; labels.thrust.textContent = '0.0'; 
+            if (!isRunning) { applyParams(); updateStaticPhysics(); draw(); }
         });
 
         btnStart.addEventListener('click', () => {
@@ -1843,116 +1348,47 @@
                 let currentIdx = parseInt(replaySlider.value);
                 if (currentIdx < replayFrames.length - 1) {
                     replayFrames = replayFrames.slice(0, currentIdx + 1);
-                    
                     for (let key in systemDataStore) {
                         let validLen = 0;
                         for (let i = 0; i < systemDataStore['t'].length; i++) {
-                            if (systemDataStore['t'][i] <= timeElapsed + 0.001) validLen++;
-                            else break;
+                            if (systemDataStore['t'][i] <= timeElapsed + 0.001) validLen++; else break;
                         }
                         systemDataStore[key] = systemDataStore[key].slice(0, validLen);
                     }
-                    
                     records = records.filter(r => r.t <= timeElapsed + 0.001);
                     turningPoints = turningPoints.filter(pt => pt.t <= timeElapsed + 0.001);
+                    snapshotFrames = snapshotFrames.filter(snap => snap.t <= timeElapsed + 0.001); 
                     
-                    renderTable();
-                    renderGroupManager();
+                    renderTable(); renderGroupManager();
                     if (activeChart) updateChartConfig();
-                    broadcastStateToParent("從重播點接續播放實驗，已抹除該點之後的未來紀錄");
                 }
-
                 lastTime = performance.now(); 
                 if (cart.state === 'stopped') cart.state = 'running'; 
-                broadcastStateToParent("點擊了繼續/播放按鈕");
-            } else { broadcastStateToParent("點擊了手動暫停按鈕"); }
+            }
             updateBtnState();
         });
 
         btnReset.addEventListener('click', resetSimulation);
 
-        function showToast(msg, type='info') {
-            const el = document.createElement('div');
-            let bgClass = type === 'success' ? 'bg-emerald-500' : (type === 'warning' ? 'bg-orange-500' : 'bg-slate-800');
-            el.className = `absolute top-16 left-1/2 -translate-x-1/2 ${bgClass} text-white px-6 py-2 rounded-full font-bold shadow-lg z-50 transition-opacity duration-300`;
-            el.textContent = msg;
-            alertContainer.appendChild(el);
-            setTimeout(() => { 
-                el.style.opacity = '0';
-                setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
-            }, 2500);
-        }
-
         function applyFrictionChange() {
             params.mu = frictionLevels[currentFrictionIndex]; 
-            let text = "一般軌道";
-            let colorClass = "text-blue-500 bg-blue-50";
-            
+            let text = "一般軌道"; let colorClass = "text-blue-500 bg-blue-50";
             if (currentFrictionIndex === 0) { text = "理想光滑"; colorClass = "text-amber-600 bg-amber-50"; }
             else if (currentFrictionIndex === 1) { text = "非常光滑"; colorClass = "text-emerald-600 bg-emerald-50"; }
             else if (currentFrictionIndex === 2) { text = "略微光滑"; colorClass = "text-teal-600 bg-teal-50"; }
             else if (currentFrictionIndex === 3) { text = "一般軌道"; colorClass = "text-blue-500 bg-blue-50"; }
             else if (currentFrictionIndex === 4) { text = "非常粗糙"; colorClass = "text-rose-600 bg-rose-50"; }
-            
-            valFrictionText.textContent = text;
-            valFrictionText.className = `px-2 rounded font-bold ${colorClass}`;
-
-            if (isRunning) resetSimulation();
-            broadcastStateToParent(`將軌道表面狀態調整為: ${text}`);
+            valFrictionText.textContent = text; valFrictionText.className = `px-1.5 rounded font-bold whitespace-nowrap ${colorClass}`;
+            if (isRunning) resetSimulation(); else { updateStaticPhysics(); draw(); }
         }
 
-        btnSmoother.addEventListener('click', () => {
-            if (currentFrictionIndex > 0) {
-                currentFrictionIndex--;
-                applyFrictionChange();
-            } else {
-                showToast("✨ 軌道已達「理想光滑」狀態，完全沒有摩擦力囉！", "success");
-            }
-        });
-
-        btnRougher.addEventListener('click', () => {
-            if (currentFrictionIndex < frictionLevels.length - 1) {
-                currentFrictionIndex++;
-                applyFrictionChange();
-            } else {
-                showToast("🧱 軌道已經非常粗糙，滑車會很難移動喔！", "warning");
-            }
-        });
-
-        dataPanelToggle.addEventListener('click', () => {
-            const isOpen = dataPanelWrap.classList.toggle('open');
-            dataPanelLabel.textContent = isOpen ? "📈 收合實驗記錄簿" : "📈 打開實驗記錄簿（查看表格與數據圖表）";
-            dataPanelIcon.style.transform = isOpen ? "rotate(180deg)" : "rotate(0deg)";
-            
-            if (isSimInitialized) {
-                broadcastStateToParent(isOpen ? "展開了底部數據面板，準備查看實驗數據與統計圖" : "收合了底部數據面板，回到實驗操作模式");
-            }
-
-            if (isOpen && activeChart) {
-                setTimeout(() => {
-                    activeChart.resize();
-                }, 410);
-            }
-        });
+        btnSmoother.addEventListener('click', () => { if (currentFrictionIndex > 0) { currentFrictionIndex--; applyFrictionChange(); } });
+        btnRougher.addEventListener('click', () => { if (currentFrictionIndex < frictionLevels.length - 1) { currentFrictionIndex++; applyFrictionChange(); } });
 
         let isSimInitialized = false;
-
         window.onload = () => {
             initChart(); resize(); resetSimulation(); requestAnimationFrame(animate);
             isSimInitialized = true;
-            
-            const introMsg = `【系統開場白】歡迎進入「伽利略理想斜面實驗室」！
-這是一個可以探索慣性、力學能守恆與牛頓第二定律的模擬環境。
-主要功能包含：
-1. 調整左/右斜面角度 (甚至能調成0度水平面)。
-2. 改變軌道摩擦力與滑車質量。
-3. 可即時施加「推力」當作火箭車實驗。
-4. 實驗過程可自由重播，並隨時在重播點「記錄當下狀態」到表格中。
-5. 數據紀錄表與自訂圖表被妥善整合在底部的「實驗記錄簿」中，您可以隨時點選標頭展開或收合它。
-學生可以透過這些功能來驗證物理定律！`;
-            
-            setTimeout(() => broadcastStateToParent(introMsg), 500);
         };
     </script>
-</body>
-</html>
+</body></html>
