@@ -232,7 +232,7 @@
                             </label>
                         </div>
                         <label class="flex items-center gap-1 text-[11px] font-bold cursor-pointer text-rose-600 whitespace-nowrap" title="連續播放不暫停，留下軌跡並自動抄表">
-                            <input type="checkbox" id="snapshotToggle" class="w-3.5 h-3.5 accent-rose-500"> 📸 快照
+                            <input type="checkbox" id="snapshotToggle" class="w-3.5 h-3.5 accent-rose-500"> 頻閃攝影
                         </label>
                     </div>
                 </div>
@@ -382,7 +382,7 @@
                     </ul>
                 </div>
                 <div class="help-block">
-                    <h3>⏱️ 殘影抄表與時空回溯機制</h3>
+                    <h3>⏱️ 頻閃攝影與回溯機制</h3>
                     <ul>
                         <li><b>[留殘影並記錄]</b>：勾選後，車子每隔設定的時間會<b>印出半透明殘影</b>，同時<b>自動把數據抄寫進右側表格中</b>！</li>
                         <li><b>時空回溯醒目標示</b>：當您拉動重播時間軸「倒轉」時，系統會在表格中把該時間點的數據變成<b>紅色粗體</b>並自動捲動對齊，圖表上的資料點也會瞬間<b>放大變紅</b>，完美連動！</li>
@@ -1245,7 +1245,7 @@
             thead.innerHTML = headHtml;
 
             if (records.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊上方「手動紀錄」或開啟自動留殘影功能。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${activeCols.length + 2}" class="text-center text-slate-400 py-6">點擊上方「手動紀錄」或開啟頻閃攝影功能。</td></tr>`;
                 return;
             }
             
@@ -1353,9 +1353,9 @@
                     if (didPause || didSnap) {
                         const el = document.createElement('div');
                         el.className = 'absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-1 rounded-full font-bold shadow-md z-50';
-                        if (didPause && didSnap) el.textContent = '⏸ 暫停並已自動留影抄表';
+                        if (didPause && didSnap) el.textContent = '⏸ 暫停並已自動記錄';
                         else if (didPause) el.textContent = '⏸ 時間暫停 (可移動滑鼠查看數據)';
-                        else if (didSnap) el.textContent = '📸 已印出殘影並自動抄表';
+                        else if (didSnap) el.textContent = '📸 啟動頻閃攝影並自動記錄';
                         
                         alertContainer.appendChild(el);
                         setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 2000);
