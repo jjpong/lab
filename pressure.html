@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>固體壓力虛擬實驗</title>
+    <title>物體的壓力</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -188,6 +188,34 @@
         return new THREE.Color(objState.colorLight).lerp(new THREE.Color(objState.colorDark), t);
     }
 
+    // ==========================================
+    // ▼ 新增：廣播狀態到父層 (AI) 的函數 ▼
+    // ==========================================
+    function broadcastStateToParent(actionName, details = {}) {
+        try {
+            const p1 = calculatePhysics(state.obj1);
+            const p2 = calculatePhysics(state.obj2);
+
+            const formatW = (p) => state.unit === 'gw' ? `${p.weightGW.toFixed(0)} gw` : `${p.weightN.toFixed(2)} N`;
+            const formatP = (p) => state.unit === 'gw' ? `${p.pressureGW.toFixed(1)} gw/cm²` : `${p.pressurePa.toFixed(0)} Pa`;
+
+            const payload = {
+                "學生最後的動作": actionName,
+                "當前視角": state.view === '3d' ? '3D 視角' : '2D 剖面',
+                "當前單位": state.unit === 'gw' ? 'gw, cm²' : 'N, Pa',
+                "海綿硬度": state.spongeHardness,
+                "物體1狀態": state.showObj1 ? `顯示 (類型:${state.obj1.type}, 重量:${formatW(p1)}, 壓力:${formatP(p1)}, 接觸面積:${p1.area.toFixed(1)} cm²)` : "隱藏",
+                "物體2狀態": state.showObj2 ? `顯示 (類型:${state.obj2.type}, 重量:${formatW(p2)}, 壓力:${formatP(p2)}, 接觸面積:${p2.area.toFixed(1)} cm²)` : "隱藏",
+                ...details
+            };
+            
+            console.log("【廣播送到AI】", payload);
+            window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
+            
+        } catch (e) { console.error("狀態廣播失敗:", e); }
+    }
+    // ==========================================
+
     // 初始化側邊欄 HTML（只執行一次，避免打斷拖曳）
     function initPanel(obj, containerId, title, colorClass, toggleId) {
         let html = `
@@ -271,23 +299,38 @@
             if(obj.id === 1) state.showObj1 = e.target.checked; 
             else state.showObj2 = e.target.checked; 
             updateUI(); 
+            broadcastStateToParent(e.target.checked ? `顯示${title}` : `隱藏${title}`);
         };
         
-        document.getElementById(`obj${obj.id}-type`).onchange = (e) => { obj.type = e.target.value; updateUI(); };
-        document.getElementById(`obj${obj.id}-invert`).addEventListener('change', (e) => { obj.invert = e.target.checked; updateUI(); });
+        document.getElementById(`obj${obj.id}-type`).onchange = (e) => { 
+            obj.type = e.target.value; updateUI(); 
+            broadcastStateToParent(`更改 ${title} 類型為: ${e.target.value === 'frustum' ? '圓柱 / 圓錐台' : '劍山'}`);
+        };
+        document.getElementById(`obj${obj.id}-invert`).addEventListener('change', (e) => { 
+            obj.invert = e.target.checked; updateUI(); 
+            broadcastStateToParent(`${title} ${e.target.checked ? '設定為倒置' : '取消倒置'}`);
+        });
         
         ['weight', 'density', 'height', 'top', 'bot', 'nails'].forEach(field => {
             let el = document.getElementById(`obj${obj.id}-${field}`);
-            if (el) el.oninput = (e) => {
-                let val = parseFloat(e.target.value);
-                let stateField = field === 'top' ? 'topArea' : (field === 'bot' ? 'botArea' : field);
-                handleValueChange(obj, stateField, val);
-            };
+            if (el) {
+                el.oninput = (e) => {
+                    let val = parseFloat(e.target.value);
+                    let stateField = field === 'top' ? 'topArea' : (field === 'bot' ? 'botArea' : field);
+                    handleValueChange(obj, stateField, val);
+                };
+                el.addEventListener('change', (e) => {
+                    broadcastStateToParent(`調整 ${title} 的 ${field} 參數為: ${e.target.value}`);
+                });
+            }
         });
 
         ['W', 'D', 'H', 'Top', 'Bot'].forEach(field => {
             let el = document.getElementById(`obj${obj.id}-lock${field}`);
-            if (el) el.onchange = (e) => handleLock(obj, `lock${field}`, e.target.checked);
+            if (el) el.onchange = (e) => {
+                handleLock(obj, `lock${field}`, e.target.checked);
+                broadcastStateToParent(`${e.target.checked ? '鎖定' : '解鎖'} ${title} 的 ${field}`);
+            };
         });
     }
 
@@ -364,11 +407,14 @@
     }
 
     // 初始化事件
-    document.getElementById('btn-view-3d').onclick = () => { state.view = '3d'; updateUI(); };
-    document.getElementById('btn-view-2d').onclick = () => { state.view = '2d'; updateUI(); };
-    document.getElementById('btn-unit-gw').onclick = () => { state.unit = 'gw'; updateUI(); };
-    document.getElementById('btn-unit-pa').onclick = () => { state.unit = 'pa'; updateUI(); };
-    document.getElementById('sponge-hardness').oninput = (e) => { state.spongeHardness = parseFloat(e.target.value); updateUI(); };
+    document.getElementById('btn-view-3d').onclick = () => { state.view = '3d'; updateUI(); broadcastStateToParent("切換為 3D 視角"); };
+    document.getElementById('btn-view-2d').onclick = () => { state.view = '2d'; updateUI(); broadcastStateToParent("切換為 2D 剖面"); };
+    document.getElementById('btn-unit-gw').onclick = () => { state.unit = 'gw'; updateUI(); broadcastStateToParent("切換單位為 gw, cm²"); };
+    document.getElementById('btn-unit-pa').onclick = () => { state.unit = 'pa'; updateUI(); broadcastStateToParent("切換單位為 N, Pa"); };
+    
+    const spongeSlider = document.getElementById('sponge-hardness');
+    spongeSlider.oninput = (e) => { state.spongeHardness = parseFloat(e.target.value); updateUI(); };
+    spongeSlider.addEventListener('change', (e) => { broadcastStateToParent(`調整海綿硬度為: ${e.target.value}`); });
 
     // 初始化側邊欄
     initPanel(state.obj1, 'panel-container-1', '物體 1', 'blue', 'toggle-obj1');
@@ -599,8 +645,11 @@
     updateUI();
     animate();
 
+    window.onload = () => {
+        const introMsg = `【系統開場白】歡迎進入「固體壓力虛擬實驗」！\n這是一個可以探索物體重量、接觸面積與產生壓力之間關係的模擬環境。\n主要功能包含：\n改變海綿硬度、切換 3D/2D 視角與顯示單位。\n可新增最多兩個物體進行對照實驗。\n可以改變物體的重量、密度、高度、上下底面積，甚至替換成劍山（改變接觸面積）。\n學生可以透過這些功能來驗證壓力 P = F / A 的關係！`;
+        setTimeout(() => broadcastStateToParent(introMsg), 500);
+    };
+
 </script>
-
-
 
 </body></html>
