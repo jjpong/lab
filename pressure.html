@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>固體壓力虛擬實驗</title>
+    <title>固體壓力</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -88,14 +88,24 @@
         return obj.lockH && obj.lockTop && obj.lockBot;
     }
 
-    function forceVolume(obj, targetV) {
-        if (obj.type === 'nails') return; 
-        
-        if (!obj.lockH) {
+function forceVolume(obj, targetV, preferNotToTouch) {
+    if (obj.type === 'nails') return;
+    
+    // 定義幾何調整的優先順序（把剛剛手拉的 preferNotToTouch 排到最後才動）
+    let fields = ['height', 'botArea', 'topArea'];
+    if (preferNotToTouch) {
+        fields = fields.filter(f => f !== preferNotToTouch);
+        fields.push(preferNotToTouch); // 放最後
+    }
+    
+    // 依序嘗試調整，只要滿足目標體積就立刻收工
+    for (let field of fields) {
+        if (field === 'height' && !obj.lockH) {
             let base = obj.topArea + obj.botArea + Math.sqrt(obj.topArea * obj.botArea);
-            let newH = (3 * targetV) / base;
-            obj.height = Math.max(5, Math.min(15, newH)); // 將高度上限從 20 改為 15
-        } else if (!obj.lockBot) {
+            obj.height = Math.max(5, Math.min(15, (3 * targetV) / base));
+            if (Math.abs(getVolume(obj) - targetV) < 0.01) return;
+        }
+        else if (field === 'botArea' && !obj.lockBot) {
             let k = (3 * targetV) / obj.height;
             let At = obj.topArea;
             let disc = 4 * k - 3 * At;
@@ -103,7 +113,9 @@
                 let x = (-Math.sqrt(At) + Math.sqrt(disc)) / 2;
                 obj.botArea = Math.max(5, Math.min(100, x >= 0 ? x * x : 5));
             } else obj.botArea = 5;
-        } else if (!obj.lockTop) {
+            if (Math.abs(getVolume(obj) - targetV) < 0.01) return;
+        }
+        else if (field === 'topArea' && !obj.lockTop) {
             let k = (3 * targetV) / obj.height;
             let Ab = obj.botArea;
             let disc = 4 * k - 3 * Ab;
@@ -111,8 +123,10 @@
                 let x = (-Math.sqrt(Ab) + Math.sqrt(disc)) / 2;
                 obj.topArea = Math.max(5, Math.min(100, x >= 0 ? x * x : 5));
             } else obj.topArea = 5;
+            if (Math.abs(getVolume(obj) - targetV) < 0.01) return;
         }
     }
+}
 
     function handleLock(obj, field, isLocked) {
         obj[field] = isLocked;
@@ -127,49 +141,80 @@
         updateUI();
     }
 
-    function handleValueChange(obj, field, value) {
-        obj[field] = value;
-        let V = getVolume(obj);
+function handleValueChange(obj, field, value) {
+    // 記住變更前的絕對鎖定目標
+    const prevWeight = obj.weight;
+    const prevDensity = obj.density;
 
-        if (field === 'weight') {
-            if (obj.lockD) { 
-                forceVolume(obj, obj.weight / obj.density); 
-                V = getVolume(obj); 
-                obj.weight = obj.density * V; 
-            } else { 
-                obj.density = obj.weight / V; 
-                if (obj.density > 20) { obj.density = 20; obj.weight = obj.density * V; }
-                if (obj.density < 0.1) { obj.density = 0.1; obj.weight = obj.density * V; }
-            }
-        } 
-        else if (field === 'density') {
-            if (obj.lockW) { 
-                forceVolume(obj, obj.weight / obj.density); 
-                V = getVolume(obj);
-                obj.density = obj.weight / V; 
-            } else { 
-                obj.weight = obj.density * V; 
-                if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; } // 重量上限改為 30000
-                if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
-            }
-        } 
-        else if (['height', 'topArea', 'botArea'].includes(field)) {
-            if (obj.lockW) { 
-                obj.density = obj.weight / V; 
-                if (obj.density > 20) { obj.density = 20; obj.weight = obj.density * V; }
-                if (obj.density < 0.1) { obj.density = 0.1; obj.weight = obj.density * V; }
-            } else if (obj.lockD) { 
-                obj.weight = obj.density * V; 
-                if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; } // 重量上限改為 30000
-                if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
-            } else { 
-                obj.weight = obj.density * V; 
-                if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; } // 重量上限改為 30000
-                if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
-            }
+    // 先套用使用者的變更
+    obj[field] = value;
+    let V = getVolume(obj);
+
+    if (field === 'weight') {
+        if (obj.lockD) { 
+            forceVolume(obj, obj.weight / obj.density, null); 
+            V = getVolume(obj); 
+            obj.weight = obj.density * V; 
+        } else { 
+            obj.density = obj.weight / V; 
+            if (obj.density > 20) { obj.density = 20; obj.weight = obj.density * V; }
+            if (obj.density < 0.1) { obj.density = 0.1; obj.weight = obj.density * V; }
         }
-        updateUI();
+    } 
+    else if (field === 'density') {
+        if (obj.lockW) { 
+            forceVolume(obj, obj.weight / obj.density, null); 
+            V = getVolume(obj);
+            obj.density = obj.weight / V; 
+        } else { 
+            obj.weight = obj.density * V; 
+            if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; }
+            if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
+        }
+    } 
+    else if (['height', 'topArea', 'botArea'].includes(field)) {
+        if (obj.lockW) { 
+            // 【核心修復】重量鎖定防線
+            let reqD = prevWeight / V;
+            if (reqD >= 0.1 && reqD <= 20) {
+                // 密度還夠用，直接調整密度即可
+                obj.density = reqD;
+                obj.weight = prevWeight; 
+            } else {
+                // 密度不夠用了！強行把密度卡在極限，並自動調整「其他幾何參數」
+                obj.density = reqD > 20 ? 20 : 0.1;
+                const targetV = prevWeight / obj.density;
+                forceVolume(obj, targetV, field); // 帶入當前變更欄位，讓它去變更別的幾何參數
+                
+                V = getVolume(obj);
+                obj.weight = prevWeight; // 強制還原鎖定重量
+                obj.density = obj.weight / V; // 重新維持數學恆等
+            }
+        } else if (obj.lockD) { 
+            // 【核心修復】密度鎖定防線
+            let reqW = prevDensity * V;
+            if (reqW >= 50 && reqW <= 30000) {
+                obj.weight = reqW;
+                obj.density = prevDensity;
+            } else {
+                // 重量也撞牆了！強制卡死重量上限，去倒推其餘幾何引數
+                obj.weight = reqW > 30000 ? 30000 : 50;
+                const targetV = obj.weight / prevDensity;
+                forceVolume(obj, targetV, field);
+                
+                V = getVolume(obj);
+                obj.density = prevDensity; // 強制還原鎖定密度
+                obj.weight = obj.density * V;
+            }
+        } else { 
+            // 沒有任何鎖定，幾何自由變更，重量跟著連動
+            obj.weight = obj.density * V; 
+            if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; }
+            if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
+        }
     }
+    updateUI();
+}
 
     function calculatePhysics(obj) {
         let area = obj.type === 'nails' ? obj.nails * NAIL_AREA : (obj.invert ? obj.topArea : obj.botArea);
