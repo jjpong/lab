@@ -91,19 +91,20 @@
 function forceVolume(obj, targetV, preferNotToTouch) {
     if (obj.type === 'nails') return;
     
-    // 定義幾何調整的優先順序（把剛剛手拉的 preferNotToTouch 排到最後才動）
+    // 💡 設定主動變更時的預設順序：1.高度 ➔ 2.底部面積 ➔ 3.頂部面積
     let fields = ['height', 'botArea', 'topArea'];
+    
+    // 如果是拉動幾何滑桿觸發的，則把被拉動的欄位移到最後（維持前一版的防破功機制）
     if (preferNotToTouch) {
         fields = fields.filter(f => f !== preferNotToTouch);
-        fields.push(preferNotToTouch); // 放最後
+        fields.push(preferNotToTouch);
     }
     
-    // 依序嘗試調整，只要滿足目標體積就立刻收工
     for (let field of fields) {
         if (field === 'height' && !obj.lockH) {
             let base = obj.topArea + obj.botArea + Math.sqrt(obj.topArea * obj.botArea);
             obj.height = Math.max(5, Math.min(15, (3 * targetV) / base));
-            if (Math.abs(getVolume(obj) - targetV) < 0.01) return;
+            if (Math.abs(getVolume(obj) - targetV) < 0.01) return; // 滿足目標體積就收工
         }
         else if (field === 'botArea' && !obj.lockBot) {
             let k = (3 * targetV) / obj.height;
@@ -156,9 +157,28 @@ function handleValueChange(obj, field, value) {
             V = getVolume(obj); 
             obj.weight = obj.density * V; 
         } else { 
-            obj.density = obj.weight / V; 
-            if (obj.density > 20) { obj.density = 20; obj.weight = obj.density * V; }
-            if (obj.density < 0.1) { obj.density = 0.1; obj.weight = obj.density * V; }
+            // 💡【核心修改】當主動調重量時的階梯式連動
+            let reqD = obj.weight / V;
+            if (reqD >= 0.1 && reqD <= 20) {
+                // 密度在正常區間，直接線性改變密度
+                obj.density = reqD;
+            } else if (reqD > 20) {
+                // 密度爆表了！強行卡在 20，並開始依序放大幾何形狀（高度 ➔ 底面 ➔ 頂面）
+                obj.density = 20;
+                const targetV = obj.weight / 20;
+                forceVolume(obj, targetV, null); // 傳入 null 代表完全遵循預設順序
+                
+                V = getVolume(obj);
+                obj.weight = obj.density * V; // 如果幾何也全部放大到極限了，重量才會真正頭頂頭（不再變大）
+            } else if (reqD < 0.1) {
+                // 重量調太低導致密度過小，強行卡在 0.1 並開始依序縮小幾何形狀
+                obj.density = 0.1;
+                const targetV = obj.weight / 0.1;
+                forceVolume(obj, targetV, null);
+                
+                V = getVolume(obj);
+                obj.weight = obj.density * V;
+            }
         }
     } 
     else if (field === 'density') {
@@ -174,40 +194,34 @@ function handleValueChange(obj, field, value) {
     } 
     else if (['height', 'topArea', 'botArea'].includes(field)) {
         if (obj.lockW) { 
-            // 【核心修復】重量鎖定防線
             let reqD = prevWeight / V;
             if (reqD >= 0.1 && reqD <= 20) {
-                // 密度還夠用，直接調整密度即可
                 obj.density = reqD;
                 obj.weight = prevWeight; 
             } else {
-                // 密度不夠用了！強行把密度卡在極限，並自動調整「其他幾何參數」
                 obj.density = reqD > 20 ? 20 : 0.1;
                 const targetV = prevWeight / obj.density;
-                forceVolume(obj, targetV, field); // 帶入當前變更欄位，讓它去變更別的幾何參數
+                forceVolume(obj, targetV, field); 
                 
                 V = getVolume(obj);
-                obj.weight = prevWeight; // 強制還原鎖定重量
-                obj.density = obj.weight / V; // 重新維持數學恆等
+                obj.weight = prevWeight; 
+                obj.density = obj.weight / V; 
             }
         } else if (obj.lockD) { 
-            // 【核心修復】密度鎖定防線
             let reqW = prevDensity * V;
             if (reqW >= 50 && reqW <= 30000) {
                 obj.weight = reqW;
                 obj.density = prevDensity;
             } else {
-                // 重量也撞牆了！強制卡死重量上限，去倒推其餘幾何引數
                 obj.weight = reqW > 30000 ? 30000 : 50;
                 const targetV = obj.weight / prevDensity;
                 forceVolume(obj, targetV, field);
                 
                 V = getVolume(obj);
-                obj.density = prevDensity; // 強制還原鎖定密度
+                obj.density = prevDensity; 
                 obj.weight = obj.density * V;
             }
         } else { 
-            // 沒有任何鎖定，幾何自由變更，重量跟著連動
             obj.weight = obj.density * V; 
             if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; }
             if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
