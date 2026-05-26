@@ -1,0 +1,606 @@
+<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>固體壓力虛擬實驗</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f3f4f6; font-family: sans-serif; }
+        #app-container { display: flex; width: 100vw; height: 100vh; }
+        #canvas-container { flex-grow: 1; position: relative; overflow: hidden; }
+        #canvas-3d, #canvas-2d { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #canvas-2d { background-color: #e5e7eb; display: none; }
+        #sidebar { width: 360px; min-width: 360px; background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.1); overflow-y: auto; z-index: 30; }
+        input[type=range] { accent-color: #3b82f6; }
+        .lock-cb { accent-color: #ef4444; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="canvas-container">
+        <div id="canvas-3d"></div>
+        <canvas id="canvas-2d"></canvas>
+        
+        <div id="data-overlay" class="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-8 pointer-events-none z-20">
+            <div id="data-obj1" class="bg-white/90 p-3 rounded shadow text-center hidden min-w-[120px]">
+                <div class="font-bold text-blue-700 mb-1">物體 1</div>
+                <div id="text-w1" class="text-sm text-gray-600">W = 0</div>
+                <div id="text-p1" class="text-lg font-mono font-bold text-gray-800">P = 0</div>
+            </div>
+            <div id="data-obj2" class="bg-white/90 p-3 rounded shadow text-center hidden min-w-[120px]">
+                <div class="font-bold text-red-700 mb-1">物體 2</div>
+                <div id="text-w2" class="text-sm text-gray-600">W = 0</div>
+                <div id="text-p2" class="text-lg font-mono font-bold text-gray-800">P = 0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sidebar" class="flex flex-col p-5 gap-6">
+        <h1 class="text-xl font-bold text-gray-800 text-center">固體壓力實驗</h1>
+
+        <div>
+            <div class="flex gap-2 mb-3">
+                <button id="btn-view-3d" class="flex-1 py-1.5 rounded text-sm transition">3D 視角</button>
+                <button id="btn-view-2d" class="flex-1 py-1.5 rounded text-sm transition">2D 剖面</button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button id="btn-unit-gw" class="flex-1 py-1.5 rounded text-sm transition">gw, cm²</button>
+                <button id="btn-unit-pa" class="flex-1 py-1.5 rounded text-sm transition">N, Pa</button>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1 flex justify-between"><span>海綿硬度 (軟 ➔ 硬)</span></label>
+                <input type="range" id="sponge-hardness" min="0.1" max="2" step="0.1" value="1" class="w-full">
+            </div>
+        </div>
+
+        <div id="panel-container-1"></div>
+        <div id="panel-container-2"></div>
+    </div>
+</div>
+
+<script>
+    const state = {
+        view: '3d', unit: 'gw', spongeHardness: 1, spongeTension: 4,
+        showObj1: true, showObj2: false,
+        obj1: { 
+            id: 1, type: 'frustum', weight: 500, density: 1.82, height: 5, topArea: 20, botArea: 100, invert: false, nails: 50, 
+            lockW: false, lockD: false, lockH: false, lockTop: false, lockBot: false,
+            colorLight: '#93c5fd', colorDark: '#1e3a8a'
+        },
+        obj2: { 
+            id: 2, type: 'frustum', weight: 1000, density: 3.64, height: 5, topArea: 20, botArea: 100, invert: false, nails: 10, 
+            lockW: false, lockD: false, lockH: false, lockTop: false, lockBot: false,
+            colorLight: '#fca5a5', colorDark: '#7f1d1d'
+        }
+    };
+
+    const NAIL_AREA = 0.5; 
+    const SPONGE_TOP_Y = 4;
+
+    function getVolume(obj) {
+        if (obj.type === 'nails') return 4 * 4 * 1.0 + obj.nails * (Math.PI * Math.pow(0.05, 2) * 4);
+        return (1/3) * obj.height * (obj.topArea + obj.botArea + Math.sqrt(obj.topArea * obj.botArea));
+    }
+
+    function isVolumeLocked(obj) {
+        return obj.lockH && obj.lockTop && obj.lockBot;
+    }
+
+    function forceVolume(obj, targetV) {
+        if (obj.type === 'nails') return; 
+        
+        if (!obj.lockH) {
+            let base = obj.topArea + obj.botArea + Math.sqrt(obj.topArea * obj.botArea);
+            let newH = (3 * targetV) / base;
+            obj.height = Math.max(5, Math.min(15, newH)); // 將高度上限從 20 改為 15
+        } else if (!obj.lockBot) {
+            let k = (3 * targetV) / obj.height;
+            let At = obj.topArea;
+            let disc = 4 * k - 3 * At;
+            if (disc >= 0) {
+                let x = (-Math.sqrt(At) + Math.sqrt(disc)) / 2;
+                obj.botArea = Math.max(5, Math.min(100, x >= 0 ? x * x : 5));
+            } else obj.botArea = 5;
+        } else if (!obj.lockTop) {
+            let k = (3 * targetV) / obj.height;
+            let Ab = obj.botArea;
+            let disc = 4 * k - 3 * Ab;
+            if (disc >= 0) {
+                let x = (-Math.sqrt(Ab) + Math.sqrt(disc)) / 2;
+                obj.topArea = Math.max(5, Math.min(100, x >= 0 ? x * x : 5));
+            } else obj.topArea = 5;
+        }
+    }
+
+    function handleLock(obj, field, isLocked) {
+        obj[field] = isLocked;
+        let vLocked = isVolumeLocked(obj);
+        let lockedCount = (obj.lockW ? 1 : 0) + (obj.lockD ? 1 : 0) + (vLocked ? 1 : 0);
+        
+        if (lockedCount > 1) {
+            if (field === 'lockW') { obj.lockD = false; if (vLocked) obj.lockH = false; }
+            else if (field === 'lockD') { obj.lockW = false; if (vLocked) obj.lockH = false; }
+            else { obj.lockW = false; obj.lockD = false; }
+        }
+        updateUI();
+    }
+
+    function handleValueChange(obj, field, value) {
+        obj[field] = value;
+        let V = getVolume(obj);
+
+        if (field === 'weight') {
+            if (obj.lockD) { 
+                forceVolume(obj, obj.weight / obj.density); 
+                V = getVolume(obj); 
+                obj.weight = obj.density * V; 
+            } else { 
+                obj.density = obj.weight / V; 
+                if (obj.density > 20) { obj.density = 20; obj.weight = obj.density * V; }
+                if (obj.density < 0.1) { obj.density = 0.1; obj.weight = obj.density * V; }
+            }
+        } 
+        else if (field === 'density') {
+            if (obj.lockW) { 
+                forceVolume(obj, obj.weight / obj.density); 
+                V = getVolume(obj);
+                obj.density = obj.weight / V; 
+            } else { 
+                obj.weight = obj.density * V; 
+                if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; } // 重量上限改為 30000
+                if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
+            }
+        } 
+        else if (['height', 'topArea', 'botArea'].includes(field)) {
+            if (obj.lockW) { 
+                obj.density = obj.weight / V; 
+                if (obj.density > 20) { obj.density = 20; obj.weight = obj.density * V; }
+                if (obj.density < 0.1) { obj.density = 0.1; obj.weight = obj.density * V; }
+            } else if (obj.lockD) { 
+                obj.weight = obj.density * V; 
+                if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; } // 重量上限改為 30000
+                if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
+            } else { 
+                obj.weight = obj.density * V; 
+                if (obj.weight > 30000) { obj.weight = 30000; obj.density = obj.weight / V; } // 重量上限改為 30000
+                if (obj.weight < 50) { obj.weight = 50; obj.density = obj.weight / V; }
+            }
+        }
+        updateUI();
+    }
+
+    function calculatePhysics(obj) {
+        let area = obj.type === 'nails' ? obj.nails * NAIL_AREA : (obj.invert ? obj.topArea : obj.botArea);
+        let volume = getVolume(obj);
+        let rVisual = obj.type === 'nails' ? (2 - (4 / (Math.ceil(Math.sqrt(obj.nails)) + 1)) + 0.1) : Math.sqrt(area / Math.PI) * 0.5;
+
+        let pressureGW = obj.weight / area;
+        let effectivePressure = pressureGW / state.spongeHardness;
+        let depth = Math.min(7.5, 2.2 * Math.log10(1 + effectivePressure / 10));
+
+        return { area, volume, density: obj.density, weightGW: obj.weight, weightN: obj.weight * 0.0098, pressureGW, pressurePa: pressureGW * 98.06, depth, rVisual };
+    }
+
+    function getDensityColor(objState, density) {
+        let t = Math.max(0, Math.min(1, (density - 0.1) / 19.9));
+        return new THREE.Color(objState.colorLight).lerp(new THREE.Color(objState.colorDark), t);
+    }
+
+    // 初始化側邊欄 HTML（只執行一次，避免打斷拖曳）
+    function initPanel(obj, containerId, title, colorClass, toggleId) {
+        let html = `
+        <div class="bg-${colorClass}-50 p-3 rounded-lg border border-${colorClass}-100">
+            <label class="flex items-center font-bold text-${colorClass}-700 mb-2 cursor-pointer">
+                <input type="checkbox" id="${toggleId}" class="mr-2 w-4 h-4 accent-${colorClass}-600"> 顯示${title}
+            </label>
+            
+            <div id="panel-obj${obj.id}" class="space-y-3">
+                <div class="flex justify-between items-center text-xs text-${colorClass}-800 mb-2">
+                    <span>體積: <span id="obj${obj.id}-vol-text" class="font-mono font-bold"></span> cm³</span>
+                </div>
+
+                <select id="obj${obj.id}-type" class="w-full p-1.5 border rounded text-sm bg-white mb-2">
+                    <option value="frustum">圓柱 / 圓錐台</option>
+                    <option value="nails">劍山</option>
+                </select>
+                
+                <div>
+                    <label class="block text-sm text-gray-700 flex justify-between font-semibold mb-1">
+                        <span>重量 (gw) <span id="obj${obj.id}-weight-text" class="text-blue-600"></span></span>
+                        <label class="flex items-center text-xs text-gray-500"><input type="checkbox" id="obj${obj.id}-lockW" class="mr-1 lock-cb">鎖定</label>
+                    </label>
+                    <!-- 重量上限改為 30000 -->
+                    <input type="range" id="obj${obj.id}-weight" min="50" max="30000" step="10" class="w-full">
+                </div>
+
+                <div>
+                    <label class="block text-sm text-gray-700 flex justify-between font-semibold mb-1">
+                        <span>密度 (g/cm³) <span id="obj${obj.id}-density-text" class="text-blue-600"></span></span>
+                        <label class="flex items-center text-xs text-gray-500"><input type="checkbox" id="obj${obj.id}-lockD" class="mr-1 lock-cb">鎖定</label>
+                    </label>
+                    <input type="range" id="obj${obj.id}-density" min="0.1" max="20" step="0.1" class="w-full">
+                </div>
+
+                <div id="obj${obj.id}-frustum-settings" class="space-y-2 mt-2 border-t border-${colorClass}-200 pt-2">
+                    <div>
+                        <label class="block text-sm text-gray-600 flex justify-between mb-1">
+                            <span>高度 (cm) <span id="obj${obj.id}-height-text"></span></span>
+                            <label class="flex items-center text-xs text-gray-500"><input type="checkbox" id="obj${obj.id}-lockH" class="mr-1 lock-cb">鎖定</label>
+                        </label>
+                        <!-- 高度上限改為 15 -->
+                        <input type="range" id="obj${obj.id}-height" min="5" max="15" step="0.5" class="w-full">
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                            <label class="block text-sm text-gray-600 flex justify-between mb-1">
+                                <span>頂部 <span id="obj${obj.id}-top-text"></span></span>
+                                <input type="checkbox" id="obj${obj.id}-lockTop" class="lock-cb" title="鎖定">
+                            </label>
+                            <input type="range" id="obj${obj.id}-top" min="5" max="100" step="5" class="w-full">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm text-gray-600 flex justify-between mb-1">
+                                <span>底部 <span id="obj${obj.id}-bot-text"></span></span>
+                                <input type="checkbox" id="obj${obj.id}-lockBot" class="lock-cb" title="鎖定">
+                            </label>
+                            <input type="range" id="obj${obj.id}-bot" min="5" max="100" step="5" class="w-full">
+                        </div>
+                    </div>
+                    
+                    <label class="flex items-center text-sm text-gray-600 cursor-pointer pt-1">
+                        <input type="checkbox" id="obj${obj.id}-invert" class="mr-2"> 倒置 (以上方面積接觸)
+                    </label>
+                </div>
+
+                <div id="obj${obj.id}-nails-settings" class="mt-2 border-t border-${colorClass}-200 pt-2">
+                    <div>
+                        <label class="block text-sm text-gray-600 flex justify-between mb-1"><span>針的數目</span> <span id="obj${obj.id}-nails-text"></span></label>
+                        <input type="range" id="obj${obj.id}-nails" min="1" max="100" step="1" class="w-full">
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        document.getElementById(containerId).innerHTML = html;
+
+        // 綁定事件監聽器
+        document.getElementById(toggleId).onchange = (e) => { 
+            if(obj.id === 1) state.showObj1 = e.target.checked; 
+            else state.showObj2 = e.target.checked; 
+            updateUI(); 
+        };
+        
+        document.getElementById(`obj${obj.id}-type`).onchange = (e) => { obj.type = e.target.value; updateUI(); };
+        document.getElementById(`obj${obj.id}-invert`).addEventListener('change', (e) => { obj.invert = e.target.checked; updateUI(); });
+        
+        ['weight', 'density', 'height', 'top', 'bot', 'nails'].forEach(field => {
+            let el = document.getElementById(`obj${obj.id}-${field}`);
+            if (el) el.oninput = (e) => {
+                let val = parseFloat(e.target.value);
+                let stateField = field === 'top' ? 'topArea' : (field === 'bot' ? 'botArea' : field);
+                handleValueChange(obj, stateField, val);
+            };
+        });
+
+        ['W', 'D', 'H', 'Top', 'Bot'].forEach(field => {
+            let el = document.getElementById(`obj${obj.id}-lock${field}`);
+            if (el) el.onchange = (e) => handleLock(obj, `lock${field}`, e.target.checked);
+        });
+    }
+
+    // 僅更新數值與狀態，不重新生成 HTML
+    function syncPanel(obj, toggleId) {
+        const isShow = obj.id === 1 ? state.showObj1 : state.showObj2;
+        document.getElementById(toggleId).checked = isShow;
+        document.getElementById(`panel-obj${obj.id}`).style.display = isShow ? 'block' : 'none';
+        
+        const V = getVolume(obj);
+        document.getElementById(`obj${obj.id}-vol-text`).innerText = V.toFixed(1);
+        
+        document.getElementById(`obj${obj.id}-type`).value = obj.type;
+        document.getElementById(`obj${obj.id}-frustum-settings`).style.display = obj.type === 'frustum' ? 'block' : 'none';
+        document.getElementById(`obj${obj.id}-nails-settings`).style.display = obj.type === 'nails' ? 'block' : 'none';
+
+        // 更新文字
+        document.getElementById(`obj${obj.id}-weight-text`).innerText = obj.weight.toFixed(0);
+        document.getElementById(`obj${obj.id}-density-text`).innerText = obj.density.toFixed(2);
+        document.getElementById(`obj${obj.id}-height-text`).innerText = obj.height.toFixed(1);
+        document.getElementById(`obj${obj.id}-top-text`).innerText = obj.topArea.toFixed(0);
+        document.getElementById(`obj${obj.id}-bot-text`).innerText = obj.botArea.toFixed(0);
+        document.getElementById(`obj${obj.id}-nails-text`).innerText = obj.nails;
+
+        // 更新滑桿數值
+        document.getElementById(`obj${obj.id}-weight`).value = obj.weight;
+        document.getElementById(`obj${obj.id}-density`).value = obj.density;
+        document.getElementById(`obj${obj.id}-height`).value = obj.height;
+        document.getElementById(`obj${obj.id}-top`).value = obj.topArea;
+        document.getElementById(`obj${obj.id}-bot`).value = obj.botArea;
+        document.getElementById(`obj${obj.id}-nails`).value = obj.nails;
+
+        // 更新鎖定狀態
+        document.getElementById(`obj${obj.id}-lockW`).checked = obj.lockW;
+        document.getElementById(`obj${obj.id}-lockD`).checked = obj.lockD;
+        document.getElementById(`obj${obj.id}-lockH`).checked = obj.lockH;
+        document.getElementById(`obj${obj.id}-lockTop`).checked = obj.lockTop;
+        document.getElementById(`obj${obj.id}-lockBot`).checked = obj.lockBot;
+        document.getElementById(`obj${obj.id}-invert`).checked = obj.invert;
+    }
+
+    function updateUI() {
+        const btnActive = 'flex-1 py-1.5 bg-indigo-600 text-white rounded text-sm transition';
+        const btnInactive = 'flex-1 py-1.5 bg-gray-200 text-gray-700 rounded text-sm transition';
+        const btnUnitActive = 'flex-1 py-1.5 bg-green-600 text-white rounded text-sm transition';
+        
+        document.getElementById('btn-view-3d').className = state.view === '3d' ? btnActive : btnInactive;
+        document.getElementById('btn-view-2d').className = state.view === '2d' ? btnActive : btnInactive;
+        document.getElementById('btn-unit-gw').className = state.unit === 'gw' ? btnUnitActive : btnInactive;
+        document.getElementById('btn-unit-pa').className = state.unit === 'pa' ? btnUnitActive : btnInactive;
+
+        document.getElementById('canvas-3d').style.display = state.view === '3d' ? 'block' : 'none';
+        document.getElementById('canvas-2d').style.display = state.view === '2d' ? 'block' : 'none';
+
+        // 同步兩個面板的數值
+        syncPanel(state.obj1, 'toggle-obj1');
+        syncPanel(state.obj2, 'toggle-obj2');
+
+        const p1 = calculatePhysics(state.obj1);
+        const p2 = calculatePhysics(state.obj2);
+
+        document.getElementById('data-obj1').style.display = state.showObj1 ? 'block' : 'none';
+        document.getElementById('data-obj2').style.display = state.showObj2 ? 'block' : 'none';
+
+        const formatW = (p) => state.unit === 'gw' ? `${p.weightGW.toFixed(0)} gw` : `${p.weightN.toFixed(2)} N`;
+        const formatP = (p) => state.unit === 'gw' ? `${p.pressureGW.toFixed(1)} gw/cm²` : `${p.pressurePa.toFixed(0)} Pa`;
+        
+        document.getElementById('text-w1').innerText = `W = ${formatW(p1)}`;
+        document.getElementById('text-p1').innerText = `P = ${formatP(p1)}`;
+        document.getElementById('text-w2').innerText = `W = ${formatW(p2)}`;
+        document.getElementById('text-p2').innerText = `P = ${formatP(p2)}`;
+
+        renderScene();
+    }
+
+    // 初始化事件
+    document.getElementById('btn-view-3d').onclick = () => { state.view = '3d'; updateUI(); };
+    document.getElementById('btn-view-2d').onclick = () => { state.view = '2d'; updateUI(); };
+    document.getElementById('btn-unit-gw').onclick = () => { state.unit = 'gw'; updateUI(); };
+    document.getElementById('btn-unit-pa').onclick = () => { state.unit = 'pa'; updateUI(); };
+    document.getElementById('sponge-hardness').oninput = (e) => { state.spongeHardness = parseFloat(e.target.value); updateUI(); };
+
+    // 初始化側邊欄
+    initPanel(state.obj1, 'panel-container-1', '物體 1', 'blue', 'toggle-obj1');
+    initPanel(state.obj2, 'panel-container-2', '物體 2', 'red', 'toggle-obj2');
+
+    // Three.js 與 Canvas2D 設定
+    const container = document.getElementById('canvas-container');
+    const container3D = document.getElementById('canvas-3d');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf3f4f6);
+    
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(0, 18, 28);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container3D.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enableZoom = false; 
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    controls.target.set(0, 2, 0);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(15, 25, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    const spongeGeo = new THREE.BoxGeometry(30, 8, 20, 120, 1, 80);
+    spongeGeo.userData.basePositions = new Float32Array(spongeGeo.attributes.position.array);
+    const spongeMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.9, metalness: 0.05 });
+    const sponge = new THREE.Mesh(spongeGeo, spongeMat);
+    sponge.receiveShadow = true;
+    sponge.castShadow = true;
+    scene.add(sponge);
+
+    let objects3D = [];
+
+    function create3DObject(objState, posX, physics) {
+        const group = new THREE.Group();
+        group.position.x = posX;
+        group.position.y = SPONGE_TOP_Y - physics.depth; 
+
+        const objColor = getDensityColor(objState, physics.density);
+        const mat = new THREE.MeshStandardMaterial({ color: objColor, roughness: 0.3, metalness: 0.2 });
+
+        if (objState.type === 'frustum') {
+            const rTop = Math.sqrt(objState.topArea / Math.PI) * 0.5;
+            const rBot = Math.sqrt(objState.botArea / Math.PI) * 0.5;
+            const r1 = objState.invert ? rBot : rTop;
+            const r2 = objState.invert ? rTop : rBot; 
+            
+            const geo = new THREE.CylinderGeometry(r1, r2, objState.height, 32);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = objState.height / 2; 
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            group.add(mesh);
+        } else {
+            const baseSize = 4;
+            const base = new THREE.Mesh(new THREE.BoxGeometry(baseSize, 1.0, baseSize), mat);
+            base.position.y = 4.5; 
+            base.castShadow = true; base.receiveShadow = true;
+            group.add(base);
+
+            const cols = Math.ceil(Math.sqrt(objState.nails));
+            const spacing = baseSize / (cols + 1);
+            let count = 0;
+            const nailGeo = new THREE.CylinderGeometry(0.05, 0.05, 4, 8); 
+            const nailMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.5, metalness: 0.8 });
+            
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (count >= objState.nails) break;
+                    const nail = new THREE.Mesh(nailGeo, nailMat);
+                    nail.position.set(-baseSize/2 + (i+1)*spacing, 2, -baseSize/2 + (j+1)*spacing);
+                    nail.castShadow = true; nail.receiveShadow = true;
+                    group.add(nail);
+                    count++;
+                }
+            }
+        }
+        scene.add(group);
+        objects3D.push(group);
+    }
+
+    function getDentOffset(distance, physics) {
+        const rFlat = physics.rVisual; 
+        const rFalloff = state.spongeTension * (1.0 + rFlat * 0.3); 
+        if (distance <= rFlat) return -physics.depth;
+        else if (distance < rFlat + rFalloff) {
+            const ratio = (distance - rFlat) / rFalloff;
+            return -physics.depth * ((Math.cos(ratio * Math.PI) + 1) / 2);
+        }
+        return 0;
+    }
+
+    function deformSponge(p1, p2, pos1, pos2) {
+        const positions = spongeGeo.attributes.position;
+        const base = spongeGeo.userData.basePositions;
+
+        for (let i = 0; i < positions.count; i++) {
+            let x = base[i * 3], y = base[i * 3 + 1], z = base[i * 3 + 2];
+            if (y > 3.9) {
+                let dy = 0;
+                if (state.showObj1) dy += getDentOffset(Math.sqrt(Math.pow(x - pos1, 2) + Math.pow(z, 2)), p1);
+                if (state.showObj2) dy += getDentOffset(Math.sqrt(Math.pow(x - pos2, 2) + Math.pow(z, 2)), p2);
+                positions.setY(i, y + dy);
+            } else {
+                positions.setY(i, y);
+            }
+        }
+        positions.needsUpdate = true;
+        spongeGeo.computeVertexNormals(); 
+    }
+
+    const canvas2D = document.getElementById('canvas-2d');
+    const ctx = canvas2D.getContext('2d');
+
+    function draw2DScene(p1, p2, pos1, pos2) {
+        const w = canvas2D.width, h = canvas2D.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const groundY = h * 0.5, scale = 25, points = [];
+        for (let x = 0; x <= w; x += 2) {
+            let dy = 0;
+            const simX = (x - w/2) / scale; 
+            if (state.showObj1) dy += getDentOffset(Math.abs(simX - pos1), p1); 
+            if (state.showObj2) dy += getDentOffset(Math.abs(simX - pos2), p2);
+            points.push({x: x, y: groundY - dy * scale});
+        }
+
+        ctx.fillStyle = '#fcd34d';
+        ctx.beginPath();
+        ctx.moveTo(0, h); ctx.lineTo(0, points[0].y);
+        points.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(w, points[points.length - 1].y); ctx.lineTo(w, h);
+        ctx.closePath(); ctx.fill();
+
+        ctx.strokeStyle = '#d97706'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+
+        function drawObject2D(objState, simX, physics) {
+            const cx = w/2 + simX * scale;
+            const cy = groundY - getDentOffset(0, physics) * scale; 
+            const objColor = getDensityColor(objState, physics.density);
+            
+            ctx.fillStyle = `#${objColor.getHexString()}`;
+            ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 2;
+            
+            if (objState.type === 'frustum') {
+                const rTop = Math.sqrt(objState.topArea / Math.PI) * 0.5 * scale;
+                const rBot = Math.sqrt(objState.botArea / Math.PI) * 0.5 * scale;
+                const r1 = objState.invert ? rBot : rTop;
+                const r2 = objState.invert ? rTop : rBot;
+                const height = objState.height * scale;
+
+                ctx.beginPath();
+                ctx.moveTo(cx - r2, cy); ctx.lineTo(cx + r2, cy);
+                ctx.lineTo(cx + r1, cy - height); ctx.lineTo(cx - r1, cy - height);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else {
+                const baseW = 4 * scale, baseH = 1.0 * scale, needleH = 4 * scale; 
+                ctx.fillStyle = '#9ca3af';
+                const cols = Math.min(15, Math.ceil(Math.sqrt(objState.nails))); 
+                const spacing = baseW / (cols + 1);
+                for(let i=1; i<=cols; i++) ctx.fillRect(cx - baseW/2 + i*spacing - 2, cy - needleH, 4, needleH);
+                
+                ctx.fillStyle = `#${objColor.getHexString()}`;
+                ctx.fillRect(cx - baseW/2, cy - needleH - baseH, baseW, baseH);
+                ctx.strokeRect(cx - baseW/2, cy - needleH - baseH, baseW, baseH);
+            }
+        }
+
+        if (state.showObj1) drawObject2D(state.obj1, pos1, p1);
+        if (state.showObj2) drawObject2D(state.obj2, pos2, p2);
+    }
+
+    function renderScene() {
+        const p1 = calculatePhysics(state.obj1);
+        const p2 = calculatePhysics(state.obj2);
+
+        let pos1 = 0, pos2 = 0;
+        if (state.showObj1 && state.showObj2) { pos1 = -7.5; pos2 = 7.5; }
+
+        if (state.view === '3d') {
+            objects3D.forEach(obj => scene.remove(obj));
+            objects3D = [];
+            if (state.showObj1) create3DObject(state.obj1, pos1, p1);
+            if (state.showObj2) create3DObject(state.obj2, pos2, p2);
+            deformSponge(p1, p2, pos1, pos2);
+        } else {
+            canvas2D.width = container.clientWidth;
+            canvas2D.height = container.clientHeight;
+            draw2DScene(p1, p2, pos1, pos2);
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (state.view === '3d') {
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        if (state.view === '2d') {
+            canvas2D.width = container.clientWidth;
+            canvas2D.height = container.clientHeight;
+            renderScene();
+        }
+    });
+
+    // 首次啟動更新
+    updateUI();
+    animate();
+
+</script>
+
+
+
+</body></html>
