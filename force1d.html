@@ -165,7 +165,13 @@
 
         <div class="mt-3 bg-gray-50 rounded-lg p-2">
           <div class="flex items-center justify-between mb-1">
-            <label class="font-semibold text-xs">🎚 施加力 (滑桿、或直接拖曳物體)</label>
+            <label class="font-semibold text-xs flex items-center gap-2">
+              🎚 施加力 (滑桿、或直接拖曳物體)
+              <!-- 新增的施力歸零按鈕 -->
+              <button id="zeroForceBtn" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold shadow-sm transition-colors">
+                施力歸零
+              </button>
+            </label>
             <span class="font-mono font-bold text-red-500 text-sm" id="forceValue">0.0 N</span>
           </div>
           <input type="range" id="forceSlider" min="-1500" max="1500" step="1" value="0" class="w-full">
@@ -977,6 +983,20 @@ function wireUpControls() {
   
   $('forceSlider').addEventListener('change', e => {
     broadcastStateToParent('調整施力: ' + e.target.value + ' N');
+  });
+
+  // 【新增】施力歸零按鈕的事件監聽器
+  $('zeroForceBtn').addEventListener('click', () => {
+    // 如果在回放模式中歸零，需要先截斷歷史紀錄
+    if (state.mode !== MODE.LIVE && state.viewTime < state.simTime - 0.01) {
+      truncateHistoryAtViewTime();
+    }
+    // 將物理變數歸零
+    state.appliedForce = 0;
+    // 將滑桿 UI 歸零
+    $('forceSlider').value = 0;
+    // 廣播給 AI 知道學生做了這個動作
+    broadcastStateToParent('施力歸零');
   });
 
   // 設定全域的圖表時間拖曳事件
