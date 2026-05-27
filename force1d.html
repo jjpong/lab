@@ -1,9 +1,8 @@
-<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>一維運動</title>
+<title>一維運動與能量</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- 引入 FontAwesome 以替換物體 Icon -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   body { font-family: 'Microsoft JhengHei', sans-serif; }
@@ -79,7 +78,6 @@
     height: 150px;
     position: relative;
   }
-  /* 圖表右下角拖曳縮放提示斜線 */
   .graph-container::after {
     content: '';
     position: absolute;
@@ -145,7 +143,7 @@
 </head>
 <body class="bg-gray-100 p-2 md:p-3">
 <div class="max-w-7xl mx-auto">
-  <h1 class="text-xl md:text-2xl font-bold text-center mb-3">一維運動</h1>
+  <h1 class="text-xl md:text-2xl font-bold text-center mb-3">⚡ 一維運動與能量</h1>
 
   <div class="flex flex-col lg:flex-row gap-3 mb-3 items-start">
     
@@ -153,7 +151,7 @@
       <div class="bg-white rounded-2xl shadow-lg p-3">
         <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
           <span id="modeBadge" class="mode-paused px-3 py-1 rounded-full text-xs font-bold">⏸ PAUSED</span>
-          <span class="text-xs text-gray-500">在圖表上左右拖曳跳轉時間 · 拖曳物體施力 · 拖曳圖表框右下角縮放高度</span>
+          <span class="text-xs text-gray-500">在時間圖表上左右拖曳跳轉時間 · 拖曳物體施力 · 拖曳圖表框右下角縮放高度</span>
         </div>
         
         <div id="scene" class="scene relative w-full rounded-xl overflow-hidden" style="height: 300px;">
@@ -167,7 +165,6 @@
           <div class="flex items-center justify-between mb-1">
             <label class="font-semibold text-xs flex items-center gap-2">
               🎚 施加力 (滑桿、或直接拖曳物體)
-              <!-- 新增的施力歸零按鈕 -->
               <button id="zeroForceBtn" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold shadow-sm transition-colors">
                 施力歸零
               </button>
@@ -208,18 +205,7 @@
             <canvas id="canvas_F" class="absolute top-0 left-0"></canvas>
           </div>
         </div>
-        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="A">
-          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white" draggable="true">
-            <div class="flex items-center gap-1">
-              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
-              <h3 class="font-bold text-sm">📈 加速度-時間圖 (a-t)</h3>
-            </div>
-            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_A">▼</button>
-          </div>
-          <div class="graph-container" id="chart_A">
-            <canvas id="canvas_A" class="absolute top-0 left-0"></canvas>
-          </div>
-        </div>
+        
         <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="V">
           <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white" draggable="true">
             <div class="flex items-center gap-1">
@@ -232,16 +218,61 @@
             <canvas id="canvas_V" class="absolute top-0 left-0"></canvas>
           </div>
         </div>
-        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="X">
+
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden collapsed" data-chart-id="A">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">📈 加速度-時間圖 (a-t)</h3>
+            </div>
+            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle collapsed" data-target="chart_A">▼</button>
+          </div>
+          <div class="graph-container collapsed" id="chart_A">
+            <canvas id="canvas_A" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+        
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden collapsed" data-chart-id="X">
           <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white" draggable="true">
             <div class="flex items-center gap-1">
               <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
               <h3 class="font-bold text-sm">📊 位置-時間圖 (x-t)</h3>
             </div>
-            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_X">▼</button>
+            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle collapsed" data-target="chart_X">▼</button>
           </div>
-          <div class="graph-container" id="chart_X">
+          <div class="graph-container collapsed" id="chart_X">
             <canvas id="canvas_X" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+
+ <!-- W-t 圖 (作功-時間圖) -->
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden collapsed" data-chart-id="Wt">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">📐 作功-時間圖 (W-t)</h3>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs hidden md:inline">🔴施力作功 🔵摩擦力作功 🟢合力作功</span>
+              <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle collapsed" data-target="chart_Wt">▼</button>
+            </div>
+          </div>
+          <div class="graph-container collapsed" id="chart_Wt">
+            <canvas id="canvas_Wt" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+
+        <!-- K-t 圖 (動能-時間圖) -->
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden collapsed" data-chart-id="Kt">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">🔋 動能-時間圖 (K-t)</h3>
+            </div>
+            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle collapsed" data-target="chart_Kt">▼</button>
+          </div>
+          <div class="graph-container collapsed" id="chart_Kt">
+            <canvas id="canvas_Kt" class="absolute top-0 left-0"></canvas>
           </div>
         </div>
       </div>
@@ -315,6 +346,21 @@
             <div class="font-mono font-bold text-emerald-600 text-sm"><span id="val_fnet">0.00</span> <span class="unit-force">N</span></div>
           </div>
 
+          <!-- 能量數據區 -->
+          <div class="mt-2 border-t pt-2">
+            <span class="text-xs font-semibold text-gray-700 px-1">能量與作功</span>
+            <div class="grid grid-cols-2 gap-1 mt-1">
+              <div class="stat-tile bg-amber-50 m-0 p-1">
+                <div class="text-[10px] text-gray-500">動能 K</div>
+                <div class="font-mono font-bold text-amber-600 text-xs"><span id="val_k">0.0</span> J</div>
+              </div>
+              <div class="stat-tile bg-emerald-50 m-0 p-1">
+                <div class="text-[10px] text-gray-500">合力作功</div>
+                <div class="font-mono font-bold text-emerald-600 text-xs"><span id="val_wnet">0.0</span> J</div>
+              </div>
+            </div>
+          </div>
+
           <div class="mt-3 pt-2 border-t bg-gray-50 rounded p-2 border border-gray-100">
             <div class="text-xs font-bold text-gray-700 mb-2">📏 箭頭長度比例</div>
             <div class="mb-2">
@@ -352,65 +398,16 @@
               <span>啟用摩擦力</span>
             </label>
           </div>
-
-          <div class="mt-4 border-t pt-2">
-            <button id="toggleAdvancedBtn" class="flex items-center justify-between w-full text-xs font-semibold text-gray-600 hover:text-gray-900">
-              <span>⚙ 更多選項 (自訂係數與星球)</span>
-              <span id="advIcon" class="transform transition-transform">▼</span>
-            </button>
-            
-            <div id="advancedPanel" class="space-y-2 text-sm bg-gray-50 p-2 rounded border border-gray-200 mt-2 hidden">
-              <div class="flex justify-between items-center">
-                <label class="text-xs">所在的星球</label>
-                <select id="planetSelect" class="w-24 px-1 py-0.5 border rounded text-xs bg-white">
-                  <option value="9.8">🌍 地球</option>
-                  <option value="1.62">🌕 月球</option>
-                  <option value="3.71">🪐 火星</option>
-                  <option value="24.79">🌑 木星</option>
-                </select>
-              </div>
-              <div class="flex justify-between items-center mt-1">
-                <span class="text-[10px] text-gray-400">重力加速度 (g)</span>
-                <span id="gDisplay" class="text-[10px] font-mono font-bold text-gray-600">9.80 m/s²</span>
-              </div>
-              <hr class="my-1 border-gray-200">
-              <div class="flex justify-between items-center">
-                <label class="text-xs">靜摩擦係數 (μs)</label>
-                <input type="number" id="inputMuS" step="0.05" min="0" max="2" class="w-16 px-1 border rounded text-xs text-right">
-              </div>
-              <div class="flex justify-between items-center">
-                <label class="text-xs">動摩擦係數 (μk)</label>
-                <input type="number" id="inputMuK" step="0.05" min="0" max="2" class="w-16 px-1 border rounded text-xs text-right">
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
     </aside>
   </div>
-    <footer style="max-width: 800px; margin: 2rem auto 0; padding: 1rem; text-align: center; font-size: 0.875rem; color: #4b5563; border-top: 1px solid #d1d5db;">
-  <p style="margin-bottom: 0.5rem;">
-    <strong>一維空間的運動學與力學</strong> © 2026 鄭志鵬（小p老師）
-  </p>
-  <p>
-    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hant" 
-       target="_blank" 
-       rel="license noopener noreferrer"
-       style="display: inline-block; padding: 0.25rem 0.75rem; border: 1px solid #9ca3af; border-radius: 4px; color: #374151; font-family: monospace; font-size: 0.75rem; text-decoration: none;">
-      CC BY-NC-SA 4.0
-    </a>
-    <span style="margin-left: 0.5rem;">本作品採用創用 CC 授權</span>
-  </p>
-</footer>
 </div>
 
 <script>
-
 (function(){
 'use strict';
 
-// 將原本的 emoji 替換為 FontAwesome 的 icon
 const objects = [
   { id: 'box_s', icon: '<i class="fas fa-box"></i>', name: '小紙箱', mass: 10, mu_s: 0.3, mu_k: 0.2, color: '#d4a574', w: 50, h: 50 },
   { id: 'box_m', icon: '<i class="fas fa-box-open"></i>', name: '中型箱', mass: 20, mu_s: 0.4, mu_k: 0.3, color: '#c89060', w: 60, h: 60 },
@@ -418,9 +415,6 @@ const objects = [
   { id: 'fridge', icon: '<i class="fas fa-snowflake"></i>', name: '冰箱', mass: 100, mu_s: 0.6, mu_k: 0.5, color: '#e0e0e0', w: 75, h: 100 },
   { id: 'ice', icon: '<i class="fas fa-cube"></i>', name: '冰塊', mass: 30, mu_s: 0.1, mu_k: 0.05, color: '#a5e0f5', w: 60, h: 60 },
   { id: 'metal', icon: '<i class="fas fa-weight-hanging"></i>', name: '金屬塊', mass: 200, mu_s: 0.7, mu_k: 0.6, color: '#888', w: 70, h: 70 },
-  { id: 'tire', icon: '<i class="fas fa-dharmachakra"></i>', name: '輪胎', mass: 25, mu_s: 0.8, mu_k: 0.6, color: '#222', w: 65, h: 65 },
-  { id: 'rock', icon: '<i class="fas fa-mountain"></i>', name: '大石頭', mass: 300, mu_s: 0.8, mu_k: 0.7, color: '#666', w: 85, h: 75 },
-  { id: 'cart', icon: '<i class="fas fa-shopping-cart"></i>', name: '購物車', mass: 15, mu_s: 0.1, mu_k: 0.05, color: '#bdbdbd', w: 65, h: 65 },
 ];
 
 const PIXELS_PER_METER = 26;
@@ -438,6 +432,10 @@ let state = {
   acceleration: 0,
   friction: 0,
   netForce: 0,
+  W_app: 0,     
+  W_fric: 0,    
+  W_net: 0,     
+  K: 0,         
   simTime: 0,
   viewTime: 0,
   mode: MODE.PAUSED,
@@ -458,54 +456,25 @@ let state = {
 };
 
 let history = {
-  t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION]
+  t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION],
+  W_app: [0], W_fric: [0], W_net: [0], K: [0]
 };
 
 const $ = id => document.getElementById(id);
 
-// 廣播狀態給父層 (AI)
-function broadcastStateToParent(actionName, details = {}) {
-  try {
-    const planetSelectEl = $('planetSelect');
-    const currentPlanetName = planetSelectEl ? planetSelectEl.options[planetSelectEl.selectedIndex].text : "";
-    let stateStr = "暫停/靜止";
-    if (state.mode === MODE.LIVE) stateStr = "運動中";
-    else if (state.mode === MODE.REPLAY) stateStr = "重播中";
-
-    const payload = {
-      "學生最後的動作": actionName,
-      "實驗時間": state.simTime.toFixed(3) + " s",
-      "物體狀態": stateStr,
-      "位置_x": state.position.toFixed(2) + " m",
-      "速度_v": state.velocity.toFixed(2) + " m/s",
-      "加速度_a": state.acceleration.toFixed(2) + " m/s²",
-      "施力_F": state.appliedForce.toFixed(2) + " N",
-      "摩擦力_f": state.friction.toFixed(2) + " N",
-      "合力_Fnet": state.netForce.toFixed(2) + " N",
-      "選擇的物體": state.currentObj ? state.currentObj.name : "",
-      "所在的星球": currentPlanetName,
-      ...details
-    };
-    console.log("【廣播送到AI】", payload);
-    window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
-  } catch (e) {
-    console.error("狀態廣播失敗:", e);
-  }
-}
-
-// 單位顯示轉換 (1 kgw = local g 牛頓)
 function fDisp(n) { return state.forceUnit === 'kgw' ? n / state.g : n; }
 function fUnit() { return state.forceUnit; }
 
 function setUnit(u) {
   state.forceUnit = u;
-  $('unit_N').classList.toggle('active', u === 'N');
-  $('unit_kgw').classList.toggle('active', u === 'kgw');
+  $('unit_N')?.classList.toggle('active', u === 'N');
+  $('unit_kgw')?.classList.toggle('active', u === 'kgw');
   document.querySelectorAll('.unit-force').forEach(el => el.textContent = u);
 }
 
 function buildObjectGrid() {
   const grid = $('objectGrid');
+  if(!grid) return;
   grid.innerHTML = '';
   objects.forEach(obj => {
     const card = document.createElement('div');
@@ -518,20 +487,11 @@ function buildObjectGrid() {
   });
 }
 
-function updateMuInputs() {
-  const inS = $('inputMuS');
-  const inK = $('inputMuK');
-  if (inS && state.currentObj) inS.value = state.currentObj.mu_s;
-  if (inK && state.currentObj) inK.value = state.currentObj.mu_k;
-}
-
 function selectObject(obj) {
   state.currentObj = obj;
   resetAll();
   buildObjectGrid();
   setupSceneElements();
-  updateMuInputs();
-  broadcastStateToParent('更換物體: ' + obj.name);
 }
 
 function setupSceneElements() {
@@ -540,7 +500,6 @@ function setupSceneElements() {
   layer.innerHTML = '';
   
   const obj = state.currentObj;
-  
   const box = document.createElement('div');
   box.id = 'objBox';
   box.className = 'object-box absolute rounded-md shadow-lg flex items-center justify-center';
@@ -558,7 +517,6 @@ function setupSceneElements() {
   box.addEventListener('touchstart', startDrag, {passive: false});
   layer.appendChild(box);
   
-  // 建立力與運動的箭頭
   ['applied', 'friction', 'net', 'vel', 'acc'].forEach(type => {
     const arrow = document.createElement('div');
     arrow.id = 'arrow_' + type;
@@ -568,14 +526,11 @@ function setupSceneElements() {
     const lbl = document.createElement('div');
     lbl.id = 'label_' + type;
     lbl.className = 'force-label hidden';
-    
-    // 設定標籤顏色
     if(type === 'applied') lbl.style.color = '#dc2626';
     else if(type === 'friction') lbl.style.color = '#2563eb';
     else if(type === 'net') lbl.style.color = '#059669';
     else if(type === 'vel') lbl.style.color = '#7c3aed';
     else if(type === 'acc') lbl.style.color = '#0284c7';
-    
     layer.appendChild(lbl);
   });
 }
@@ -596,15 +551,17 @@ function getDisplayState() {
     return {
       t: state.simTime, x: state.position, v: state.velocity, a: state.acceleration,
       F_app: state.appliedForce, F_fric: state.friction, F_net: state.netForce,
+      W_app: state.W_app, W_fric: state.W_fric, W_net: state.W_net, K: state.K
     };
   }
   if (history.t.length === 0) {
-    return { t: 0, x: INITIAL_POSITION, v: 0, a: 0, F_app: 0, F_fric: 0, F_net: 0 };
+    return { t: 0, x: INITIAL_POSITION, v: 0, a: 0, F_app: 0, F_fric: 0, F_net: 0, W_app: 0, W_fric: 0, W_net: 0, K: 0 };
   }
   const idx = findHistoryIndex(state.viewTime);
   return {
     t: history.t[idx], x: history.x[idx], v: history.v[idx], a: history.a[idx],
     F_app: history.F_app[idx], F_fric: history.F_fric[idx], F_net: history.F_net[idx],
+    W_app: history.W_app[idx], W_fric: history.W_fric[idx], W_net: history.W_net[idx], K: history.K[idx]
   };
 }
 
@@ -638,22 +595,16 @@ function renderScene() {
   const yApplied  = yTop + obj.h * 0.25;
   const yNet      = yTop + obj.h * 0.50;
   const yFriction = yTop + obj.h * 0.80;
-  
-  // 速度與加速度箭頭從中心出發
   const yVel = yTop - 15;
   const yAcc = yTop - 35;
   
-  // 力箭頭 (從邊緣出發)
   updateArrow('applied',  state.showApplied,  ds.F_app,  xLeft, xRight, yApplied,  'F', state.forceScale, true);
   updateArrow('net',      state.showNet,      ds.F_net,  xLeft, xRight, yNet,      'F淨', state.forceScale, true);
   updateArrow('friction', state.showFriction, ds.F_fric, xLeft, xRight, yFriction, 'f', state.forceScale, true);
-  
-  // 運動學箭頭 (從中心點出發)
   updateArrow('vel', state.showVel, ds.v, objCenterX, objCenterX, yVel, 'v', state.kinematicScale, false, 15);
   updateArrow('acc', state.showAcc, ds.a, objCenterX, objCenterX, yAcc, 'a', state.kinematicScale, false, 15);
 }
 
-// 通用更新箭頭邏輯
 function updateArrow(type, show, value, xLeft, xRight, y, labelPrefix, scaleModifier, isForce = true, baseMultiplier = 0.1) {
   const arrow = $('arrow_' + type);
   const lbl = $('label_' + type);
@@ -665,15 +616,13 @@ function updateArrow(type, show, value, xLeft, xRight, y, labelPrefix, scaleModi
     return;
   }
   
-  // 力箭頭因為上限變1500，base multiplier 調小一點(例如0.08)
   const actualMult = isForce ? 0.08 : baseMultiplier; 
   let rawLen = Math.abs(value) * actualMult * scaleModifier;
-  // 限制長度避免爆框，但保留一定的伸縮感
   const len = Math.min(250, Math.max(10, rawLen)); 
   
   const isRight = value > 0;
   const arrowH = (type === 'net') ? 7 : (isForce ? 5 : 4);
-  const overlapBox = isForce ? 3 : 0; // 若從邊緣出發，稍微縮進箱子內
+  const overlapBox = isForce ? 3 : 0; 
   
   arrow.classList.remove('hidden');
   arrow.style.top = (y - arrowH / 2) + 'px';
@@ -732,10 +681,9 @@ function onDrag(e) {
   e.preventDefault();
   state.dragCurrentX = getPointerX(e);
   const dx = state.dragCurrentX - state.dragStartX;
-  // 放寬拖曳的力道範圍至 1500
   let force = Math.max(-1500, Math.min(1500, dx * 10)); 
   state.appliedForce = force;
-  $('forceSlider').value = force;
+  if($('forceSlider')) $('forceSlider').value = force;
   if (state.mode !== MODE.LIVE && Math.abs(force) > 0.1) setMode(MODE.LIVE);
 }
 
@@ -743,7 +691,7 @@ function endDrag() {
   if (!state.isDragging) return;
   state.isDragging = false;
   state.appliedForce = 0;
-  $('forceSlider').value = 0;
+  if($('forceSlider')) $('forceSlider').value = 0;
   const box = $('objBox');
   if (box) box.classList.remove('dragging');
   
@@ -757,7 +705,7 @@ function physicsStep(dt) {
   const m = state.currentObj.mass;
   const mu_s = state.useFriction ? state.currentObj.mu_s : 0;
   const mu_k = state.useFriction ? state.currentObj.mu_k : 0;
-  const N = m * state.g; // 使用當地星球重力
+  const N = m * state.g; 
   const maxStaticFric = mu_s * N;
   const kineticFric = mu_k * N;
   
@@ -777,11 +725,19 @@ function physicsStep(dt) {
     newV = 0; a = 0; friction = -state.appliedForce; netForce = 0;
   }
   
+  let dx = state.velocity * dt + 0.5 * a * dt * dt;
+  state.W_app += state.appliedForce * dx;
+  state.W_fric += friction * dx;
+  state.W_net += netForce * dx;
+  
   state.velocity = newV;
-  state.position += state.velocity * dt;
+  state.position += dx;
   state.acceleration = a;
   state.friction = friction;
   state.netForce = netForce;
+  
+  state.K = 0.5 * m * state.velocity * state.velocity;
+  
   state.simTime += dt;
   state.viewTime = state.simTime;
   
@@ -792,6 +748,10 @@ function physicsStep(dt) {
   history.a.push(a);
   history.v.push(state.velocity);
   history.x.push(state.position);
+  history.W_app.push(state.W_app);
+  history.W_fric.push(state.W_fric);
+  history.W_net.push(state.W_net);
+  history.K.push(state.K);
   
   if (history.t.length > MAX_HISTORY) {
     Object.keys(history).forEach(k => history[k].shift());
@@ -838,6 +798,10 @@ function truncateHistoryAtViewTime() {
   state.acceleration = history.a[idx];
   state.friction = history.F_fric[idx];
   state.netForce = history.F_net[idx];
+  state.W_app = history.W_app[idx];
+  state.W_fric = history.W_fric[idx];
+  state.W_net = history.W_net[idx];
+  state.K = history.K[idx];
 }
 
 function setMode(m) {
@@ -848,7 +812,7 @@ function setMode(m) {
   if (m === MODE.LIVE) { badge.classList.add('mode-live'); badge.textContent = '🔴 LIVE'; }
   else if (m === MODE.PAUSED) { badge.classList.add('mode-paused'); badge.textContent = '⏸ PAUSED'; }
   else { badge.classList.add('mode-replay'); badge.textContent = '▶ REPLAY'; }
-  $('playBtn').textContent = (m === MODE.PAUSED) ? '▶' : '⏸';
+  if($('playBtn')) $('playBtn').textContent = (m === MODE.PAUSED) ? '▶' : '⏸';
 }
 
 let lastTime = 0;
@@ -869,7 +833,7 @@ function loop(timestamp) {
     }
     const idx = findHistoryIndex(state.viewTime);
     if (idx >= 0 && !state.isDragging) {
-      $('forceSlider').value = history.F_app[idx];
+      if($('forceSlider')) $('forceSlider').value = history.F_app[idx];
     }
   } else {
     if (Math.abs(state.viewTime - state.simTime) < 0.01) updateStaticDisplay();
@@ -884,16 +848,19 @@ function loop(timestamp) {
 
 function updateUI() {
   const ds = getDisplayState();
-  $('forceValue').textContent = fDisp(ds.F_app).toFixed(1) + ' ' + fUnit();
-  $('val_time').textContent = ds.t.toFixed(2);
-  $('val_pos').textContent = ds.x.toFixed(2);
-  $('val_vel').textContent = ds.v.toFixed(2);
-  $('val_acc').textContent = ds.a.toFixed(2);
-  $('val_fapp').textContent = fDisp(ds.F_app).toFixed(2);
-  $('val_fric').textContent = fDisp(ds.F_fric).toFixed(2);
-  $('val_fnet').textContent = fDisp(ds.F_net).toFixed(2);
-  $('viewTimeLbl').textContent = state.viewTime.toFixed(2);
-  $('simTimeLbl').textContent = state.simTime.toFixed(2);
+  if($('forceValue')) $('forceValue').textContent = fDisp(ds.F_app).toFixed(1) + ' ' + fUnit();
+  if($('val_time')) $('val_time').textContent = ds.t.toFixed(2);
+  if($('val_pos')) $('val_pos').textContent = ds.x.toFixed(2);
+  if($('val_vel')) $('val_vel').textContent = ds.v.toFixed(2);
+  if($('val_acc')) $('val_acc').textContent = ds.a.toFixed(2);
+  if($('val_fapp')) $('val_fapp').textContent = fDisp(ds.F_app).toFixed(2);
+  if($('val_fric')) $('val_fric').textContent = fDisp(ds.F_fric).toFixed(2);
+  if($('val_fnet')) $('val_fnet').textContent = fDisp(ds.F_net).toFixed(2);
+  if($('viewTimeLbl')) $('viewTimeLbl').textContent = state.viewTime.toFixed(2);
+  if($('simTimeLbl')) $('simTimeLbl').textContent = state.simTime.toFixed(2);
+  
+  if($('val_k')) $('val_k').textContent = ds.K.toFixed(1);
+  if($('val_wnet')) $('val_wnet').textContent = ds.W_net.toFixed(1);
 }
 
 function resetAll() {
@@ -903,12 +870,18 @@ function resetAll() {
   state.acceleration = 0;
   state.friction = 0;
   state.netForce = 0;
+  state.W_app = 0;
+  state.W_fric = 0;
+  state.W_net = 0;
+  state.K = 0;
   state.simTime = 0;
   state.viewTime = 0;
-  $('forceSlider').value = 0;
-  history = { t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION] };
+  if($('forceSlider')) $('forceSlider').value = 0;
+  history = { 
+    t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION],
+    W_app: [0], W_fric: [0], W_net: [0], K: [0]
+  };
   setMode(MODE.PAUSED);
-  broadcastStateToParent('重置實驗');
 }
 
 function togglePlay() {
@@ -918,16 +891,14 @@ function togglePlay() {
     if (state.viewTime < state.simTime - 0.01) setMode(MODE.REPLAY);
     else setMode(MODE.LIVE);
   }
-  broadcastStateToParent(state.mode === MODE.LIVE ? '開始播放' : '暫停播放');
 }
 
 function replay() {
   if (state.simTime < 0.01) return;
   state.viewTime = 0;
   state.appliedForce = history.F_app[0] || 0;
-  $('forceSlider').value = state.appliedForce;
+  if($('forceSlider')) $('forceSlider').value = state.appliedForce;
   setMode(MODE.REPLAY);
-  broadcastStateToParent('開始重播');
 }
 
 function goToEnd() {
@@ -935,10 +906,9 @@ function goToEnd() {
   if (history.t.length > 0) {
     const idx = history.t.length - 1;
     state.appliedForce = history.F_app[idx];
-    $('forceSlider').value = state.appliedForce;
+    if($('forceSlider')) $('forceSlider').value = state.appliedForce;
   }
   setMode(MODE.PAUSED);
-  broadcastStateToParent('跳至最新時間');
 }
 
 function setSpeed(s, btn) {
@@ -957,6 +927,7 @@ function togglePanel(colId, contentId, btnId) {
   const col = $(colId);
   const content = $(contentId);
   const btn = $(btnId);
+  if(!col || !content || !btn) return;
   const collapsed = col.dataset.collapsed === 'true';
   
   if (collapsed) {
@@ -971,7 +942,7 @@ function togglePanel(colId, contentId, btnId) {
 }
 
 function wireUpControls() {
-  $('forceSlider').addEventListener('input', e => {
+  $('forceSlider')?.addEventListener('input', e => {
     if (state.isDragging) return;
     const newForce = parseFloat(e.target.value);
     if (state.mode !== MODE.LIVE && state.viewTime < state.simTime - 0.01) {
@@ -981,25 +952,14 @@ function wireUpControls() {
     if (Math.abs(newForce) > 0.1) setMode(MODE.LIVE);
   });
   
-  $('forceSlider').addEventListener('change', e => {
-    broadcastStateToParent('調整施力: ' + e.target.value + ' N');
-  });
-
-  // 【新增】施力歸零按鈕的事件監聽器
-  $('zeroForceBtn').addEventListener('click', () => {
-    // 如果在回放模式中歸零，需要先截斷歷史紀錄
+  $('zeroForceBtn')?.addEventListener('click', () => {
     if (state.mode !== MODE.LIVE && state.viewTime < state.simTime - 0.01) {
       truncateHistoryAtViewTime();
     }
-    // 將物理變數歸零
     state.appliedForce = 0;
-    // 將滑桿 UI 歸零
-    $('forceSlider').value = 0;
-    // 廣播給 AI 知道學生做了這個動作
-    broadcastStateToParent('施力歸零');
+    if($('forceSlider')) $('forceSlider').value = 0;
   });
 
-  // 設定全域的圖表時間拖曳事件
   let activeScrubCanvas = null;
   const updateScrubTime = (ev, canvas) => {
     const r = canvas.getBoundingClientRect();
@@ -1018,7 +978,7 @@ function wireUpControls() {
     const idx = findHistoryIndex(t);
     if (idx >= 0) {
       state.appliedForce = history.F_app[idx];
-      $('forceSlider').value = state.appliedForce;
+      if($('forceSlider')) $('forceSlider').value = state.appliedForce;
     }
   };
 
@@ -1028,13 +988,11 @@ function wireUpControls() {
     updateScrubTime(ev, canvas);
   };
 
-  ['canvas_F', 'canvas_A', 'canvas_V', 'canvas_X'].forEach(id => {
+  ['canvas_Wt', 'canvas_Kt', 'canvas_F', 'canvas_A', 'canvas_V', 'canvas_X'].forEach(id => {
     const cvs = $(id);
     if (!cvs) return;
     cvs.addEventListener('mousedown', e => startScrub(e, cvs));
-    cvs.addEventListener('touchstart', e => {
-      startScrub(e, cvs);
-    }, {passive: true});
+    cvs.addEventListener('touchstart', e => { startScrub(e, cvs); }, {passive: true});
   });
 
   document.addEventListener('mousemove', ev => {
@@ -1059,70 +1017,29 @@ function wireUpControls() {
     }
   });
 
-  // 箭頭顯示設定
-  $('showApplied').addEventListener('change', e => state.showApplied = e.target.checked);
-  $('showFriction').addEventListener('change', e => state.showFriction = e.target.checked);
-  $('showNet').addEventListener('change', e => state.showNet = e.target.checked);
-  $('showVel').addEventListener('change', e => state.showVel = e.target.checked);
-  $('showAcc').addEventListener('change', e => state.showAcc = e.target.checked);
-  
-  $('frictionToggle').addEventListener('change', e => {
-    state.useFriction = e.target.checked;
-    broadcastStateToParent(e.target.checked ? '啟用摩擦力' : '關閉摩擦力');
-  });
+  $('showApplied')?.addEventListener('change', e => state.showApplied = e.target.checked);
+  $('showFriction')?.addEventListener('change', e => state.showFriction = e.target.checked);
+  $('showNet')?.addEventListener('change', e => state.showNet = e.target.checked);
+  $('showVel')?.addEventListener('change', e => state.showVel = e.target.checked);
+  $('showAcc')?.addEventListener('change', e => state.showAcc = e.target.checked);
+  $('frictionToggle')?.addEventListener('change', e => state.useFriction = e.target.checked);
 
-  // 箭頭比例縮放
-  $('scaleForce').addEventListener('input', e => {
+  $('scaleForce')?.addEventListener('input', e => {
     state.forceScale = parseFloat(e.target.value);
-    $('scaleLblForce').textContent = state.forceScale.toFixed(1) + 'x';
+    if($('scaleLblForce')) $('scaleLblForce').textContent = state.forceScale.toFixed(1) + 'x';
   });
-  $('scaleKinematic').addEventListener('input', e => {
+  $('scaleKinematic')?.addEventListener('input', e => {
     state.kinematicScale = parseFloat(e.target.value);
-    $('scaleLblKinematic').textContent = state.kinematicScale.toFixed(1) + 'x';
+    if($('scaleLblKinematic')) $('scaleLblKinematic').textContent = state.kinematicScale.toFixed(1) + 'x';
   });
 
-  // 進階選項切換
-  $('toggleAdvancedBtn').addEventListener('click', () => {
-    const panel = $('advancedPanel');
-    const icon = $('advIcon');
-    if (panel.classList.contains('hidden')) {
-      panel.classList.remove('hidden');
-      icon.style.transform = 'rotate(-180deg)';
-    } else {
-      panel.classList.add('hidden');
-      icon.style.transform = 'rotate(0deg)';
-    }
-  });
+  $('statsToggleBtn')?.addEventListener('click', () => togglePanel('statsCol', 'statsContent', 'statsToggleBtn'));
+  $('settingsToggleBtn')?.addEventListener('click', () => togglePanel('settingsCol', 'settingsContent', 'settingsToggleBtn'));
 
-  // 星球重力切換
-  $('planetSelect').addEventListener('change', e => {
-    state.g = parseFloat(e.target.value);
-    $('gDisplay').textContent = state.g.toFixed(2) + ' m/s²';
-    if(state.mode !== MODE.LIVE) updateStaticDisplay();
-    broadcastStateToParent('更換星球: ' + e.target.options[e.target.selectedIndex].text);
-  });
-
-  // 自訂摩擦係數
-  $('inputMuS')?.addEventListener('change', e => {
-    let v = parseFloat(e.target.value);
-    if (!isNaN(v) && state.currentObj) state.currentObj.mu_s = v;
-    if(state.mode !== MODE.LIVE) updateStaticDisplay();
-    broadcastStateToParent('調整靜摩擦係數: ' + v);
-  });
-  $('inputMuK')?.addEventListener('change', e => {
-    let v = parseFloat(e.target.value);
-    if (!isNaN(v) && state.currentObj) state.currentObj.mu_k = v;
-    if(state.mode !== MODE.LIVE) updateStaticDisplay();
-    broadcastStateToParent('調整動摩擦係數: ' + v);
-  });
-
-  $('statsToggleBtn').addEventListener('click', () => togglePanel('statsCol', 'statsContent', 'statsToggleBtn'));
-  $('settingsToggleBtn').addEventListener('click', () => togglePanel('settingsCol', 'settingsContent', 'settingsToggleBtn'));
-
-  $('replayBtn').addEventListener('click', replay);
-  $('playBtn').addEventListener('click', togglePlay);
-  $('endBtn').addEventListener('click', goToEnd);
-  $('resetBtn').addEventListener('click', resetAll);
+  $('replayBtn')?.addEventListener('click', replay);
+  $('playBtn')?.addEventListener('click', togglePlay);
+  $('endBtn')?.addEventListener('click', goToEnd);
+  $('resetBtn')?.addEventListener('click', resetAll);
 
   document.querySelectorAll('.speed-seg').forEach(btn => {
     btn.addEventListener('click', () => setSpeed(parseFloat(btn.dataset.speed), btn));
@@ -1144,10 +1061,12 @@ let dragSourceCard = null;
 
 function initChartDragDrop() {
   const container = $('chartsContainer');
+  if(!container) return;
   const cards = container.querySelectorAll('.chart-card');
   
   cards.forEach(card => {
     const header = card.querySelector('.chart-header');
+    if(!header) return;
     
     header.addEventListener('dragstart', (e) => {
       dragSourceCard = card;
@@ -1192,17 +1111,28 @@ function initChartDragDrop() {
 }
 
 function drawCharts() {
+  drawChart('canvas_Wt', [
+    {name: '施力作功', data: history.W_app, color: '#ef4444'},
+    {name: '摩擦力作功', data: history.W_fric, color: '#3b82f6'},
+    {name: '合力作功', data: history.W_net, color: '#10b981', lineWidth: 3}
+  ], '作功 (J)', v => v, 't');
+
+  drawChart('canvas_Kt', [
+    {name: '動能', data: history.K, color: '#f59e0b', lineWidth: 3}
+  ], '動能 (J)', v => v, 't');
+
   drawChart('canvas_F', [
-    {data: history.F_app, color: '#ef4444'},
-    {data: history.F_fric, color: '#3b82f6'},
-    {data: history.F_net, color: '#10b981'},
-  ], '力 (' + fUnit() + ')', fDisp);
-  drawChart('canvas_A', [{data: history.a, color: '#0ea5e9'}], 'a (m/s²)');
-  drawChart('canvas_V', [{data: history.v, color: '#8b5cf6'}], 'v (m/s)');
-  drawChart('canvas_X', [{data: history.x, color: '#f43f5e'}], 'x (m)');
+    {name: '施力', data: history.F_app, color: '#ef4444'},
+    {name: '摩擦力', data: history.F_fric, color: '#3b82f6'},
+    {name: '合力', data: history.F_net, color: '#10b981'},
+  ], '力 (' + fUnit() + ')', fDisp, 't');
+  
+  drawChart('canvas_A', [{name: '加速度', data: history.a, color: '#0ea5e9'}], 'a (m/s²)', v=>v, 't');
+  drawChart('canvas_V', [{name: '速度', data: history.v, color: '#8b5cf6'}], 'v (m/s)', v=>v, 't');
+  drawChart('canvas_X', [{name: '位置', data: history.x, color: '#f43f5e'}], 'x (m)', v=>v, 't');
 }
 
-function drawChart(canvasId, series, ylabel, transform) {
+function drawChart(canvasId, series, ylabel, transform, xAxisType = 't') {
   const canvas = $(canvasId);
   if (!canvas) return;
   const parent = canvas.parentElement;
@@ -1227,8 +1157,22 @@ function drawChart(canvasId, series, ylabel, transform) {
   const plotH = cssH - padT - padB;
   if(plotH <= 0 || plotW <= 0) return;
   
-  const tMax = Math.max(state.simTime, 5);
-  const tMin = 0;
+  let xData = xAxisType === 't' ? history.t : history.x;
+  let xMin, xMax;
+  if (xAxisType === 't') {
+    xMin = 0;
+    xMax = Math.max(state.simTime, 5);
+  } else {
+    xMin = Infinity; xMax = -Infinity;
+    for(let i=0; i<xData.length; i++) {
+      if(xData[i] < xMin) xMin = xData[i];
+      if(xData[i] > xMax) xMax = xData[i];
+    }
+    if(!isFinite(xMin)) { xMin = -1; xMax = 1; }
+    if(xMin === xMax) { xMin -= 1; xMax += 1; }
+    let padX = (xMax - xMin) * 0.1;
+    xMin -= padX; xMax += padX;
+  }
   
   let yMin = Infinity, yMax = -Infinity;
   series.forEach(s => s.data.forEach(v => {
@@ -1240,7 +1184,7 @@ function drawChart(canvasId, series, ylabel, transform) {
   if (yMin === yMax) { yMin -= 1; yMax += 1; }
   const padY = (yMax - yMin) * 0.15;
   yMin -= padY; yMax += padY;
-  if (yMin > 0) yMin = 0;
+  if (yMin > 0 && ylabel !== '作功 (J)') yMin = 0; 
   if (yMax < 0) yMax = 0;
   
   ctx.strokeStyle = '#e5e7eb';
@@ -1255,16 +1199,18 @@ function drawChart(canvasId, series, ylabel, transform) {
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
     ctx.fillText(val.toFixed(1), padL - 4, y + 3);
   }
+  
   ctx.textAlign = 'center';
   for (let i = 0; i <= 5; i++) {
     const x = padL + (plotW * i / 5);
-    const val = tMin + (tMax - tMin) * i / 5;
+    const val = xMin + (xMax - xMin) * i / 5;
     ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
-    ctx.fillText(val.toFixed(1)+'s', x, padT + plotH + 14);
+    ctx.fillText(val.toFixed(1) + (xAxisType==='t'?'s':'m'), x, padT + plotH + 14);
   }
   
+  const yScale = v => padT + ((yMax - v) / (yMax - yMin)) * plotH;
   if (yMin < 0 && yMax > 0) {
-    const zeroY = padT + plotH * (yMax / (yMax - yMin));
+    const zeroY = yScale(0);
     ctx.strokeStyle = '#9ca3af';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4,4]);
@@ -1281,33 +1227,41 @@ function drawChart(canvasId, series, ylabel, transform) {
   ctx.fillText(ylabel, 0, 0);
   ctx.restore();
   
-  const xScale = v => padL + ((v - tMin) / (tMax - tMin)) * plotW;
-  const yScale = v => padT + ((yMax - v) / (yMax - yMin)) * plotH;
+  const xScale = v => padL + ((v - xMin) / (xMax - xMin)) * plotW;
   
   series.forEach(s => {
     if (s.data.length < 2) return;
+    
     ctx.strokeStyle = s.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = s.lineWidth || 2;
+    if (s.dash) ctx.setLineDash(s.dash);
+    else ctx.setLineDash([]);
+    
     ctx.beginPath();
     for (let i = 0; i < s.data.length; i++) {
-      const x = xScale(history.t[i]);
+      const x = xScale(xData[i]);
       const y = yScale(tx(s.data[i]));
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
+    ctx.setLineDash([]); 
   });
   
-  if (history.t.length > 0) {
-    const cursorX = xScale(state.viewTime);
-    ctx.strokeStyle = '#8b5cf6'; // 垂直指示線改為顯眼的紫色
+  // 繪製游標與浮動標籤
+  if (history.t.length > 0 && xAxisType === 't') {
+    const currentIdx = findHistoryIndex(state.viewTime);
+    const cursorX = xScale(xData[currentIdx]);
+    
+    // 游標線
+    ctx.strokeStyle = '#8b5cf6';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cursorX, padT);
     ctx.lineTo(cursorX, padT + plotH);
     ctx.stroke();
     
-    // 將游標改為看起來像拖曳把手的設計
+    // 游標頂部三角形
     ctx.fillStyle = '#8b5cf6';
     ctx.beginPath();
     ctx.moveTo(cursorX - 6, padT - 2);
@@ -1317,6 +1271,71 @@ function drawChart(canvasId, series, ylabel, transform) {
     ctx.lineTo(cursorX - 6, padT + 5);
     ctx.closePath();
     ctx.fill();
+
+    // 收集標籤資訊
+    let labels = [];
+    series.forEach(s => {
+      if (s.data.length > currentIdx && s.name) {
+        let val = tx(s.data[currentIdx]);
+        labels.push({
+          text: `${s.name}: ${val.toFixed(1)}`,
+          y: yScale(val),
+          color: s.color
+        });
+      }
+    });
+
+    if (labels.length > 0) {
+      // 根據 Y 座標排序，由上到下
+      labels.sort((a, b) => a.y - b.y);
+      
+      // 防重疊機制 (標籤間距至少 16px)
+      const MIN_DIST = 16;
+      for (let i = 1; i < labels.length; i++) {
+        if (labels[i].y - labels[i-1].y < MIN_DIST) {
+          labels[i].y = labels[i-1].y + MIN_DIST;
+        }
+      }
+      // 反向再檢查一次，避免推太下面
+      for (let i = labels.length - 2; i >= 0; i--) {
+        if (labels[i+1].y - labels[i].y < MIN_DIST) {
+          labels[i].y = labels[i+1].y - MIN_DIST;
+        }
+      }
+
+      ctx.font = 'bold 11px sans-serif';
+      // 如果游標太靠右，標籤改顯示在左側
+      let isRightSide = cursorX > padL + plotW * 0.75; 
+
+      labels.forEach(lbl => {
+        let textW = ctx.measureText(lbl.text).width;
+        let lx = isRightSide ? cursorX - 10 - textW : cursorX + 10;
+        let ly = lbl.y;
+
+        // 畫線上的資料點
+        ctx.fillStyle = lbl.color;
+        ctx.beginPath();
+        ctx.arc(cursorX, yScale(tx(series.find(s => s.color === lbl.color).data[currentIdx])), 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // 畫標籤背景 (半透明白底)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(lx - 4, ly - 10, textW + 8, 18, 4);
+        ctx.fill();
+        ctx.strokeStyle = lbl.color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 畫標籤文字
+        ctx.fillStyle = lbl.color;
+        ctx.textAlign = 'left';
+        ctx.fillText(lbl.text, lx, ly + 3);
+      });
+    }
   }
   
   ctx.strokeStyle = '#9ca3af';
@@ -1329,25 +1348,9 @@ function init() {
   setupSceneElements();
   setMode(MODE.PAUSED);
   wireUpControls();
-  updateMuInputs();
   initChartDragDrop();
   window.addEventListener('resize', renderScene);
   requestAnimationFrame(loop);
-  
-  // 初始化後發送開場白廣播給 AI
-  setTimeout(() => {
-    try {
-      window.parent.postMessage({
-        type: 'SYSTEM_INTRO',
-        payload: {
-          "系統開場白": "歡迎來到「力與運動模擬器」！在這裡，你可以選擇不同的物體（如木箱、冰塊、大石頭等），設定不同的星球重力與摩擦係數，並觀察施力、摩擦力與合力如何影響物體的加速度、速度與位置。請試著拖曳物體或調整滑桿，觀察圖表的變化，並隨時與我討論你的發現！"
-        }
-      }, '*');
-      console.log("【系統開場白已發送】");
-    } catch (e) {
-      console.error("開場白廣播失敗:", e);
-    }
-  }, 500);
 }
 
 if (document.readyState === 'loading') {
@@ -1357,6 +1360,4 @@ if (document.readyState === 'loading') {
 }
 })();
 </script>
-
-
 </body></html>
