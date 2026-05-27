@@ -197,7 +197,11 @@
               <h3 class="font-bold text-sm">📊 力-時間圖 (F-t)</h3>
             </div>
             <div class="flex items-center gap-3">
-              <span class="text-xs hidden md:inline">🔴施力 🔵摩擦力 🟢合力</span>
+              <div class="text-xs hidden md:flex items-center gap-2">
+                <span class="cursor-pointer transition-all toggle-series hover:scale-105" data-target="forceApp">🔴施力</span>
+                <span class="cursor-pointer transition-all toggle-series hover:scale-105" data-target="forceFric">🔵摩擦力</span>
+                <span class="cursor-pointer transition-all toggle-series hover:scale-105" data-target="forceNet">🟢合力</span>
+              </div>
               <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_F">▼</button>
             </div>
           </div>
@@ -253,7 +257,11 @@
               <h3 class="font-bold text-sm">📐 作功-時間圖 (W-t)</h3>
             </div>
             <div class="flex items-center gap-3">
-              <span class="text-xs hidden md:inline">🔴施力作功 🔵摩擦力作功 🟢合力作功</span>
+              <div class="text-xs hidden md:flex items-center gap-2">
+                <span class="cursor-pointer transition-all toggle-series hover:scale-105" data-target="workApp">🔴施力作功</span>
+                <span class="cursor-pointer transition-all toggle-series hover:scale-105" data-target="workFric">🔵摩擦力作功</span>
+                <span class="cursor-pointer transition-all toggle-series hover:scale-105" data-target="workNet">🟢合力作功</span>
+              </div>
               <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle collapsed" data-target="chart_Wt">▼</button>
             </div>
           </div>
@@ -453,6 +461,15 @@ let state = {
   dragStartX: 0,
   dragCurrentX: 0,
   scrubbing: false,
+  // 新增：記錄圖表線條是否顯示
+  seriesVisible: {
+    forceApp: true,
+    forceFric: true,
+    forceNet: true,
+    workApp: true,
+    workFric: true,
+    workNet: true
+  }
 };
 
 let history = {
@@ -1055,6 +1072,22 @@ function wireUpControls() {
       toggleChart(btn.dataset.target, btn);
     });
   });
+
+  // 新增：圖表線條顯示/隱藏的開關邏輯
+  document.querySelectorAll('.toggle-series').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); // 避免觸發拖曳或其他標題點擊事件
+      const target = btn.dataset.target;
+      state.seriesVisible[target] = !state.seriesVisible[target];
+      
+      if (state.seriesVisible[target]) {
+        btn.classList.remove('opacity-40', 'grayscale');
+      } else {
+        btn.classList.add('opacity-40', 'grayscale');
+      }
+      drawCharts(); // 立即重繪圖表
+    });
+  });
 }
 
 let dragSourceCard = null;
@@ -1111,21 +1144,25 @@ function initChartDragDrop() {
 }
 
 function drawCharts() {
-  drawChart('canvas_Wt', [
-    {name: '施力作功', data: history.W_app, color: '#ef4444'},
-    {name: '摩擦力作功', data: history.W_fric, color: '#3b82f6'},
-    {name: '合力作功', data: history.W_net, color: '#10b981', lineWidth: 3}
-  ], '作功 (J)', v => v, 't');
+  // 根據開關狀態決定要畫哪些線條 (作功)
+  let wtSeries = [];
+  if (state.seriesVisible.workApp) wtSeries.push({name: '施力作功', data: history.W_app, color: '#ef4444'});
+  if (state.seriesVisible.workFric) wtSeries.push({name: '摩擦力作功', data: history.W_fric, color: '#3b82f6'});
+  if (state.seriesVisible.workNet) wtSeries.push({name: '合力作功', data: history.W_net, color: '#10b981', lineWidth: 3});
+  
+  drawChart('canvas_Wt', wtSeries, '作功 (J)', v => v, 't');
 
   drawChart('canvas_Kt', [
     {name: '動能', data: history.K, color: '#f59e0b', lineWidth: 3}
   ], '動能 (J)', v => v, 't');
 
-  drawChart('canvas_F', [
-    {name: '施力', data: history.F_app, color: '#ef4444'},
-    {name: '摩擦力', data: history.F_fric, color: '#3b82f6'},
-    {name: '合力', data: history.F_net, color: '#10b981'},
-  ], '力 (' + fUnit() + ')', fDisp, 't');
+  // 根據開關狀態決定要畫哪些線條 (力)
+  let fSeries = [];
+  if (state.seriesVisible.forceApp) fSeries.push({name: '施力', data: history.F_app, color: '#ef4444'});
+  if (state.seriesVisible.forceFric) fSeries.push({name: '摩擦力', data: history.F_fric, color: '#3b82f6'});
+  if (state.seriesVisible.forceNet) fSeries.push({name: '合力', data: history.F_net, color: '#10b981'});
+
+  drawChart('canvas_F', fSeries, '力 (' + fUnit() + ')', fDisp, 't');
   
   drawChart('canvas_A', [{name: '加速度', data: history.a, color: '#0ea5e9'}], 'a (m/s²)', v=>v, 't');
   drawChart('canvas_V', [{name: '速度', data: history.v, color: '#8b5cf6'}], 'v (m/s)', v=>v, 't');
