@@ -1,0 +1,1329 @@
+<!DOCTYPE html><html lang="zh-TW"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>力與運動模擬器 v5.5</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- 引入 FontAwesome 以替換物體 Icon -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  body { font-family: 'Microsoft JhengHei', sans-serif; }
+  .scene {
+    background: linear-gradient(180deg, #87CEEB 0%, #B0E0E6 70%, #8B7355 70%, #6B4423 100%);
+  }
+  .ground-line {
+    background: repeating-linear-gradient(45deg, #6B4423, #6B4423 10px, #5a3a1f 10px, #5a3a1f 20px);
+  }
+  .object-box {
+    cursor: grab;
+    transition: filter 0.15s;
+    user-select: none;
+    z-index: 5;
+  }
+  .object-box:hover { filter: brightness(1.1); }
+  .object-box.dragging { cursor: grabbing; filter: brightness(1.15); }
+  .force-arrow {
+    position: absolute;
+    height: 5px;
+    transform-origin: left center;
+    pointer-events: none;
+    z-index: 8;
+    border-radius: 2px;
+  }
+  .force-arrow.applied { background: #ef4444; color: #ef4444; }
+  .force-arrow.friction { background: #2563eb; color: #2563eb; }
+  .force-arrow.net { background: #10b981; color: #10b981; height: 7px; }
+  .force-arrow.vel { background: #8b5cf6; color: #8b5cf6; height: 4px; z-index: 9; }
+  .force-arrow.acc { background: #0ea5e9; color: #0ea5e9; height: 4px; z-index: 9; }
+  .force-arrow::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0; height: 0;
+    border-left: 11px solid currentColor;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+  }
+  .force-arrow.reverse { transform-origin: right center; }
+  .force-arrow.reverse::after {
+    right: auto; left: -1px;
+    border-left: none;
+    border-right: 11px solid currentColor;
+  }
+  .force-label {
+    position: absolute;
+    font-size: 11px;
+    font-weight: bold;
+    background: rgba(255,255,255,0.95);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 12;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    border: 1.5px solid currentColor;
+    line-height: 1.2;
+  }
+  .obj-card { cursor: pointer; transition: all 0.2s; }
+  .obj-card:hover { transform: translateY(-2px); }
+  .obj-card.active {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+    box-shadow: 0 4px 12px rgba(245,158,11,0.4);
+  }
+  .graph-container {
+    resize: vertical;
+    overflow: hidden;
+    min-height: 120px;
+    height: 150px;
+    position: relative;
+  }
+  /* 圖表右下角拖曳縮放提示斜線 */
+  .graph-container::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    background: linear-gradient(135deg, transparent 40%, #94a3b8 40%, #94a3b8 50%, transparent 50%, transparent 65%, #94a3b8 65%, #94a3b8 75%, transparent 75%, transparent 90%, #94a3b8 90%);
+    pointer-events: none;
+  }
+  .graph-container.collapsed { display: none !important; }
+  .panel-toggle { transition: transform 0.3s; }
+  .panel-toggle.collapsed { transform: rotate(-90deg); }
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: #f59e0b;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .mode-live { background: #10b981; color: white; }
+  .mode-paused { background: #6b7280; color: white; }
+  .mode-replay { background: #f59e0b; color: white; }
+  .stat-tile { border-radius: 0.5rem; padding: 0.5rem; text-align: center; margin-bottom: 6px; }
+  .speed-seg {
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b21a8;
+    background: white;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: none;
+  }
+  .speed-seg:hover { background: #f3e8ff; }
+  .speed-seg.active-speed { background: #f59e0b; color: white; }
+  .unit-seg {
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: white;
+    color: #4b5563;
+    border: none;
+  }
+  .unit-seg.active { background: #f59e0b; color: white; }
+  .chart-card { transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s; }
+  .chart-card.drag-source { opacity: 0.4; transform: scale(0.98); }
+  .chart-card.drag-over-top { box-shadow: 0 -4px 0 0 #8b5cf6, 0 10px 15px -3px rgba(0,0,0,0.1); }
+  .chart-card.drag-over-bottom { box-shadow: 0 4px 0 0 #8b5cf6, 0 10px 15px -3px rgba(0,0,0,0.1); }
+  .chart-header { cursor: grab; user-select: none; }
+  .chart-header:active { cursor: grabbing; }
+  .drag-handle { display: inline-flex; align-items: center; justify-content: center; width: 18px; opacity: 0.7; font-size: 14px; line-height: 1; }
+  .drag-handle:hover { opacity: 1; }
+  canvas { cursor: ew-resize; display: block; height: 100%; width: 100%; }
+</style>
+</head>
+<body class="bg-gray-100 p-2 md:p-3">
+<div class="max-w-7xl mx-auto">
+  <h1 class="text-xl md:text-2xl font-bold text-center mb-3">⚡ 力與運動模擬器 v5.5</h1>
+
+  <div class="flex flex-col lg:flex-row gap-3 mb-3 items-start">
+    
+    <main class="flex-1 min-w-0 w-full space-y-3">
+      <div class="bg-white rounded-2xl shadow-lg p-3">
+        <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <span id="modeBadge" class="mode-paused px-3 py-1 rounded-full text-xs font-bold">⏸ PAUSED</span>
+          <span class="text-xs text-gray-500">在圖表上左右拖曳跳轉時間 · 拖曳物體施力 · 拖曳圖表框右下角縮放高度</span>
+        </div>
+        
+        <div id="scene" class="scene relative w-full rounded-xl overflow-hidden" style="height: 300px;">
+          <div class="ground-line absolute bottom-0 left-0 right-0" style="height: 30%;"></div>
+          <div id="zeroMarker" class="absolute top-0 bottom-0 border-l-2 border-dashed border-white opacity-60 pointer-events-none"></div>
+          <div id="zeroLabel" class="absolute bg-black bg-opacity-50 text-white text-xs px-1 rounded pointer-events-none">x=0</div>
+          <div id="objectLayer" class="absolute inset-0"></div>
+        </div>
+
+        <div class="mt-3 bg-gray-50 rounded-lg p-2">
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-xs">🎚 施加力 (滑桿、或直接拖曳物體)</label>
+            <span class="font-mono font-bold text-red-500 text-sm" id="forceValue">0.0 N</span>
+          </div>
+          <input type="range" id="forceSlider" min="-1500" max="1500" step="1" value="0" class="w-full">
+        </div>
+
+        <div class="mt-2 bg-purple-50 rounded-lg p-2 flex items-center gap-2 flex-wrap">
+          <button id="replayBtn" title="重播" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-sm">⏮</button>
+          <button id="playBtn" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-sm font-bold">▶</button>
+          <button id="endBtn" title="跳至最新" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-sm">⏭</button>
+          <span class="font-mono text-xs text-purple-700">⏱ <span id="viewTimeLbl">0.00</span>/<span id="simTimeLbl">0.00</span>s</span>
+          <div class="flex bg-white rounded border border-purple-300 overflow-hidden ml-1" title="播放速度">
+            <button data-speed="0.25" class="speed-seg">¼×</button>
+            <button data-speed="0.5" class="speed-seg border-l border-purple-200">½×</button>
+            <button data-speed="1" class="speed-seg border-l border-purple-200 active-speed">1×</button>
+            <button data-speed="2" class="speed-seg border-l border-purple-200">2×</button>
+          </div>
+          <button id="resetBtn" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm ml-auto">🔄 重置</button>
+        </div>
+      </div>
+
+      <div id="chartsContainer" class="space-y-3">
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="F">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-red-500 to-orange-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">📊 力-時間圖 (F-t)</h3>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs hidden md:inline">🔴施力 🔵摩擦力 🟢合力</span>
+              <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_F">▼</button>
+            </div>
+          </div>
+          <div class="graph-container" id="chart_F">
+            <canvas id="canvas_F" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="A">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">📈 加速度-時間圖 (a-t)</h3>
+            </div>
+            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_A">▼</button>
+          </div>
+          <div class="graph-container" id="chart_A">
+            <canvas id="canvas_A" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="V">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">📉 速度-時間圖 (v-t)</h3>
+            </div>
+            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_V">▼</button>
+          </div>
+          <div class="graph-container" id="chart_V">
+            <canvas id="canvas_V" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+        <div class="chart-card bg-white rounded-2xl shadow-lg overflow-hidden" data-chart-id="X">
+          <div class="chart-header flex items-center justify-between p-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white" draggable="true">
+            <div class="flex items-center gap-1">
+              <span class="drag-handle" title="拖曳以調整順序">⋮⋮</span>
+              <h3 class="font-bold text-sm">📊 位置-時間圖 (x-t)</h3>
+            </div>
+            <button class="panel-toggle hover:bg-white hover:bg-opacity-20 rounded w-6 h-6 flex items-center justify-center chart-toggle" data-target="chart_X">▼</button>
+          </div>
+          <div class="graph-container" id="chart_X">
+            <canvas id="canvas_X" class="absolute top-0 left-0"></canvas>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="w-full lg:w-64 flex-shrink-0 flex flex-col gap-3 lg:sticky lg:top-2 transition-all duration-300">
+      
+      <div id="statsCol" class="bg-white rounded-2xl shadow-lg p-2 transition-all">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-bold text-sm">📊 即時數值</h3>
+          <button id="statsToggleBtn" class="text-lg hover:bg-gray-200 rounded w-6 h-6 flex items-center justify-center transition-transform">▼</button>
+        </div>
+        <div id="statsContent" class="space-y-1">
+          <div id="tile_time" class="stat-tile bg-gray-100">
+            <div class="text-xs text-gray-500">時間 t</div>
+            <div class="font-mono font-bold text-sm"><span id="val_time">0.00</span> s</div>
+          </div>
+          
+          <div id="tile_pos" class="stat-tile bg-pink-50">
+            <div class="text-xs text-gray-600">位置 x</div>
+            <div class="font-mono font-bold text-pink-600 text-sm"><span id="val_pos">0.00</span> m</div>
+          </div>
+
+          <div class="flex items-center justify-between px-1 mt-2">
+            <span class="text-xs font-semibold text-gray-700">速度 v</span>
+            <label class="flex items-center gap-1 text-[10px] text-purple-600 cursor-pointer">
+              <input type="checkbox" id="showVel" class="w-3 h-3"> 顯示箭頭
+            </label>
+          </div>
+          <div id="tile_vel" class="stat-tile bg-purple-50">
+            <div class="font-mono font-bold text-purple-600 text-sm"><span id="val_vel">0.00</span> m/s</div>
+          </div>
+          
+          <div class="flex items-center justify-between px-1 mt-2">
+            <span class="text-xs font-semibold text-gray-700">加速度 a</span>
+            <label class="flex items-center gap-1 text-[10px] text-cyan-600 cursor-pointer">
+              <input type="checkbox" id="showAcc" class="w-3 h-3"> 顯示箭頭
+            </label>
+          </div>
+          <div id="tile_acc" class="stat-tile bg-cyan-50">
+            <div class="font-mono font-bold text-cyan-600 text-sm"><span id="val_acc">0.00</span> m/s²</div>
+          </div>
+          
+          <div class="flex items-center justify-between px-1 mt-2 border-t pt-2">
+            <span class="text-xs font-semibold text-gray-700">施力 F</span>
+            <label class="flex items-center gap-1 text-[10px] text-red-600 cursor-pointer">
+              <input type="checkbox" id="showApplied" checked="" class="w-3 h-3"> 顯示箭頭
+            </label>
+          </div>
+          <div id="tile_fapp" class="stat-tile bg-red-50">
+            <div class="font-mono font-bold text-red-600 text-sm"><span id="val_fapp">0.00</span> <span class="unit-force">N</span></div>
+          </div>
+          
+          <div class="flex items-center justify-between px-1 mt-2">
+            <span class="text-xs font-semibold text-gray-700">摩擦力 f</span>
+            <label class="flex items-center gap-1 text-[10px] text-blue-600 cursor-pointer">
+              <input type="checkbox" id="showFriction" checked="" class="w-3 h-3"> 顯示箭頭
+            </label>
+          </div>
+          <div id="tile_fric" class="stat-tile bg-blue-50">
+            <div class="font-mono font-bold text-blue-600 text-sm"><span id="val_fric">0.00</span> <span class="unit-force">N</span></div>
+          </div>
+          
+          <div class="flex items-center justify-between px-1 mt-2">
+            <span class="text-xs font-semibold text-gray-700">合力 F淨</span>
+            <label class="flex items-center gap-1 text-[10px] text-emerald-600 cursor-pointer">
+              <input type="checkbox" id="showNet" class="w-3 h-3"> 顯示箭頭
+            </label>
+          </div>
+          <div id="tile_fnet" class="stat-tile bg-emerald-50 mb-2">
+            <div class="font-mono font-bold text-emerald-600 text-sm"><span id="val_fnet">0.00</span> <span class="unit-force">N</span></div>
+          </div>
+
+          <div class="mt-3 pt-2 border-t bg-gray-50 rounded p-2 border border-gray-100">
+            <div class="text-xs font-bold text-gray-700 mb-2">📏 箭頭長度比例</div>
+            <div class="mb-2">
+              <div class="flex justify-between text-[10px] text-gray-500 mb-1"><span>力 (F, f, F淨)</span> <span id="scaleLblForce">1.0x</span></div>
+              <input type="range" id="scaleForce" min="0.1" max="3" step="0.1" value="1.0" class="w-full h-1">
+            </div>
+            <div>
+              <div class="flex justify-between text-[10px] text-gray-500 mb-1"><span>運動 (v, a)</span> <span id="scaleLblKinematic">1.0x</span></div>
+              <input type="range" id="scaleKinematic" min="0.1" max="5" step="0.1" value="1.0" class="w-full h-1">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="settingsCol" class="bg-white rounded-2xl shadow-lg p-2 transition-all">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-bold text-sm">⚙ 物體與設定</h3>
+          <button id="settingsToggleBtn" class="text-lg hover:bg-gray-200 rounded w-6 h-6 flex items-center justify-center transition-transform">▼</button>
+        </div>
+        <div id="settingsContent">
+          <h4 class="text-xs font-semibold text-gray-600 mb-1">📦 選擇物體</h4>
+          <div id="objectGrid" class="grid grid-cols-2 gap-1.5 mb-3"></div>
+          
+          <h4 class="text-xs font-semibold text-gray-600 mb-1">⚙ 顯示設定</h4>
+          <div class="space-y-3 text-sm">
+            <div class="flex items-center justify-between">
+              <span>力的單位:</span>
+              <div class="flex bg-gray-100 rounded border border-gray-300 overflow-hidden">
+                <button data-unit="N" id="unit_N" class="unit-seg active">N</button>
+                <button data-unit="kgw" id="unit_kgw" class="unit-seg border-l border-gray-300">kgw</button>
+              </div>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="frictionToggle" checked="" class="w-4 h-4">
+              <span>啟用摩擦力</span>
+            </label>
+          </div>
+
+          <div class="mt-4 border-t pt-2">
+            <button id="toggleAdvancedBtn" class="flex items-center justify-between w-full text-xs font-semibold text-gray-600 hover:text-gray-900">
+              <span>⚙ 更多選項 (自訂係數與星球)</span>
+              <span id="advIcon" class="transform transition-transform">▼</span>
+            </button>
+            
+            <div id="advancedPanel" class="space-y-2 text-sm bg-gray-50 p-2 rounded border border-gray-200 mt-2 hidden">
+              <div class="flex justify-between items-center">
+                <label class="text-xs">所在的星球</label>
+                <select id="planetSelect" class="w-24 px-1 py-0.5 border rounded text-xs bg-white">
+                  <option value="9.8">🌍 地球</option>
+                  <option value="1.62">🌕 月球</option>
+                  <option value="3.71">🪐 火星</option>
+                  <option value="24.79">🌑 木星</option>
+                </select>
+              </div>
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-[10px] text-gray-400">重力加速度 (g)</span>
+                <span id="gDisplay" class="text-[10px] font-mono font-bold text-gray-600">9.80 m/s²</span>
+              </div>
+              <hr class="my-1 border-gray-200">
+              <div class="flex justify-between items-center">
+                <label class="text-xs">靜摩擦係數 (μs)</label>
+                <input type="number" id="inputMuS" step="0.05" min="0" max="2" class="w-16 px-1 border rounded text-xs text-right">
+              </div>
+              <div class="flex justify-between items-center">
+                <label class="text-xs">動摩擦係數 (μk)</label>
+                <input type="number" id="inputMuK" step="0.05" min="0" max="2" class="w-16 px-1 border rounded text-xs text-right">
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="text-center text-xs text-gray-500 mt-4">© v5.5 | F = ma | fs ≤ μsN | fk = μkN | 1 kgw = local g N</p>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// 將原本的 emoji 替換為 FontAwesome 的 icon
+const objects = [
+  { id: 'box_s', icon: '<i class="fas fa-box"></i>', name: '小紙箱', mass: 10, mu_s: 0.3, mu_k: 0.2, color: '#d4a574', w: 50, h: 50 },
+  { id: 'box_m', icon: '<i class="fas fa-box-open"></i>', name: '中型箱', mass: 20, mu_s: 0.4, mu_k: 0.3, color: '#c89060', w: 60, h: 60 },
+  { id: 'wood', icon: '<i class="fas fa-pallet"></i>', name: '木箱', mass: 50, mu_s: 0.5, mu_k: 0.4, color: '#8b5a2b', w: 75, h: 70 },
+  { id: 'fridge', icon: '<i class="fas fa-snowflake"></i>', name: '冰箱', mass: 100, mu_s: 0.6, mu_k: 0.5, color: '#e0e0e0', w: 75, h: 100 },
+  { id: 'ice', icon: '<i class="fas fa-cube"></i>', name: '冰塊', mass: 30, mu_s: 0.1, mu_k: 0.05, color: '#a5e0f5', w: 60, h: 60 },
+  { id: 'metal', icon: '<i class="fas fa-weight-hanging"></i>', name: '金屬塊', mass: 200, mu_s: 0.7, mu_k: 0.6, color: '#888', w: 70, h: 70 },
+  { id: 'tire', icon: '<i class="fas fa-dharmachakra"></i>', name: '輪胎', mass: 25, mu_s: 0.8, mu_k: 0.6, color: '#222', w: 65, h: 65 },
+  { id: 'rock', icon: '<i class="fas fa-mountain"></i>', name: '大石頭', mass: 300, mu_s: 0.8, mu_k: 0.7, color: '#666', w: 85, h: 75 },
+  { id: 'cart', icon: '<i class="fas fa-shopping-cart"></i>', name: '購物車', mass: 15, mu_s: 0.1, mu_k: 0.05, color: '#bdbdbd', w: 65, h: 65 },
+];
+
+const PIXELS_PER_METER = 26;
+const ORIGIN_X_OFFSET = 60;
+const INITIAL_POSITION = 0;
+const MAX_HISTORY = 100000;
+const MODE = { LIVE: 'live', PAUSED: 'paused', REPLAY: 'replay' };
+
+let state = {
+  currentObj: objects[2],
+  g: 9.8,
+  appliedForce: 0,
+  position: INITIAL_POSITION,
+  velocity: 0,
+  acceleration: 0,
+  friction: 0,
+  netForce: 0,
+  simTime: 0,
+  viewTime: 0,
+  mode: MODE.PAUSED,
+  speed: 1,
+  useFriction: true,
+  showApplied: true,
+  showFriction: true,
+  showNet: false,
+  showVel: false,
+  showAcc: false,
+  forceScale: 1.0,
+  kinematicScale: 1.0,
+  forceUnit: 'N',
+  isDragging: false,
+  dragStartX: 0,
+  dragCurrentX: 0,
+  scrubbing: false,
+};
+
+let history = {
+  t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION]
+};
+
+const $ = id => document.getElementById(id);
+
+// 廣播狀態給父層 (AI)
+function broadcastStateToParent(actionName, details = {}) {
+  try {
+    const planetSelectEl = $('planetSelect');
+    const currentPlanetName = planetSelectEl ? planetSelectEl.options[planetSelectEl.selectedIndex].text : "";
+    let stateStr = "暫停/靜止";
+    if (state.mode === MODE.LIVE) stateStr = "運動中";
+    else if (state.mode === MODE.REPLAY) stateStr = "重播中";
+
+    const payload = {
+      "學生最後的動作": actionName,
+      "實驗時間": state.simTime.toFixed(3) + " s",
+      "物體狀態": stateStr,
+      "位置_x": state.position.toFixed(2) + " m",
+      "速度_v": state.velocity.toFixed(2) + " m/s",
+      "加速度_a": state.acceleration.toFixed(2) + " m/s²",
+      "施力_F": state.appliedForce.toFixed(2) + " N",
+      "摩擦力_f": state.friction.toFixed(2) + " N",
+      "合力_Fnet": state.netForce.toFixed(2) + " N",
+      "選擇的物體": state.currentObj ? state.currentObj.name : "",
+      "所在的星球": currentPlanetName,
+      ...details
+    };
+    console.log("【廣播送到AI】", payload);
+    window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
+  } catch (e) {
+    console.error("狀態廣播失敗:", e);
+  }
+}
+
+// 單位顯示轉換 (1 kgw = local g 牛頓)
+function fDisp(n) { return state.forceUnit === 'kgw' ? n / state.g : n; }
+function fUnit() { return state.forceUnit; }
+
+function setUnit(u) {
+  state.forceUnit = u;
+  $('unit_N').classList.toggle('active', u === 'N');
+  $('unit_kgw').classList.toggle('active', u === 'kgw');
+  document.querySelectorAll('.unit-force').forEach(el => el.textContent = u);
+}
+
+function buildObjectGrid() {
+  const grid = $('objectGrid');
+  grid.innerHTML = '';
+  objects.forEach(obj => {
+    const card = document.createElement('div');
+    card.className = 'obj-card bg-gray-100 rounded-lg p-1.5 text-center' + (obj.id === state.currentObj.id ? ' active' : '');
+    card.innerHTML = '<div class="text-xl text-gray-700">'+obj.icon+'</div>'
+      + '<div class="text-xs font-semibold mt-1">'+obj.name+'</div>'
+      + '<div class="text-[10px] opacity-80">'+obj.mass+'kg</div>';
+    card.addEventListener('click', () => selectObject(obj));
+    grid.appendChild(card);
+  });
+}
+
+function updateMuInputs() {
+  const inS = $('inputMuS');
+  const inK = $('inputMuK');
+  if (inS && state.currentObj) inS.value = state.currentObj.mu_s;
+  if (inK && state.currentObj) inK.value = state.currentObj.mu_k;
+}
+
+function selectObject(obj) {
+  state.currentObj = obj;
+  resetAll();
+  buildObjectGrid();
+  setupSceneElements();
+  updateMuInputs();
+  broadcastStateToParent('更換物體: ' + obj.name);
+}
+
+function setupSceneElements() {
+  const layer = $('objectLayer');
+  if (!layer) return;
+  layer.innerHTML = '';
+  
+  const obj = state.currentObj;
+  
+  const box = document.createElement('div');
+  box.id = 'objBox';
+  box.className = 'object-box absolute rounded-md shadow-lg flex items-center justify-center';
+  box.style.border = '2px solid rgba(0,0,0,0.3)';
+  box.style.width = obj.w + 'px';
+  box.style.height = obj.h + 'px';
+  box.style.left = '0px';
+  box.style.top = '0px';
+  box.style.background = 'linear-gradient(135deg, '+obj.color+', '+shade(obj.color, -25)+')';
+  box.innerHTML = '<div class="text-center pointer-events-none">'
+    + '<div style="font-size: '+Math.min(obj.w, obj.h)*0.4+'px; color: rgba(255,255,255,0.9);">'+obj.icon+'</div>'
+    + '<div style="font-size: 10px; color: white; text-shadow: 1px 1px 2px black; font-weight: bold;">'+obj.mass+'kg</div>'
+    + '</div>';
+  box.addEventListener('mousedown', startDrag);
+  box.addEventListener('touchstart', startDrag, {passive: false});
+  layer.appendChild(box);
+  
+  // 建立力與運動的箭頭
+  ['applied', 'friction', 'net', 'vel', 'acc'].forEach(type => {
+    const arrow = document.createElement('div');
+    arrow.id = 'arrow_' + type;
+    arrow.className = 'force-arrow ' + type + ' hidden';
+    layer.appendChild(arrow);
+    
+    const lbl = document.createElement('div');
+    lbl.id = 'label_' + type;
+    lbl.className = 'force-label hidden';
+    
+    // 設定標籤顏色
+    if(type === 'applied') lbl.style.color = '#dc2626';
+    else if(type === 'friction') lbl.style.color = '#2563eb';
+    else if(type === 'net') lbl.style.color = '#059669';
+    else if(type === 'vel') lbl.style.color = '#7c3aed';
+    else if(type === 'acc') lbl.style.color = '#0284c7';
+    
+    layer.appendChild(lbl);
+  });
+}
+
+function shade(hex, percent) {
+  if (!hex || !hex.startsWith('#')) return hex;
+  let r = parseInt(hex.slice(1,3),16);
+  let gg = parseInt(hex.slice(3,5),16);
+  let b = parseInt(hex.slice(5,7),16);
+  r = Math.max(0, Math.min(255, r + percent));
+  gg = Math.max(0, Math.min(255, gg + percent));
+  b = Math.max(0, Math.min(255, b + percent));
+  return 'rgb('+r+','+gg+','+b+')';
+}
+
+function getDisplayState() {
+  if (state.mode === MODE.LIVE) {
+    return {
+      t: state.simTime, x: state.position, v: state.velocity, a: state.acceleration,
+      F_app: state.appliedForce, F_fric: state.friction, F_net: state.netForce,
+    };
+  }
+  if (history.t.length === 0) {
+    return { t: 0, x: INITIAL_POSITION, v: 0, a: 0, F_app: 0, F_fric: 0, F_net: 0 };
+  }
+  const idx = findHistoryIndex(state.viewTime);
+  return {
+    t: history.t[idx], x: history.x[idx], v: history.v[idx], a: history.a[idx],
+    F_app: history.F_app[idx], F_fric: history.F_fric[idx], F_net: history.F_net[idx],
+  };
+}
+
+function renderScene() {
+  const obj = state.currentObj;
+  const ds = getDisplayState();
+  const scene = $('scene');
+  if (!scene) return;
+  const sceneH = scene.clientHeight || 300;
+  const groundY = sceneH * 0.7;
+  
+  const originX = ORIGIN_X_OFFSET;
+  const zm = $('zeroMarker');
+  const zl = $('zeroLabel');
+  if (zm) zm.style.left = originX + 'px';
+  if (zl) { zl.style.left = (originX + 4) + 'px'; zl.style.top = '8px'; }
+  
+  const objCenterX = originX + ds.x * PIXELS_PER_METER;
+  const xLeft = objCenterX - obj.w / 2;
+  const xRight = objCenterX + obj.w / 2;
+  const yTop = groundY - obj.h;
+  
+  const box = $('objBox');
+  if (box) {
+    box.style.width = obj.w + 'px';
+    box.style.height = obj.h + 'px';
+    box.style.left = xLeft + 'px';
+    box.style.top = yTop + 'px';
+  }
+  
+  const yApplied  = yTop + obj.h * 0.25;
+  const yNet      = yTop + obj.h * 0.50;
+  const yFriction = yTop + obj.h * 0.80;
+  
+  // 速度與加速度箭頭從中心出發
+  const yVel = yTop - 15;
+  const yAcc = yTop - 35;
+  
+  // 力箭頭 (從邊緣出發)
+  updateArrow('applied',  state.showApplied,  ds.F_app,  xLeft, xRight, yApplied,  'F', state.forceScale, true);
+  updateArrow('net',      state.showNet,      ds.F_net,  xLeft, xRight, yNet,      'F淨', state.forceScale, true);
+  updateArrow('friction', state.showFriction, ds.F_fric, xLeft, xRight, yFriction, 'f', state.forceScale, true);
+  
+  // 運動學箭頭 (從中心點出發)
+  updateArrow('vel', state.showVel, ds.v, objCenterX, objCenterX, yVel, 'v', state.kinematicScale, false, 15);
+  updateArrow('acc', state.showAcc, ds.a, objCenterX, objCenterX, yAcc, 'a', state.kinematicScale, false, 15);
+}
+
+// 通用更新箭頭邏輯
+function updateArrow(type, show, value, xLeft, xRight, y, labelPrefix, scaleModifier, isForce = true, baseMultiplier = 0.1) {
+  const arrow = $('arrow_' + type);
+  const lbl = $('label_' + type);
+  if (!arrow) return;
+  
+  if (!show || Math.abs(value) < 0.01) {
+    arrow.classList.add('hidden');
+    if (lbl) lbl.classList.add('hidden');
+    return;
+  }
+  
+  // 力箭頭因為上限變1500，base multiplier 調小一點(例如0.08)
+  const actualMult = isForce ? 0.08 : baseMultiplier; 
+  let rawLen = Math.abs(value) * actualMult * scaleModifier;
+  // 限制長度避免爆框，但保留一定的伸縮感
+  const len = Math.min(250, Math.max(10, rawLen)); 
+  
+  const isRight = value > 0;
+  const arrowH = (type === 'net') ? 7 : (isForce ? 5 : 4);
+  const overlapBox = isForce ? 3 : 0; // 若從邊緣出發，稍微縮進箱子內
+  
+  arrow.classList.remove('hidden');
+  arrow.style.top = (y - arrowH / 2) + 'px';
+  arrow.style.width = len + 'px';
+  
+  if (isRight) {
+    arrow.style.left = (xRight - overlapBox) + 'px';
+    arrow.classList.remove('reverse');
+  } else {
+    arrow.style.left = (xLeft - len + overlapBox) + 'px';
+    arrow.classList.add('reverse');
+  }
+  
+  if (lbl) {
+    lbl.classList.remove('hidden');
+    let dispVal = isForce ? fDisp(value).toFixed(0) + ' ' + fUnit() : value.toFixed(1);
+    if(type === 'vel') dispVal += ' m/s';
+    if(type === 'acc') dispVal += ' m/s²';
+    
+    lbl.textContent = labelPrefix + ' = ' + dispVal;
+    lbl.style.top = y + 'px';
+    if (isRight) {
+      lbl.style.left = (xRight - overlapBox + len + 6) + 'px';
+      lbl.style.transform = 'translateY(-50%)';
+    } else {
+      lbl.style.left = (xLeft + overlapBox - len - 6) + 'px';
+      lbl.style.transform = 'translate(-100%, -50%)';
+    }
+  }
+}
+
+function getPointerX(e) {
+  if (e.touches && e.touches.length) return e.touches[0].clientX;
+  return e.clientX;
+}
+
+function startDrag(e) {
+  e.preventDefault();
+  if (state.mode !== MODE.LIVE && state.viewTime < state.simTime - 0.01) {
+    truncateHistoryAtViewTime();
+  }
+  state.isDragging = true;
+  state.dragStartX = getPointerX(e);
+  state.dragCurrentX = state.dragStartX;
+  const box = $('objBox');
+  if (box) box.classList.add('dragging');
+  
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchmove', onDrag, {passive: false});
+  document.addEventListener('touchend', endDrag);
+}
+
+function onDrag(e) {
+  if (!state.isDragging) return;
+  e.preventDefault();
+  state.dragCurrentX = getPointerX(e);
+  const dx = state.dragCurrentX - state.dragStartX;
+  // 放寬拖曳的力道範圍至 1500
+  let force = Math.max(-1500, Math.min(1500, dx * 10)); 
+  state.appliedForce = force;
+  $('forceSlider').value = force;
+  if (state.mode !== MODE.LIVE && Math.abs(force) > 0.1) setMode(MODE.LIVE);
+}
+
+function endDrag() {
+  if (!state.isDragging) return;
+  state.isDragging = false;
+  state.appliedForce = 0;
+  $('forceSlider').value = 0;
+  const box = $('objBox');
+  if (box) box.classList.remove('dragging');
+  
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', endDrag);
+  document.removeEventListener('touchmove', onDrag);
+  document.removeEventListener('touchend', endDrag);
+}
+
+function physicsStep(dt) {
+  const m = state.currentObj.mass;
+  const mu_s = state.useFriction ? state.currentObj.mu_s : 0;
+  const mu_k = state.useFriction ? state.currentObj.mu_k : 0;
+  const N = m * state.g; // 使用當地星球重力
+  const maxStaticFric = mu_s * N;
+  const kineticFric = mu_k * N;
+  
+  let friction = 0;
+  if (Math.abs(state.velocity) < 0.001) {
+    if (Math.abs(state.appliedForce) <= maxStaticFric) friction = -state.appliedForce;
+    else friction = -Math.sign(state.appliedForce) * kineticFric;
+  } else {
+    friction = -Math.sign(state.velocity) * kineticFric;
+  }
+  
+  let netForce = state.appliedForce + friction;
+  let a = netForce / m;
+  let newV = state.velocity + a * dt;
+  
+  if (state.velocity * newV < 0 && Math.abs(state.appliedForce) <= maxStaticFric) {
+    newV = 0; a = 0; friction = -state.appliedForce; netForce = 0;
+  }
+  
+  state.velocity = newV;
+  state.position += state.velocity * dt;
+  state.acceleration = a;
+  state.friction = friction;
+  state.netForce = netForce;
+  state.simTime += dt;
+  state.viewTime = state.simTime;
+  
+  history.t.push(state.simTime);
+  history.F_app.push(state.appliedForce);
+  history.F_fric.push(friction);
+  history.F_net.push(netForce);
+  history.a.push(a);
+  history.v.push(state.velocity);
+  history.x.push(state.position);
+  
+  if (history.t.length > MAX_HISTORY) {
+    Object.keys(history).forEach(k => history[k].shift());
+  }
+}
+
+function updateStaticDisplay() {
+  const m = state.currentObj.mass;
+  const mu_s = state.useFriction ? state.currentObj.mu_s : 0;
+  const mu_k = state.useFriction ? state.currentObj.mu_k : 0;
+  const maxStaticFric = mu_s * m * state.g;
+  const kineticFric = mu_k * m * state.g;
+  
+  if (Math.abs(state.velocity) < 0.001) {
+    state.friction = Math.abs(state.appliedForce) <= maxStaticFric ? -state.appliedForce : -Math.sign(state.appliedForce)*kineticFric;
+  } else {
+    state.friction = -Math.sign(state.velocity) * kineticFric;
+  }
+  state.netForce = state.appliedForce + state.friction;
+  state.acceleration = state.netForce / m;
+}
+
+function findHistoryIndex(t) {
+  if (history.t.length === 0) return -1;
+  if (t <= history.t[0]) return 0;
+  if (t >= history.t[history.t.length-1]) return history.t.length-1;
+  let lo = 0, hi = history.t.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (history.t[mid] < t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function truncateHistoryAtViewTime() {
+  const idx = findHistoryIndex(state.viewTime);
+  if (idx < 0) return;
+  Object.keys(history).forEach(k => history[k] = history[k].slice(0, idx + 1));
+  state.simTime = history.t[idx];
+  state.viewTime = state.simTime;
+  state.position = history.x[idx];
+  state.velocity = history.v[idx];
+  state.acceleration = history.a[idx];
+  state.friction = history.F_fric[idx];
+  state.netForce = history.F_net[idx];
+}
+
+function setMode(m) {
+  state.mode = m;
+  const badge = $('modeBadge');
+  if (!badge) return;
+  badge.classList.remove('mode-live','mode-paused','mode-replay');
+  if (m === MODE.LIVE) { badge.classList.add('mode-live'); badge.textContent = '🔴 LIVE'; }
+  else if (m === MODE.PAUSED) { badge.classList.add('mode-paused'); badge.textContent = '⏸ PAUSED'; }
+  else { badge.classList.add('mode-replay'); badge.textContent = '▶ REPLAY'; }
+  $('playBtn').textContent = (m === MODE.PAUSED) ? '▶' : '⏸';
+}
+
+let lastTime = 0;
+function loop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  let realDt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+  
+  if (state.mode === MODE.LIVE) {
+    const dt = realDt * state.speed;
+    const sub = 4;
+    for (let i = 0; i < sub; i++) physicsStep(dt / sub);
+  } else if (state.mode === MODE.REPLAY) {
+    state.viewTime += realDt * state.speed;
+    if (state.viewTime >= state.simTime) {
+      state.viewTime = state.simTime;
+      setMode(MODE.PAUSED);
+    }
+    const idx = findHistoryIndex(state.viewTime);
+    if (idx >= 0 && !state.isDragging) {
+      $('forceSlider').value = history.F_app[idx];
+    }
+  } else {
+    if (Math.abs(state.viewTime - state.simTime) < 0.01) updateStaticDisplay();
+  }
+  
+  updateUI();
+  renderScene();
+  drawCharts();
+  
+  requestAnimationFrame(loop);
+}
+
+function updateUI() {
+  const ds = getDisplayState();
+  $('forceValue').textContent = fDisp(ds.F_app).toFixed(1) + ' ' + fUnit();
+  $('val_time').textContent = ds.t.toFixed(2);
+  $('val_pos').textContent = ds.x.toFixed(2);
+  $('val_vel').textContent = ds.v.toFixed(2);
+  $('val_acc').textContent = ds.a.toFixed(2);
+  $('val_fapp').textContent = fDisp(ds.F_app).toFixed(2);
+  $('val_fric').textContent = fDisp(ds.F_fric).toFixed(2);
+  $('val_fnet').textContent = fDisp(ds.F_net).toFixed(2);
+  $('viewTimeLbl').textContent = state.viewTime.toFixed(2);
+  $('simTimeLbl').textContent = state.simTime.toFixed(2);
+}
+
+function resetAll() {
+  state.appliedForce = 0;
+  state.position = INITIAL_POSITION;
+  state.velocity = 0;
+  state.acceleration = 0;
+  state.friction = 0;
+  state.netForce = 0;
+  state.simTime = 0;
+  state.viewTime = 0;
+  $('forceSlider').value = 0;
+  history = { t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION] };
+  setMode(MODE.PAUSED);
+  broadcastStateToParent('重置實驗');
+}
+
+function togglePlay() {
+  if (state.mode === MODE.LIVE) setMode(MODE.PAUSED);
+  else if (state.mode === MODE.REPLAY) setMode(MODE.PAUSED);
+  else {
+    if (state.viewTime < state.simTime - 0.01) setMode(MODE.REPLAY);
+    else setMode(MODE.LIVE);
+  }
+  broadcastStateToParent(state.mode === MODE.LIVE ? '開始播放' : '暫停播放');
+}
+
+function replay() {
+  if (state.simTime < 0.01) return;
+  state.viewTime = 0;
+  state.appliedForce = history.F_app[0] || 0;
+  $('forceSlider').value = state.appliedForce;
+  setMode(MODE.REPLAY);
+  broadcastStateToParent('開始重播');
+}
+
+function goToEnd() {
+  state.viewTime = state.simTime;
+  if (history.t.length > 0) {
+    const idx = history.t.length - 1;
+    state.appliedForce = history.F_app[idx];
+    $('forceSlider').value = state.appliedForce;
+  }
+  setMode(MODE.PAUSED);
+  broadcastStateToParent('跳至最新時間');
+}
+
+function setSpeed(s, btn) {
+  state.speed = s;
+  document.querySelectorAll('.speed-seg').forEach(b => b.classList.remove('active-speed'));
+  if (btn) btn.classList.add('active-speed');
+}
+
+function toggleChart(id, btn) {
+  const el = $(id);
+  if (el) el.classList.toggle('collapsed');
+  if (btn) btn.classList.toggle('collapsed');
+}
+
+function togglePanel(colId, contentId, btnId) {
+  const col = $(colId);
+  const content = $(contentId);
+  const btn = $(btnId);
+  const collapsed = col.dataset.collapsed === 'true';
+  
+  if (collapsed) {
+    col.dataset.collapsed = 'false';
+    content.classList.remove('hidden');
+    btn.style.transform = 'rotate(0deg)';
+  } else {
+    col.dataset.collapsed = 'true';
+    content.classList.add('hidden');
+    btn.style.transform = 'rotate(-90deg)';
+  }
+}
+
+function wireUpControls() {
+  $('forceSlider').addEventListener('input', e => {
+    if (state.isDragging) return;
+    const newForce = parseFloat(e.target.value);
+    if (state.mode !== MODE.LIVE && state.viewTime < state.simTime - 0.01) {
+      truncateHistoryAtViewTime();
+    }
+    state.appliedForce = newForce;
+    if (Math.abs(newForce) > 0.1) setMode(MODE.LIVE);
+  });
+  
+  $('forceSlider').addEventListener('change', e => {
+    broadcastStateToParent('調整施力: ' + e.target.value + ' N');
+  });
+
+  // 設定全域的圖表時間拖曳事件
+  let activeScrubCanvas = null;
+  const updateScrubTime = (ev, canvas) => {
+    const r = canvas.getBoundingClientRect();
+    const clientX = (ev.touches && ev.touches.length > 0) ? ev.touches[0].clientX : ev.clientX;
+    const x = clientX - r.left;
+    const padL = 50, padR = 15;
+    const plotW = canvas.clientWidth - padL - padR;
+    if (plotW <= 0) return;
+
+    const tMx = Math.max(state.simTime, 5);
+    let t = ((x - padL) / plotW) * tMx;
+    t = Math.max(0, Math.min(state.simTime, t));
+
+    state.viewTime = t;
+    if (state.mode === MODE.LIVE) setMode(MODE.PAUSED);
+    const idx = findHistoryIndex(t);
+    if (idx >= 0) {
+      state.appliedForce = history.F_app[idx];
+      $('forceSlider').value = state.appliedForce;
+    }
+  };
+
+  const startScrub = (ev, canvas) => {
+    activeScrubCanvas = canvas;
+    state.scrubbing = true;
+    updateScrubTime(ev, canvas);
+  };
+
+  ['canvas_F', 'canvas_A', 'canvas_V', 'canvas_X'].forEach(id => {
+    const cvs = $(id);
+    if (!cvs) return;
+    cvs.addEventListener('mousedown', e => startScrub(e, cvs));
+    cvs.addEventListener('touchstart', e => {
+      startScrub(e, cvs);
+    }, {passive: true});
+  });
+
+  document.addEventListener('mousemove', ev => {
+    if (activeScrubCanvas) updateScrubTime(ev, activeScrubCanvas);
+  });
+  document.addEventListener('mouseup', () => {
+    if (activeScrubCanvas) {
+      activeScrubCanvas = null;
+      state.scrubbing = false;
+    }
+  });
+  document.addEventListener('touchmove', ev => {
+    if (activeScrubCanvas) {
+      updateScrubTime(ev, activeScrubCanvas);
+      ev.preventDefault();
+    }
+  }, {passive: false});
+  document.addEventListener('touchend', () => {
+    if (activeScrubCanvas) {
+      activeScrubCanvas = null;
+      state.scrubbing = false;
+    }
+  });
+
+  // 箭頭顯示設定
+  $('showApplied').addEventListener('change', e => state.showApplied = e.target.checked);
+  $('showFriction').addEventListener('change', e => state.showFriction = e.target.checked);
+  $('showNet').addEventListener('change', e => state.showNet = e.target.checked);
+  $('showVel').addEventListener('change', e => state.showVel = e.target.checked);
+  $('showAcc').addEventListener('change', e => state.showAcc = e.target.checked);
+  
+  $('frictionToggle').addEventListener('change', e => {
+    state.useFriction = e.target.checked;
+    broadcastStateToParent(e.target.checked ? '啟用摩擦力' : '關閉摩擦力');
+  });
+
+  // 箭頭比例縮放
+  $('scaleForce').addEventListener('input', e => {
+    state.forceScale = parseFloat(e.target.value);
+    $('scaleLblForce').textContent = state.forceScale.toFixed(1) + 'x';
+  });
+  $('scaleKinematic').addEventListener('input', e => {
+    state.kinematicScale = parseFloat(e.target.value);
+    $('scaleLblKinematic').textContent = state.kinematicScale.toFixed(1) + 'x';
+  });
+
+  // 進階選項切換
+  $('toggleAdvancedBtn').addEventListener('click', () => {
+    const panel = $('advancedPanel');
+    const icon = $('advIcon');
+    if (panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      icon.style.transform = 'rotate(-180deg)';
+    } else {
+      panel.classList.add('hidden');
+      icon.style.transform = 'rotate(0deg)';
+    }
+  });
+
+  // 星球重力切換
+  $('planetSelect').addEventListener('change', e => {
+    state.g = parseFloat(e.target.value);
+    $('gDisplay').textContent = state.g.toFixed(2) + ' m/s²';
+    if(state.mode !== MODE.LIVE) updateStaticDisplay();
+    broadcastStateToParent('更換星球: ' + e.target.options[e.target.selectedIndex].text);
+  });
+
+  // 自訂摩擦係數
+  $('inputMuS')?.addEventListener('change', e => {
+    let v = parseFloat(e.target.value);
+    if (!isNaN(v) && state.currentObj) state.currentObj.mu_s = v;
+    if(state.mode !== MODE.LIVE) updateStaticDisplay();
+    broadcastStateToParent('調整靜摩擦係數: ' + v);
+  });
+  $('inputMuK')?.addEventListener('change', e => {
+    let v = parseFloat(e.target.value);
+    if (!isNaN(v) && state.currentObj) state.currentObj.mu_k = v;
+    if(state.mode !== MODE.LIVE) updateStaticDisplay();
+    broadcastStateToParent('調整動摩擦係數: ' + v);
+  });
+
+  $('statsToggleBtn').addEventListener('click', () => togglePanel('statsCol', 'statsContent', 'statsToggleBtn'));
+  $('settingsToggleBtn').addEventListener('click', () => togglePanel('settingsCol', 'settingsContent', 'settingsToggleBtn'));
+
+  $('replayBtn').addEventListener('click', replay);
+  $('playBtn').addEventListener('click', togglePlay);
+  $('endBtn').addEventListener('click', goToEnd);
+  $('resetBtn').addEventListener('click', resetAll);
+
+  document.querySelectorAll('.speed-seg').forEach(btn => {
+    btn.addEventListener('click', () => setSpeed(parseFloat(btn.dataset.speed), btn));
+  });
+
+  document.querySelectorAll('[data-unit]').forEach(btn => {
+    btn.addEventListener('click', () => setUnit(btn.dataset.unit));
+  });
+
+  document.querySelectorAll('.chart-toggle').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleChart(btn.dataset.target, btn);
+    });
+  });
+}
+
+let dragSourceCard = null;
+
+function initChartDragDrop() {
+  const container = $('chartsContainer');
+  const cards = container.querySelectorAll('.chart-card');
+  
+  cards.forEach(card => {
+    const header = card.querySelector('.chart-header');
+    
+    header.addEventListener('dragstart', (e) => {
+      dragSourceCard = card;
+      card.classList.add('drag-source');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', card.dataset.chartId); } catch(_){}
+    });
+    
+    header.addEventListener('dragend', () => {
+      card.classList.remove('drag-source');
+      cards.forEach(c => c.classList.remove('drag-over-top','drag-over-bottom'));
+      dragSourceCard = null;
+    });
+    
+    card.addEventListener('dragover', (e) => {
+      if (!dragSourceCard || dragSourceCard === card) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = card.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      cards.forEach(c => c.classList.remove('drag-over-top','drag-over-bottom'));
+      if (e.clientY < midY) card.classList.add('drag-over-top');
+      else card.classList.add('drag-over-bottom');
+    });
+    
+    card.addEventListener('dragleave', (e) => {
+      if (!card.contains(e.relatedTarget)) {
+        card.classList.remove('drag-over-top','drag-over-bottom');
+      }
+    });
+    
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!dragSourceCard || dragSourceCard === card) return;
+      const rect = card.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY < midY) container.insertBefore(dragSourceCard, card);
+      else container.insertBefore(dragSourceCard, card.nextSibling);
+      cards.forEach(c => c.classList.remove('drag-over-top','drag-over-bottom'));
+    });
+  });
+}
+
+function drawCharts() {
+  drawChart('canvas_F', [
+    {data: history.F_app, color: '#ef4444'},
+    {data: history.F_fric, color: '#3b82f6'},
+    {data: history.F_net, color: '#10b981'},
+  ], '力 (' + fUnit() + ')', fDisp);
+  drawChart('canvas_A', [{data: history.a, color: '#0ea5e9'}], 'a (m/s²)');
+  drawChart('canvas_V', [{data: history.v, color: '#8b5cf6'}], 'v (m/s)');
+  drawChart('canvas_X', [{data: history.x, color: '#f43f5e'}], 'x (m)');
+}
+
+function drawChart(canvasId, series, ylabel, transform) {
+  const canvas = $(canvasId);
+  if (!canvas) return;
+  const parent = canvas.parentElement;
+  if (parent.classList.contains('collapsed')) return;
+  const tx = transform || (v => v);
+  
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = parent.clientWidth;
+  const cssH = parent.clientHeight;
+  if (cssW < 10 || cssH < 10) return;
+  
+  if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  
+  const padL = 50, padR = 15, padT = 12, padB = 26;
+  const plotW = cssW - padL - padR;
+  const plotH = cssH - padT - padB;
+  if(plotH <= 0 || plotW <= 0) return;
+  
+  const tMax = Math.max(state.simTime, 5);
+  const tMin = 0;
+  
+  let yMin = Infinity, yMax = -Infinity;
+  series.forEach(s => s.data.forEach(v => {
+    const tv = tx(v);
+    if (tv < yMin) yMin = tv;
+    if (tv > yMax) yMax = tv;
+  }));
+  if (!isFinite(yMin)) { yMin = -1; yMax = 1; }
+  if (yMin === yMax) { yMin -= 1; yMax += 1; }
+  const padY = (yMax - yMin) * 0.15;
+  yMin -= padY; yMax += padY;
+  if (yMin > 0) yMin = 0;
+  if (yMax < 0) yMax = 0;
+  
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'right';
+  
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (plotH * i / 4);
+    const val = yMax - (yMax - yMin) * i / 4;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+    ctx.fillText(val.toFixed(1), padL - 4, y + 3);
+  }
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 5; i++) {
+    const x = padL + (plotW * i / 5);
+    const val = tMin + (tMax - tMin) * i / 5;
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
+    ctx.fillText(val.toFixed(1)+'s', x, padT + plotH + 14);
+  }
+  
+  if (yMin < 0 && yMax > 0) {
+    const zeroY = padT + plotH * (yMax / (yMax - yMin));
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(padL+plotW, zeroY); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  
+  ctx.save();
+  ctx.translate(12, padT + plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#374151';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillText(ylabel, 0, 0);
+  ctx.restore();
+  
+  const xScale = v => padL + ((v - tMin) / (tMax - tMin)) * plotW;
+  const yScale = v => padT + ((yMax - v) / (yMax - yMin)) * plotH;
+  
+  series.forEach(s => {
+    if (s.data.length < 2) return;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < s.data.length; i++) {
+      const x = xScale(history.t[i]);
+      const y = yScale(tx(s.data[i]));
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+  
+  if (history.t.length > 0) {
+    const cursorX = xScale(state.viewTime);
+    ctx.strokeStyle = '#8b5cf6'; // 垂直指示線改為顯眼的紫色
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cursorX, padT);
+    ctx.lineTo(cursorX, padT + plotH);
+    ctx.stroke();
+    
+    // 將游標改為看起來像拖曳把手的設計
+    ctx.fillStyle = '#8b5cf6';
+    ctx.beginPath();
+    ctx.moveTo(cursorX - 6, padT - 2);
+    ctx.lineTo(cursorX + 6, padT - 2);
+    ctx.lineTo(cursorX + 6, padT + 5);
+    ctx.lineTo(cursorX, padT + 11);
+    ctx.lineTo(cursorX - 6, padT + 5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  
+  ctx.strokeStyle = '#9ca3af';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(padL, padT, plotW, plotH);
+}
+
+function init() {
+  buildObjectGrid();
+  setupSceneElements();
+  setMode(MODE.PAUSED);
+  wireUpControls();
+  updateMuInputs();
+  initChartDragDrop();
+  window.addEventListener('resize', renderScene);
+  requestAnimationFrame(loop);
+  
+  // 初始化後發送開場白廣播給 AI
+  setTimeout(() => {
+    try {
+      window.parent.postMessage({
+        type: 'SYSTEM_INTRO',
+        payload: {
+          "系統開場白": "歡迎來到「力與運動模擬器」！在這裡，你可以選擇不同的物體（如木箱、冰塊、大石頭等），設定不同的星球重力與摩擦係數，並觀察施力、摩擦力與合力如何影響物體的加速度、速度與位置。請試著拖曳物體或調整滑桿，觀察圖表的變化，並隨時與我討論你的發現！"
+        }
+      }, '*');
+      console.log("【系統開場白已發送】");
+    } catch (e) {
+      console.error("開場白廣播失敗:", e);
+    }
+  }, 500);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+})();
+</script>
+
+
+</body></html>
