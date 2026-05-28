@@ -666,7 +666,7 @@ function updateArrow(type, show, value, xLeft, xRight, y, labelPrefix, scaleModi
     return;
   }
   
-  const actualMult = isForce ? 1.6 : baseMultiplier; 
+  const actualMult = isForce ? 0.6 : baseMultiplier; 
   let rawLen = Math.abs(value) * actualMult * scaleModifier;
   const len = Math.min(500, Math.max(10, rawLen)); 
   
