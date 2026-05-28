@@ -734,13 +734,13 @@ function onDrag(e) {
 let absDx = Math.abs(dx);
 let sign = Math.sign(dx); // 取得方向 (1 是往右, -1 是往左)
 let rawForce = 0;
-if (absDx <= 200) {
-  // 【微調區】200 像素以內：每 1 像素固定增加 0.1N
+if (absDx <= 100) {
+  // 【微調區】100 像素以內：每 1 像素固定增加 0.5N
   // 拉到 100 像素時，剛好是 50N
-  rawForce = absDx * 0.1;
+  rawForce = absDx * 0.5;
 } else {
   // 【加速區】超過 100 像素的部分
-  let extraDx = absDx - 200;
+  let extraDx = absDx - 100;
   // 基礎的 50N + 延續原本的斜率 + 平方暴增 (0.02 是暴增倍率)
   rawForce = 50 + (extraDx * 0.5) + (extraDx * extraDx * 0.02);
 }
