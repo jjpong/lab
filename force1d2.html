@@ -731,7 +731,7 @@ function onDrag(e) {
   e.preventDefault();
   state.dragCurrentX = getPointerX(e);
   const dx = state.dragCurrentX - state.dragStartX;
-let force = Math.round(Math.max(-1500, Math.min(1500, dx * 5)) * 10) / 10;  
+let force = Math.round(Math.max(-1500, Math.min(1500, dx * 0.1)) * 50) / 10;  
       state.appliedForce = force;
   if($('forceSlider')) $('forceSlider').value = force;
   if (state.mode !== MODE.LIVE && Math.abs(force) > 0.1) setMode(MODE.LIVE);
