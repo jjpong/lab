@@ -436,6 +436,7 @@ let state = {
   currentObj: objects[2],
   g: 9.8,
   appliedForce: 0,
+  targetForce: 0, // 👈 新增這行：用來記錄滑鼠實際算出的目標力道
   position: INITIAL_POSITION,
   velocity: 0,
   acceleration: 0,
@@ -749,15 +750,17 @@ if (absDx <= 100) {
 // 補回方向，並限制在正負 1500N 之間，最後四捨五入到小數第一位
 rawForce *= sign;
 let force = Math.round(Math.max(-1500, Math.min(1500, rawForce)) * 10) / 10;
-      state.appliedForce = force;
-  if($('forceSlider')) $('forceSlider').value = force;
-  if (state.mode !== MODE.LIVE && Math.abs(force) > 0.1) setMode(MODE.LIVE);
+state.targetForce = force;
+if (state.mode !== MODE.LIVE && Math.abs(force) > 0.1) setMode(MODE.LIVE);
 }
 
 function endDrag() {
   if (!state.isDragging) return;
   state.isDragging = false;
   state.appliedForce = 0;
+  state.targetForce = 0;
+  state.appliedForce = 0; 
+  if($('forceSlider')) $('forceSlider').value = 0;
   if($('forceSlider')) $('forceSlider').value = 0;
   const box = $('objBox');
   if (box) box.classList.remove('dragging');
@@ -894,7 +897,13 @@ function loop(timestamp) {
   if (!lastTime) lastTime = timestamp;
   let realDt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
-  
+    if (state.isDragging) {
+    // 0.15 是平滑係數。數值越小越平滑(但跟隨較慢)，數值越大反應越快(但較不平滑)。你可以微調這個數字！
+    state.appliedForce += (state.targetForce - state.appliedForce) * 0.15;
+    
+    // 同步更新拉桿的顯示
+    if($('forceSlider')) $('forceSlider').value = state.appliedForce;
+  }
   if (state.mode === MODE.LIVE) {
     const dt = realDt * state.speed;
     const sub = 4;
