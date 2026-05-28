@@ -668,7 +668,8 @@ function updateArrow(type, show, value, xLeft, xRight, y, labelPrefix, scaleModi
   
   const actualMult = isForce ? 0.6 : baseMultiplier; 
   let rawLen = Math.abs(value) * actualMult * scaleModifier;
-  const len = Math.min(500, Math.max(10, rawLen)); 
+      const maxLen = 400 * scaleModifier; 
+  const len = Math.min(maxLen, Math.max(10, rawLen)); 
   
   const isRight = value > 0;
   const arrowH = (type === 'net') ? 7 : (isForce ? 5 : 4);
