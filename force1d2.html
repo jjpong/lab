@@ -732,7 +732,23 @@ function onDrag(e) {
   state.dragCurrentX = getPointerX(e);
   const dx = state.dragCurrentX - state.dragStartX;
 // 0.02 是調整手感的倍率，你可以根據喜好微調這個數字
-let rawForce = dx * Math.abs(dx) * 0.02; 
+let absDx = Math.abs(dx);
+let sign = Math.sign(dx); // 取得方向 (1 是往右, -1 是往左)
+let rawForce = 0;
+
+if (absDx <= 100) {
+  // 【微調區】100 像素以內：每 1 像素固定增加 0.5N
+  // 拉到 100 像素時，剛好是 50N
+  rawForce = absDx * 0.5;
+} else {
+  // 【加速區】超過 100 像素的部分
+  let extraDx = absDx - 100;
+  // 基礎的 50N + 延續原本的斜率 + 平方暴增 (0.02 是暴增倍率)
+  rawForce = 50 + (extraDx * 0.5) + (extraDx * extraDx * 0.02);
+}
+
+// 補回方向，並限制在正負 1500N 之間，最後四捨五入到小數第一位
+rawForce *= sign;
 let force = Math.round(Math.max(-1500, Math.min(1500, rawForce)) * 10) / 10;
       state.appliedForce = force;
   if($('forceSlider')) $('forceSlider').value = force;
