@@ -731,7 +731,7 @@ function onDrag(e) {
   e.preventDefault();
   state.dragCurrentX = getPointerX(e);
   const dx = state.dragCurrentX - state.dragStartX;
-let force = Math.round(Math.max(-1500, Math.min(1500, dx * 10)) * 10) / 10;  
+let force = Math.round(Math.max(-1500, Math.min(1500, dx * 0.5)) * 10) / 10;  
       state.appliedForce = force;
   if($('forceSlider')) $('forceSlider').value = force;
   if (state.mode !== MODE.LIVE && Math.abs(force) > 0.1) setMode(MODE.LIVE);
@@ -754,6 +754,11 @@ function endDrag() {
 }
 
 function physicsStep(dt) {
+        const MAX_TIME = 60; // 這裡設定你想要的時間上限（例如 20 秒）
+  if (state.simTime >= MAX_TIME) {
+    if (state.mode === MODE.LIVE) setMode(MODE.PAUSED);
+    return; // 時間到了就停止物理計算
+  }
   const m = state.currentObj.mass;
   const mu_s = state.useFriction ? state.currentObj.mu_s : 0;
   const mu_k = state.useFriction ? state.currentObj.mu_k : 0;
