@@ -226,7 +226,8 @@ function solveWaterHeight(){
 }
 
 // ---------- 座標轉換 ----------
-let ppc = 20, originX = 0, originY = 0;
+let ppc = 20, originX = 0, originY = cv.height * 0.62;
+
 function computeView(){
   const marginV = 34, sideM = 40;
   const fit = Math.min((cv.width - 2*sideM)/Wcm, (cv.height - 2*marginV)/Hcm);
