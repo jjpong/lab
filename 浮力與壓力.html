@@ -108,8 +108,8 @@
       <h2>力的箭頭</h2>
       <div class="checks">
         <label><input type="checkbox" id="showForce" checked="">
-          顯示重力 <span class="badge" style="background:#ef4444">重力</span>
-          與浮力 <span class="badge" style="background:#3b82f6">浮力</span></label>
+          顯示 <span class="badge" style="background:#ef4444">重力</span>
+          與 <span class="badge" style="background:#3b82f6">浮力</span></label>
       </div>
       <div class="row" style="margin-top:6px">
         <label>力箭頭比例 (scale) <span class="val" id="fsVal"></span></label>
@@ -380,18 +380,18 @@ function drawWallPressure(wh){
 }
 
 function drawForces(wh){
+  const FORCE_LEN_K = 20;          // ← 原本相當於 2，現在 ×10 = 20
   const mass = S.density*S.area;
   const sub = submergedArea(S.cy, wh);
   const W = mass;
   const B = S.rhoLiq * sub;
   const cxp = X(S.cx), cyp = Y(S.cy);
-  if(W>0) arrow(cxp, cyp, cxp, cyp + W*S.forceScale*2, '#ef4444', 9, 3);
-  if(B>0) arrow(cxp, cyp, cxp, cyp - B*S.forceScale*2, '#3b82f6', 9, 3);
+  if(W>0) arrow(cxp, cyp, cxp, cyp + W*S.forceScale*FORCE_LEN_K, '#ef4444', 9, 3);
+  if(B>0) arrow(cxp, cyp, cxp, cyp - B*S.forceScale*FORCE_LEN_K, '#3b82f6', 9, 3);
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+10, cyp + Math.max(18, W*S.forceScale*2));
-  ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+10, cyp - Math.max(18, B*S.forceScale*2));
+  ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+10, cyp + Math.max(18, W*S.forceScale*FORCE_LEN_K));
+  ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+10, cyp - Math.max(18, B*S.forceScale*FORCE_LEN_K));
 }
-
 // ---------- 物理 ----------
 function physics(dt){
   if(S.dragging || S.fixPos){ S.vy = 0; return; }
