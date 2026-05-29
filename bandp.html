@@ -453,28 +453,45 @@ function drawForces(wh){
   const B = S.rhoLiq * sub;               // 浮力(gw) = 液體密度 × 排開體積
   const cxp = X(S.cx), cyp = Y(S.cy);
   
-  // ─── 修正：將線條長度稍微縮減，避免線頭穿透 ───
-  // wEnd 和 bEnd 是原本算出來的總長度
   const wEnd = W * S.forceScale * FORCE_LEN_K;
   const bEnd = B * S.forceScale * FORCE_LEN_K;
-  
-  // 減去 6 像素，讓粗線的末端剛好收在三角形裡面
-  const wLineEnd = wEnd > 6 ? wEnd - 16 : wEnd;
-  const bLineEnd = bEnd > 6 ? bEnd - 16 : bEnd;
 
-  // 畫箭頭時，終點 y 座標使用縮減後的長度（cyp + wLineEnd / cyp - bLineEnd）
-  if(W>0) arrow(cxp, cyp, cxp, cyp + wLineEnd, '#ef4444', 24, 6);
-  if(B>0) arrow(cxp, cyp, cxp, cyp - bLineEnd, '#3b82f6', 24, 6);
+  // ─── 破解核心：分開繪製 ───
+  
+  if(W>0) {
+    // 1. 用原本的箭頭大小（9）和細線（3）來呼叫 arrow，讓三角形箭頭留在完美的總長度端點
+    arrow(cxp, cyp, cxp, cyp + wEnd, '#ef4444', 24, 3);
+    
+    // 2. 在後面蓋上一條「比較短」的粗線（粗度 6），蓋掉細線，且末端提早縮短 12px 藏進三角形
+    ctx.beginPath();
+    ctx.moveTo(cxp, cyp);
+    ctx.lineTo(cxp, cyp + Math.max(0, wEnd - 12)); 
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+  }
+
+  if(B>0) {
+    // 1. 浮力也是一樣，先用 arrow 決定三角形的落點
+    arrow(cxp, cyp, cxp, cyp - bEnd, '#3b82f6', 24, 3);
+    
+    // 2. 疊上變粗的主幹，末端同樣提早縮短 12px 藏好
+    ctx.beginPath();
+    ctx.moveTo(cxp, cyp);
+    ctx.lineTo(cxp, cyp - Math.max(0, bEnd - 12));
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+  }
   
   // 字體加大到 16px
   ctx.font = 'bold 16px sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   
-  // 文字位置保持原本依總長度（wEnd / bEnd）計算，確保文字貼近箭頭尖端
+  // 文字位置
   ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+22, cyp + Math.max(18, wEnd));
   ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+22, cyp - Math.max(18, bEnd));
 }
-
 // ---------- 物理 ----------
 function physics(dt){
   if(S.dragging || S.fixPos){ S.vy = 0; return; }
