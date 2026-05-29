@@ -380,7 +380,7 @@ function drawWallPressure(wh){
 }
 
 function drawForces(wh){
-  const FORCE_LEN_K = 20;          // ← 原本相當於 2，現在 ×10 = 20
+  const FORCE_LEN_K = 10;          // ← 原本相當於 2，現在 ×10 = 20
   const mass = S.density*S.area;
   const sub = submergedArea(S.cy, wh);
   const W = mass;
