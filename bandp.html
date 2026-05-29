@@ -459,8 +459,8 @@ function drawForces(wh){
   const bEnd = B * S.forceScale * FORCE_LEN_K;
   
   // 減去 6 像素，讓粗線的末端剛好收在三角形裡面
-  const wLineEnd = wEnd > 6 ? wEnd - 6 : wEnd;
-  const bLineEnd = bEnd > 6 ? bEnd - 6 : bEnd;
+  const wLineEnd = wEnd > 6 ? wEnd - 16 : wEnd;
+  const bLineEnd = bEnd > 6 ? bEnd - 16 : bEnd;
 
   // 畫箭頭時，終點 y 座標使用縮減後的長度（cyp + wLineEnd / cyp - bLineEnd）
   if(W>0) arrow(cxp, cyp, cxp, cyp + wLineEnd, '#ef4444', 24, 6);
