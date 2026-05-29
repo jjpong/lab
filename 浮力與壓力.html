@@ -1,0 +1,523 @@
+<!DOCTYPE html><html lang="zh-Hant"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>浮力與壓力互動實驗室</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    background: #0f172a; color: #e2e8f0;
+  }
+  .app { display: flex; flex-wrap: wrap; min-height: 100vh; }
+  .panel {
+    width: 330px; max-width: 100%; padding: 16px; background: #1e293b;
+    overflow-y: auto; max-height: 100vh;
+  }
+  .stage { flex: 1; min-width: 300px; padding: 12px; display: flex; flex-direction: column; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #94a3b8; margin-bottom: 14px; }
+  .group {
+    background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 12px;
+  }
+  .group h2 { font-size: 13px; margin: 0 0 8px; color: #7dd3fc; letter-spacing: .5px; }
+  .row { margin-bottom: 9px; }
+  .row label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+  .row .val { color: #fbbf24; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #38bdf8; }
+  .checks label, .shape label {
+    display: flex; align-items: center; gap: 6px; font-size: 13px;
+    padding: 4px 0; cursor: pointer;
+  }
+  .shape { display: flex; gap: 14px; }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 6px; font-size: 11px; }
+  canvas { background: #f8fafc; border-radius: 10px; width: 100%; display: block; touch-action: none; }
+  .btn {
+    width: 100%; padding: 9px; border: none; border-radius: 8px; cursor: pointer;
+    background: #38bdf8; color: #0f172a; font-weight: bold; font-size: 13px;
+  }
+  .state-tag { font-weight: bold; }
+  .hint { font-size: 11px; color: #64748b; margin-top: 6px; }
+
+  /* ===== 實驗區內的狀態浮層 ===== */
+  .canvas-wrap { position: relative; flex: 1; display: flex; }
+  #statusOverlay {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(15,23,42,.72); color: #f1f5f9;
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; line-height: 1.75; min-width: 168px;
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
+    pointer-events: none;
+  }
+  #statusOverlay.hidden { display: none; }
+  #statusOverlay .line { display: flex; justify-content: space-between; gap: 14px; }
+  #statusOverlay b { color: #fbbf24; font-variant-numeric: tabular-nums; }
+  #statusOverlay .state-tag { color: #a78bfa; }
+  #statusToggle {
+    position: absolute; top: 12px; right: 12px;
+    pointer-events: auto; cursor: pointer;
+    background: rgba(15,23,42,.72); color: #f1f5f9;
+    border: 1px solid #334155; border-radius: 8px;
+    padding: 6px 12px; font-size: 13px;
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  }
+  #statusToggle:hover { background: rgba(30,41,59,.92); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 控制面板 -->
+  <div class="panel">
+    <h1>浮力與壓力互動實驗室</h1>
+    <div class="sub">單位：質量 g｜力 gw｜面積(體積) cm²｜密度 g/cm²</div>
+
+    <div class="group">
+      <h2>物體形狀</h2>
+      <div class="shape">
+        <label><input type="radio" name="shape" value="circle" checked=""> 圓形</label>
+        <label><input type="radio" name="shape" value="square"> 方形</label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>物體性質（質量 = 密度 × 體積）</h2>
+      <div class="row">
+        <label>密度 <span class="val" id="dVal"></span></label>
+        <input type="range" id="density" min="0.10" max="3.00" step="0.02">
+      </div>
+      <div class="row">
+        <label>體積（面積）<span class="val" id="aVal"></span></label>
+        <input type="range" id="area" min="5" max="80" step="1">
+      </div>
+      <div class="row">
+        <label>質量 <span class="val" id="mVal"></span></label>
+        <input type="range" id="mass" min="0.5" max="240" step="0.5">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>液體</h2>
+      <div class="row">
+        <label>液體密度 <span class="val" id="lVal"></span></label>
+        <input type="range" id="liquid" min="0.4" max="2.0" step="0.02">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>力的箭頭</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="showForce" checked="">
+          顯示重力 <span class="badge" style="background:#ef4444">重力</span>
+          與浮力 <span class="badge" style="background:#3b82f6">浮力</span></label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label>力箭頭比例 (scale) <span class="val" id="fsVal"></span></label>
+        <input type="range" id="forceScale" min="0.2" max="3" step="0.05">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>液體壓力箭頭</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="showObjP" checked="">
+          顯示對<b style="color:#14b8a6">&nbsp;物體&nbsp;</b>的壓力</label>
+        <label><input type="checkbox" id="showWallP">
+          顯示對<b style="color:#f97316">&nbsp;器壁&nbsp;</b>的壓力</label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label>壓力箭頭比例 (scale) <span class="val" id="psVal"></span></label>
+        <input type="range" id="pScale" min="0.5" max="6" step="0.1">
+      </div>
+      <div class="row">
+        <label>箭頭密度（每 cm）<span class="val" id="pdVal"></span></label>
+        <input type="range" id="pDensity" min="0.3" max="3" step="0.1">
+      </div>
+      <div class="hint">箭頭越密 → 每支代表的面積越小 → 箭頭也越短。</div>
+    </div>
+
+    <div class="group">
+      <h2>其他設定</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="fixPos"> 固定物體位置（拖到哪停在哪）</label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label>畫面縮放 (scale) <span class="val" id="vsVal"></span></label>
+        <input type="range" id="viewScale" min="0.6" max="1.8" step="0.05">
+      </div>
+      <div class="row">
+        <label>阻尼 <span class="val" id="dampVal"></span></label>
+        <input type="range" id="damp" min="0.3" max="8" step="0.1">
+      </div>
+      <button class="btn" id="reset">重設位置</button>
+    </div>
+  </div>
+
+  <!-- 舞台 -->
+  <div class="stage">
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+      <div id="statusOverlay">
+        <div class="line">狀態：<span class="state-tag" id="rState">—</span></div>
+        <div class="line">沒入比例：<span><b id="rSub">0</b> %</span></div>
+        <div class="line">重力：<span><b id="rW">0</b> gw</span></div>
+        <div class="line">浮力：<span><b id="rB">0</b> gw</span></div>
+        <div class="line">排開液體：<span><b id="rDisp">0</b> cm²</span></div>
+        <div class="line">水面高度：<span><b id="rWH">0</b> cm</span></div>
+      </div>
+      <button id="statusToggle">數據 ▾</button>
+    </div>
+    <div class="hint">用滑鼠／手指拖曳物體。放手後物體在重力、浮力與阻尼作用下移動至平衡。</div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+// ---------- 容器（cm） ----------
+const Wcm = 20, Hcm = 16;
+const baseLiquidArea = 9 * Wcm;
+
+// ---------- 狀態 ----------
+const S = {
+  shape: 'circle',
+  density: 0.6, area: 30,
+  rhoLiq: 1.0,
+  forceScale: 1, showForce: true,
+  pScale: 2.5, pDensity: 1, showObjP: true, showWallP: false,
+  fixPos: false, viewScale: 1, damp: 3,
+  cx: Wcm/2, cy: 9, vy: 0,
+  dragging: false,
+};
+const g = 400;
+
+// 壓力箭頭長度倍率（原本的長度設定）
+const PRESSURE_LEN_K = 10;
+
+// ---------- 幾何工具 ----------
+function radius(){ return Math.sqrt(S.area/Math.PI); }
+function half(){ return Math.sqrt(S.area)/2; }
+function objHalfH(){ return S.shape==='circle'? radius() : half(); }
+function objHalfW(){ return S.shape==='circle'? radius() : half(); }
+
+function submergedArea(cy, L){
+  if(S.shape==='circle'){
+    const r = radius();
+    let a = cy - L;
+    if(a <= -r) return Math.PI*r*r;
+    if(a >=  r) return 0;
+    return r*r*Math.acos(a/r) - a*Math.sqrt(r*r - a*a);
+  } else {
+    const hh = half(), side = 2*hh;
+    const bottom = cy - hh;
+    const subH = Math.max(0, Math.min(side, L - bottom));
+    return side * subH;
+  }
+}
+
+function solveWaterHeight(){
+  let wh = baseLiquidArea / Wcm;
+  for(let i=0;i<10;i++){
+    const sub = submergedArea(S.cy, wh);
+    wh = (baseLiquidArea + sub) / Wcm;
+  }
+  return wh;
+}
+
+// ---------- 座標轉換 ----------
+let ppc = 20, originX = 0, originY = 0;
+function computeView(){
+  const marginV = 34, sideM = 40;
+  const fit = Math.min((cv.width - 2*sideM)/Wcm, (cv.height - 2*marginV)/Hcm);
+  ppc = fit * S.viewScale;
+  originX = (cv.width - Wcm*ppc)/2;
+  // 水槽垂直置中：容器中心對齊畫布中心
+  originY = cv.height/2 + (Hcm*ppc)/2;
+}
+const X = x => originX + x*ppc;
+const Y = y => originY - y*ppc;
+
+// ---------- 畫箭頭 ----------
+function arrow(x1,y1,x2,y2,color,headLen=8,lw=2){
+  const dx=x2-x1, dy=y2-y1, ang=Math.atan2(dy,dx);
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=lw;
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-headLen*Math.cos(ang-0.4), y2-headLen*Math.sin(ang-0.4));
+  ctx.lineTo(x2-headLen*Math.cos(ang+0.4), y2-headLen*Math.sin(ang+0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+// 壓力箭頭：白色描邊 + 彩色主體
+function pArrow(x1,y1,x2,y2,color){
+  arrow(x1,y1,x2,y2,'rgba(255,255,255,0.92)',11,5.4);
+  arrow(x1,y1,x2,y2,color,9,2.6);
+}
+
+// ---------- 主繪製 ----------
+function draw(){
+  computeView();
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  const wh = solveWaterHeight();
+
+  // 容器內背景（空氣）
+  ctx.fillStyle = '#eef6ff';
+  ctx.fillRect(X(0), Y(Hcm), Wcm*ppc, Hcm*ppc);
+
+  // 水
+  const whClamped = Math.min(wh, Hcm);
+  const grad = ctx.createLinearGradient(0, Y(whClamped), 0, Y(0));
+  grad.addColorStop(0, 'rgba(56,189,248,0.55)');
+  grad.addColorStop(1, 'rgba(14,116,200,0.75)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(X(0), Y(whClamped), Wcm*ppc, whClamped*ppc);
+  ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(X(0), Y(whClamped)); ctx.lineTo(X(Wcm), Y(whClamped)); ctx.stroke();
+  if(wh > Hcm){
+    ctx.fillStyle='#dc2626'; ctx.font='12px sans-serif';
+    ctx.fillText('⚠ 水溢出容器', X(0)+6, Y(Hcm)+14);
+  }
+
+  // 容器器壁
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(Hcm)); ctx.lineTo(X(0), Y(0));
+  ctx.lineTo(X(Wcm), Y(0)); ctx.lineTo(X(Wcm), Y(Hcm));
+  ctx.stroke();
+
+  if(S.showWallP) drawWallPressure(wh);
+  drawObject();
+  if(S.showObjP) drawObjectPressure(wh);
+  if(S.showForce) drawForces(wh);
+
+  updateReadout(wh);
+}
+
+function drawObject(){
+  ctx.fillStyle = S.density >= S.rhoLiq ? 'rgba(120,53,15,0.85)' : 'rgba(180,83,9,0.85)';
+  ctx.strokeStyle = '#7c2d12'; ctx.lineWidth = 2;
+  if(S.shape==='circle'){
+    const r = radius()*ppc;
+    ctx.beginPath(); ctx.arc(X(S.cx), Y(S.cy), r, 0, 7); ctx.fill(); ctx.stroke();
+  } else {
+    const hh = half()*ppc;
+    ctx.beginPath(); ctx.rect(X(S.cx)-hh, Y(S.cy)-hh, 2*hh, 2*hh); ctx.fill(); ctx.stroke();
+  }
+}
+
+// 物體表面壓力（由液體向物體表面推，指向內部）
+function drawObjectPressure(wh){
+  const col = '#0d9488';
+  if(S.shape==='circle'){
+    const r = radius();
+    const perim = 2*Math.PI*r;
+    const N = Math.max(8, Math.round(perim * S.pDensity));
+    const segLen = perim / N;
+    for(let i=0;i<N;i++){
+      const th = 2*Math.PI*i/N;
+      const px = S.cx + r*Math.cos(th);
+      const py = S.cy + r*Math.sin(th);
+      const depth = wh - py;
+      if(depth <= 0) continue;
+      const P = S.rhoLiq * depth;
+      const len = P * segLen * S.pScale * PRESSURE_LEN_K;
+      const dirx = Math.cos(th), diry = -Math.sin(th);   // 螢幕方向（外向）
+      pArrow(X(px)+dirx*len, Y(py)+diry*len, X(px), Y(py), col);
+    }
+  } else {
+    const hh = half(), side = 2*hh;
+    const edges = [
+      {n:[ 1,0], a:[S.cx+hh,S.cy-hh], b:[S.cx+hh,S.cy+hh]},
+      {n:[-1,0], a:[S.cx-hh,S.cy-hh], b:[S.cx-hh,S.cy+hh]},
+      {n:[0, 1], a:[S.cx-hh,S.cy+hh], b:[S.cx+hh,S.cy+hh]},
+      {n:[0,-1], a:[S.cx-hh,S.cy-hh], b:[S.cx+hh,S.cy-hh]},
+    ];
+    const N = Math.max(2, Math.round(side * S.pDensity));
+    const segLen = side / N;
+    for(const e of edges){
+      for(let i=0;i<N;i++){
+        const t = (i+0.5)/N;
+        const px = e.a[0] + (e.b[0]-e.a[0])*t;
+        const py = e.a[1] + (e.b[1]-e.a[1])*t;
+        const depth = wh - py;
+        if(depth <= 0) continue;
+        const P = S.rhoLiq*depth;
+        const len = P*segLen*S.pScale*PRESSURE_LEN_K;
+        const dirx = e.n[0], diry = -e.n[1];   // 螢幕方向（外向）
+        pArrow(X(px)+dirx*len, Y(py)+diry*len, X(px), Y(py), col);
+      }
+    }
+  }
+}
+
+// 器壁壓力（液體向器壁推）：箭頭尾端在水中，頭端指向器壁
+function drawWallPressure(wh){
+  const col = '#f97316';
+  const whc = Math.min(wh, Hcm);
+  const Nside = Math.max(2, Math.round(whc * S.pDensity));
+  const segV = whc / Nside;
+  for(let i=0;i<Nside;i++){
+    const y = (i+0.5)*segV;
+    const depth = wh - y;
+    const P = S.rhoLiq*depth;
+    const len = P*segV*S.pScale*PRESSURE_LEN_K;
+    pArrow(X(0)+len, Y(y), X(0), Y(y), col);     // 左壁
+    pArrow(X(Wcm)-len, Y(y), X(Wcm), Y(y), col); // 右壁
+  }
+  // 底部：尾端在水中（上方），頭端指向底壁
+  const Nb = Math.max(2, Math.round(Wcm * S.pDensity));
+  const segH = Wcm / Nb;
+  const Pbot = S.rhoLiq * wh;
+  for(let i=0;i<Nb;i++){
+    const x = (i+0.5)*segH;
+    const len = Pbot*segH*S.pScale*PRESSURE_LEN_K;
+    pArrow(X(x), Y(0)-len, X(x), Y(0), col);
+  }
+}
+
+function drawForces(wh){
+  const mass = S.density*S.area;
+  const sub = submergedArea(S.cy, wh);
+  const W = mass;
+  const B = S.rhoLiq * sub;
+  const cxp = X(S.cx), cyp = Y(S.cy);
+  if(W>0) arrow(cxp, cyp, cxp, cyp + W*S.forceScale*2, '#ef4444', 9, 3);
+  if(B>0) arrow(cxp, cyp, cxp, cyp - B*S.forceScale*2, '#3b82f6', 9, 3);
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+10, cyp + Math.max(18, W*S.forceScale*2));
+  ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+10, cyp - Math.max(18, B*S.forceScale*2));
+}
+
+// ---------- 物理 ----------
+function physics(dt){
+  if(S.dragging || S.fixPos){ S.vy = 0; return; }
+  const wh = solveWaterHeight();
+  const mass = S.density*S.area;
+  const sub = submergedArea(S.cy, wh);
+  const Fnet = (S.rhoLiq*sub) - mass;
+  const acc = (Fnet/mass)*g;
+  S.vy += acc*dt;
+  S.vy *= Math.exp(-S.damp*dt);
+  S.cy += S.vy*dt;
+  const minCy = objHalfH(), maxCy = Hcm - objHalfH();
+  if(S.cy < minCy){ S.cy = minCy; if(S.vy<0) S.vy=0; }
+  if(S.cy > maxCy){ S.cy = maxCy; if(S.vy>0) S.vy=0; }
+}
+
+// ---------- 讀數 ----------
+function updateReadout(wh){
+  const mass = S.density*S.area;
+  const sub = submergedArea(S.cy, wh);
+  const ratio = sub/S.area*100;
+  document.getElementById('rSub').textContent = ratio.toFixed(0);
+  document.getElementById('rW').textContent = mass.toFixed(1);
+  document.getElementById('rB').textContent = (S.rhoLiq*sub).toFixed(1);
+  document.getElementById('rDisp').textContent = sub.toFixed(1);
+  document.getElementById('rWH').textContent = wh.toFixed(2);
+  const st = document.getElementById('rState');
+  const eps = 0.02;
+  if(Math.abs(S.density - S.rhoLiq) < eps){ st.textContent='懸浮（密度相等）'; st.style.color='#a78bfa'; }
+  else if(S.density < S.rhoLiq){ st.textContent='漂浮'; st.style.color='#22c55e'; }
+  else { st.textContent='沉底'; st.style.color='#f87171'; }
+}
+
+// ---------- 拖曳 ----------
+function pointerPos(e){
+  const r = cv.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height) };
+}
+function insideObject(px,py){
+  const dx = (px - X(S.cx))/ppc, dy = (py - Y(S.cy))/(-ppc);
+  if(S.shape==='circle') return Math.hypot(dx,dy) <= radius();
+  return Math.abs(dx)<=half() && Math.abs(dy)<=half();
+}
+cv.addEventListener('pointerdown', e=>{
+  const p = pointerPos(e);
+  if(insideObject(p.x,p.y)){ S.dragging=true; S.vy=0; cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener('pointermove', e=>{
+  if(!S.dragging) return;
+  const p = pointerPos(e);
+  let nx = (p.x - originX)/ppc;
+  let ny = (originY - p.y)/ppc;
+  nx = Math.max(objHalfW(), Math.min(Wcm-objHalfW(), nx));
+  ny = Math.max(objHalfH(), Math.min(Hcm-objHalfH(), ny));
+  S.cx = nx; S.cy = ny; S.vy = 0;
+});
+cv.addEventListener('pointerup', ()=> S.dragging=false);
+cv.addEventListener('pointercancel', ()=> S.dragging=false);
+
+// ---------- UI ----------
+function syncUI(){
+  const mass = S.density*S.area;
+  document.getElementById('density').value = S.density;
+  document.getElementById('area').value = S.area;
+  document.getElementById('mass').value = Math.min(240, mass);
+  document.getElementById('liquid').value = S.rhoLiq;
+  document.getElementById('forceScale').value = S.forceScale;
+  document.getElementById('pScale').value = S.pScale;
+  document.getElementById('pDensity').value = S.pDensity;
+  document.getElementById('viewScale').value = S.viewScale;
+  document.getElementById('damp').value = S.damp;
+  document.getElementById('dVal').textContent = S.density.toFixed(2)+' g/cm²';
+  document.getElementById('aVal').textContent = S.area.toFixed(0)+' cm²';
+  document.getElementById('mVal').textContent = mass.toFixed(1)+' g';
+  document.getElementById('lVal').textContent = S.rhoLiq.toFixed(2)+' g/cm²';
+  document.getElementById('fsVal').textContent = '×'+S.forceScale.toFixed(2);
+  document.getElementById('psVal').textContent = '×'+S.pScale.toFixed(1);
+  document.getElementById('pdVal').textContent = S.pDensity.toFixed(1);
+  document.getElementById('vsVal').textContent = '×'+S.viewScale.toFixed(2);
+  document.getElementById('dampVal').textContent = S.damp.toFixed(1);
+}
+document.getElementById('density').addEventListener('input', e=>{ S.density=+e.target.value; syncUI(); });
+document.getElementById('area').addEventListener('input', e=>{ S.area=+e.target.value; syncUI(); });
+document.getElementById('mass').addEventListener('input', e=>{ S.density = +e.target.value / S.area; syncUI(); });
+document.getElementById('liquid').addEventListener('input', e=>{ S.rhoLiq=+e.target.value; syncUI(); });
+document.getElementById('forceScale').addEventListener('input', e=>{ S.forceScale=+e.target.value; syncUI(); });
+document.getElementById('pScale').addEventListener('input', e=>{ S.pScale=+e.target.value; syncUI(); });
+document.getElementById('pDensity').addEventListener('input', e=>{ S.pDensity=+e.target.value; syncUI(); });
+document.getElementById('viewScale').addEventListener('input', e=>{ S.viewScale=+e.target.value; syncUI(); });
+document.getElementById('damp').addEventListener('input', e=>{ S.damp=+e.target.value; syncUI(); });
+document.getElementById('showForce').addEventListener('change', e=> S.showForce=e.target.checked);
+document.getElementById('showObjP').addEventListener('change', e=> S.showObjP=e.target.checked);
+document.getElementById('showWallP').addEventListener('change', e=> S.showWallP=e.target.checked);
+document.getElementById('fixPos').addEventListener('change', e=> S.fixPos=e.target.checked);
+document.querySelectorAll('input[name=shape]').forEach(r=>{
+  r.addEventListener('change', e=>{ S.shape=e.target.value; });
+});
+document.getElementById('reset').addEventListener('click', ()=>{ S.cx=Wcm/2; S.cy=9; S.vy=0; });
+
+// ---------- 狀態浮層 顯示/隱藏 ----------
+const statusOverlay = document.getElementById('statusOverlay');
+const statusToggle  = document.getElementById('statusToggle');
+statusToggle.addEventListener('click', ()=>{
+  statusOverlay.classList.toggle('hidden');
+  statusToggle.textContent = statusOverlay.classList.contains('hidden') ? '數據 ▸' : '數據 ▾';
+});
+
+// ---------- 主迴圈 ----------
+function resize(){
+  const wrap = cv.parentElement;
+  cv.width  = Math.max(320, wrap.clientWidth - 24);
+  // 高度填滿視窗（與左側操作區對齊），扣掉下方提示文字與內距
+  cv.height = Math.max(420, window.innerHeight - 70);
+}
+window.addEventListener('resize', resize);
+
+let last = performance.now();
+function loop(now){
+  let dt = (now-last)/1000; last=now;
+  dt = Math.min(dt, 0.03);
+  physics(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+resize(); syncUI(); requestAnimationFrame(loop);
+</script>
+
+</body></html>
