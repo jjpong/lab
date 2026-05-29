@@ -453,18 +453,26 @@ function drawForces(wh){
   const B = S.rhoLiq * sub;               // 浮力(gw) = 液體密度 × 排開體積
   const cxp = X(S.cx), cyp = Y(S.cy);
   
-  // ─── 這裡直接改！ ───
-  // 將 9 改成 24 (箭頭放大)，將 3 改成 6 (線條加粗)
-  if(W>0) arrow(cxp, cyp, cxp, cyp + W*S.forceScale*FORCE_LEN_K, '#ef4444', 24, 6);
-  if(B>0) arrow(cxp, cyp, cxp, cyp - B*S.forceScale*FORCE_LEN_K, '#3b82f6', 24, 6);
+  // ─── 修正：將線條長度稍微縮減，避免線頭穿透 ───
+  // wEnd 和 bEnd 是原本算出來的總長度
+  const wEnd = W * S.forceScale * FORCE_LEN_K;
+  const bEnd = B * S.forceScale * FORCE_LEN_K;
+  
+  // 減去 6 像素，讓粗線的末端剛好收在三角形裡面
+  const wLineEnd = wEnd > 6 ? wEnd - 6 : wEnd;
+  const bLineEnd = bEnd > 6 ? bEnd - 6 : bEnd;
+
+  // 畫箭頭時，終點 y 座標使用縮減後的長度（cyp + wLineEnd / cyp - bLineEnd）
+  if(W>0) arrow(cxp, cyp, cxp, cyp + wLineEnd, '#ef4444', 24, 6);
+  if(B>0) arrow(cxp, cyp, cxp, cyp - bLineEnd, '#3b82f6', 24, 6);
   
   // 字體加大到 16px
   ctx.font = 'bold 16px sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   
-  // 文字 X 軸往右挪到 cxp+20，避免被變大的箭頭壓到
-  ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+20, cyp + Math.max(18, W*S.forceScale*FORCE_LEN_K));
-  ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+20, cyp - Math.max(18, B*S.forceScale*FORCE_LEN_K));
+  // 文字位置保持原本依總長度（wEnd / bEnd）計算，確保文字貼近箭頭尖端
+  ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+22, cyp + Math.max(18, wEnd));
+  ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+22, cyp - Math.max(18, bEnd));
 }
 
 // ---------- 物理 ----------
