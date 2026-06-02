@@ -1058,36 +1058,85 @@ function loop(now){
 //   density / rhoLiq / area / shape  : (可省略)指定初始物體密度、液體密度、體積、形狀('circle'或'square')
 //
 const PRESETS = {
-  // 情境一：隱藏選單 + 隱藏記錄簿，只顯示「深度、重力、浮力、排開液體體積、水位刻度」
+  // ───────────────────────────────────────
+  // Q1：深度 vs 浮力（反駁小明）
+  // 圓形木塊放入水中，完全鎖死面板與記錄簿，學生只能拖曳。
+  // 觀察：完全沒入後再往深處拖，排開體積與浮力都不變 → 與深度無關。
+  // ───────────────────────────────────────
   q1: {
     hidePanel: true,
     lockPanel: true,
     hideLogbook: true,
-    lines: ['lineDepth', 'lineW', 'lineB', 'lineDisp', 'lineWH']
+    shape: 'circle',
+    density: 0.6,
+    rhoLiq: 1.0,
+    lines: ['lineDepth', 'lineSub', 'lineDisp', 'lineB']
   },
 
-  // 情境二：範例 —— 隱藏選單但保留記錄簿，只看「狀態、沒入比例、浮力」，並自動開啟浮力箭頭
+  // ───────────────────────────────────────
+  // Q2：全沒入後換液體（反駁小華）
+  // 圓形鐵塊(7.8)會自動沉底並完全沒入。
+  // 面板「只露出液體設定區」，且只保留 酒精/食用油/水/甘油 四顆按鈕、
+  // 滑桿上限鎖在 1.26（水銀按鈕與水銀範圍都被擋掉）。
+  // 觀察：沒入比例(100%)與排開體積不變，但換液體後浮力改變
+  //       → 推翻「排開體積不變浮力就不變」，引出「液體密度也有影響」。
+  // ───────────────────────────────────────
   q2: {
-    hidePanel: true,
-    lockPanel: true,
-    hideLogbook: false,
-    lines: ['lineState', 'lineSub', 'lineB'],
-    showForce: true
+    hidePanel: false,
+    hideLogbook: true,
+    shape: 'circle',
+    density: 0.6,
+    rhoLiq: 1.0,
+    lines: ['lineDepth', 'lineSub', 'lineDisp', 'lineB'],
+    panel: {
+      groups: ['liquid','object'],   
+      liquidBtns: [0.79, 0.9, 1.0, 1.26],
+      liquidMax: 1.26,
+      object: ['volume','density']
+
+    }
   },
 
-  // 情境三：範例 —— 純展示壓力箭頭，鐵塊放入水中
+  // ───────────────────────────────────────
+  // Q3：浮力 = 排開液重（驗證小思）
+  // 與 Q2 同設定，但多顯示「排開液重」欄。
+  // 觀察：每種液體裡「浮力」與「排開液重」數值都相等 → 確認關係。
+  // ───────────────────────────────────────
   q3: {
-    hidePanel: true,
-    lockPanel: true,
+    hidePanel: false,
     hideLogbook: true,
-    lines: ['lineState', 'lineDepth'],
-    showObjP: true,
-    showWallP: true,
+    shape: 'circle',
     density: 7.8,
-    rhoLiq: 1.0
+    rhoLiq: 1.0,
+    lines: ['lineDisp', 'lineB', 'lineDispW'],
+    panel: {
+      groups: ['liquid'],
+      liquidBtns: [0.79, 0.9, 1.0, 1.26, 13.6],
+      liquidMax: 13.6
+    }
+  },
+
+  // ───────────────────────────────────────
+  // Q4：開放探究體積因素
+  // 圓形鐵塊(7.8)在水中完全沒入，面板「只露出物體性質區的體積滑桿」。
+  // 觀察：物體越大→排開體積越大→浮力(=排開液重)越大
+  //       → 歸納出「物體體積（排開體積）」也是影響浮力的因素。
+  // ───────────────────────────────────────
+  q4: {
+    hidePanel: false,
+    hideLogbook: true,
+    shape: 'circle',
+    density: 7.8,
+    rhoLiq: 1.0,
+    lines: ['lineDisp', 'lineB', 'lineDispW'],
+    panel: {
+      groups: ['object'],
+      object: ['volume']
+    }
   }
-  // 你可以照上面格式繼續往下新增 q4, q5 ...
 };
+  // 你可以照上面格式繼續往下新增 q4, q5 ...
+
 
 function detectPreset(){
   const search = decodeURIComponent(window.location.search || '');
@@ -1103,16 +1152,74 @@ function detectPreset(){
   }
   return null;
 }
+// ★★★ 新增：面板逐欄 / 逐列鎖定 ★★★
+// 在 PRESET 裡用 panel: {...} 控制。所有清單都是「白名單」(列出來的才顯示)。
+//   groups     : 要顯示哪些「整塊」區域，代號：
+//                'object'(物體性質) 'liquid'(液體設定) 'force'(力箭頭)
+//                'pressure'(壓力箭頭) 'status'(狀態欄) 'other'(其他設定)
+//   object     : 物體性質區內要顯示哪幾「列」，代號：
+//                'shape'(形狀) 'density'(密度滑桿) 'densityBtns'(材質按鈕)
+//                'volume'(體積滑桿) 'mass'(質量滑桿)
+//   liquidBtns : 液體預設按鈕只保留哪幾顆(用密度數字)，例如 [0.79,0.9,1.0,1.26]
+//   liquidMax  : 把液體密度滑桿的上限改成此值(防止學生拖到水銀)
+function applyPanelConfig(p){
+  if(!p) return;
 
+  const groupEls = {
+    object:   document.getElementById('density').closest('.group'),
+    liquid:   document.getElementById('liquid').closest('.group'),
+    force:    document.getElementById('showForce').closest('.group'),
+    pressure: document.getElementById('showObjP').closest('.group'),
+    status:   document.querySelector('input[data-line]').closest('.group'),
+    other:    document.getElementById('fixPos').closest('.group')
+  };
+
+  // 1) 整塊區域顯示/隱藏
+  if(p.groups){
+    Object.keys(groupEls).forEach(k=>{
+      groupEls[k].style.display = p.groups.includes(k) ? '' : 'none';
+    });
+  }
+
+  // 2) 物體性質區內，逐列顯示/隱藏
+  if(p.object){
+    const rows = {
+      shape:       document.querySelector('.shape'),
+      density:     document.getElementById('density').closest('.row'),
+      densityBtns: document.querySelector('.obj-btn').closest('.preset-btns'),
+      volume:      document.getElementById('area').closest('.row'),
+      mass:        document.getElementById('mass').closest('.row')
+    };
+    Object.keys(rows).forEach(k=>{
+      rows[k].style.display = p.object.includes(k) ? '' : 'none';
+    });
+  }
+
+  // 3) 液體預設按鈕逐顆過濾
+  if(p.liquidBtns){
+    document.querySelectorAll('.liq-btn').forEach(btn=>{
+      const rho = parseFloat(btn.dataset.rho);
+      btn.style.display = p.liquidBtns.includes(rho) ? '' : 'none';
+    });
+  }
+
+  // 4) 限制液體密度滑桿上限
+  if(p.liquidMax !== undefined){
+    document.getElementById('liquid').max = p.liquidMax;
+  }
+}
 function applyPreset(name){
   const cfg = PRESETS[name];
   if(!cfg) return;
 
-  // 1) 左側控制面板
+  // 1) 左側控制面板（整片顯示/隱藏）
   if(cfg.hidePanel){
     panel.classList.add('collapsed');
     panelShow.style.display = cfg.lockPanel ? 'none' : 'block';
   }
+
+  // 1b) ★ 新增：面板逐欄/逐列鎖定
+  if(cfg.panel) applyPanelConfig(cfg.panel);
 
   // 2) 實驗記錄簿
   if(cfg.hideLogbook){
