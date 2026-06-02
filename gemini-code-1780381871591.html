@@ -1,0 +1,1192 @@
+<!DOCTYPE html><html lang="zh-Hant"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>浮力與壓力互動實驗室</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+    background: #0f172a; color: #e2e8f0; overflow: hidden; /* 防止最外層網頁亂捲動 */
+  }
+  .app { display: flex; flex-wrap: wrap; height: 100vh; }
+  
+  /* ===== 左側控制面板 ===== */
+  .panel {
+    width: 350px; flex-shrink: 0; padding: 16px; background: #1e293b;
+    overflow-y: auto; height: 100vh; border-right: 1px solid #334155;
+  }
+  .panel.collapsed { display: none; }
+  h1 { font-size: 18px; margin: 0 0 4px; color: #f8fafc; }
+  .group {
+    background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 12px;
+  }
+  .group h2 { font-size: 13px; margin: 0 0 8px; color: #7dd3fc; letter-spacing: .5px; }
+  .row { margin-bottom: 9px; }
+  .row label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+  .row .val { color: #fbbf24; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+  .checks label, .shape label {
+    display: flex; align-items: center; gap: 6px; font-size: 13px;
+    padding: 4px 0; cursor: pointer;
+  }
+  .shape { display: flex; gap: 14px; }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 6px; font-size: 11px; }
+  
+  /* 當圖表被加上 .popout 類別時的浮動視窗樣式 */
+  .chart-pane.popout {
+    position: fixed !important;
+    z-index: 9999 !important; /* 確保在最上層 */
+    width: 550px;             /* 彈出時的預設寬度 */
+    height: 450px;            /* 彈出時的預設高度 */
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4), 0 10px 10px -5px rgba(0,0,0,0.3);
+    border: 2px solid #8b5cf6; /* 給浮動視窗一個醒目的紫色邊框 */
+    border-radius: 12px;
+    background: #fff;
+    resize: both;             /* 讓浮動視窗右下角依然可以自由拉大拉小 */
+  }
+
+  /* 浮動視窗狀態下的上方標題列變成可以拖曳的游標 */
+  .chart-pane.popout .pane-toolbar {
+    cursor: move;
+    background: #c084fc; /* 彈出時標題列變色 */
+    color: #fff;
+  }
+
+  /* 快捷按鈕樣式 */
+  .preset-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .preset-btns button {
+    background: #334155; color: #cbd5e1; border: 1px solid #475569;
+    border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer;
+    transition: all 0.2s; font-weight: bold;
+  }
+  .preset-btns button:hover { background: #475569; color: #fff; }
+  
+  .btn {
+    width: 100%; padding: 9px; border: none; border-radius: 8px; cursor: pointer;
+    background: #38bdf8; color: #0f172a; font-weight: bold; font-size: 13px; transition: 0.2s;
+  }
+  .btn:hover { background: #0ea5e9; }
+  .hint { font-size: 11px; color: #64748b; margin-top: 6px; }
+
+  /* ===== 收合選單按鈕 ===== */
+  .collapse-btn {
+    width: 100%; padding: 8px; margin-bottom: 12px;
+    border: 1px solid #334155; border-radius: 8px;
+    background: #334155; color: #e2e8f0; cursor: pointer; font-size: 13px;
+  }
+  .collapse-btn:hover { background: #475569; }
+  #panelShow {
+    position: fixed; top: 12px; left: 12px; z-index: 30; display: none;
+    padding: 8px 14px; border: 1px solid #334155; border-radius: 8px;
+    background: #1e293b; color: #e2e8f0; cursor: pointer; font-size: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  }
+
+  /* ===== 右側主舞台區 (左右並排架構) ===== */
+  .stage { flex: 1; min-width: 320px; padding: 0; display: flex; flex-direction: row; height: 100vh; overflow: hidden; }
+  
+  /* 左側主要實驗畫布區 */
+  .canvas-container {
+    flex: 1; display: flex; flex-direction: column; height: 100vh; padding: 16px; gap: 12px; overflow: hidden;
+  }
+  .canvas-wrap { 
+    position: relative; flex: 1; width: 100%;
+    display: flex; background: #f8fafc; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); 
+  }
+  canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  
+  /* 狀態浮層 */
+  #statusOverlay {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(15,23,42,.8); color: #f1f5f9;
+    padding: 12px 16px; border-radius: 10px;
+    font-size: 13px; line-height: 1.8; min-width: 180px;
+    backdrop-filter: blur(4px); box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    pointer-events: none; z-index: 10;
+  }
+  #statusOverlay.hidden { display: none; }
+  #statusOverlay .line { display: flex; justify-content: space-between; gap: 16px; }
+  #statusOverlay b { color: #fbbf24; font-variant-numeric: tabular-nums; }
+  #statusOverlay .state-tag { color: #a78bfa; }
+
+  /* 開關記錄簿按鈕 */
+  #btnToggleLogbook {
+    background: #cbd5e1; color: #1e293b; border: 1px solid #94a3b8;
+    padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px;
+    transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0;
+  }
+  #btnToggleLogbook:hover { background: #94a3b8; color: #fff; }
+
+  /* ===== 右側實驗記錄簿面板 (局部滾動長網頁) ===== */
+  .logbook-panel {
+    width: 480px; flex-shrink: 0; height: 100vh; background: #fff; border-left: 1px solid #cbd5e1;
+    display: none; /* 預設收合 */
+    flex-direction: column; gap: 12px; padding: 16px; color: #1e293b; overflow-y: auto;
+  }
+  .logbook-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; flex-shrink: 0; }
+  .logbook-header h3 { margin: 0; font-size: 16px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+  .logbook-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap;}
+  .logbook-actions input[type="text"] {
+    padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; width: 120px; font-weight: bold;
+  }
+  .logbook-actions button {
+    background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155;
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s;
+  }
+  .logbook-actions button:hover { background: #e2e8f0; }
+  #btnRecord { background: #38bdf8; color: #0f172a; border-color: #0ea5e9; }
+  #btnRecord:hover { background: #0ea5e9; color: #fff; }
+  #btnExport { background: #10b981; color: #fff; border-color: #059669; }
+  #btnExport:hover { background: #059669; }
+
+  .logbook-settings { font-size: 12px; background: #f8fafc; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0; flex-shrink: 0; }
+  .check-item { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; margin-bottom: 4px; cursor: pointer; }
+  .check-item input { accent-color: #38bdf8; cursor: pointer; }
+
+  /* ===== 內層：上下堆疊與垂直拖曳區域 ===== */
+  #logbookMainArea {
+    display: flex; flex-direction: column; flex-shrink: 0; gap: 0;
+  }
+  
+  .table-pane, .chart-pane {
+    display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; 
+    background: #fff; overflow: hidden;
+  }
+  
+  .pane-toolbar {
+    background: #f1f5f9; padding: 6px 12px; display: flex; justify-content: space-between; 
+    align-items: center; border-bottom: 1px solid #cbd5e1; font-size: 13px; font-weight: bold; color: #475569;
+    flex-shrink: 0;
+  }
+  
+  /* 表格滾動區 */
+  .table-wrap { flex: 1; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+  th { position: sticky; top: 0; background: #f1f5f9; padding: 8px; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold; white-space: nowrap;}
+  td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:hover { background: #f8fafc; }
+  .del-btn { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; cursor: pointer; padding: 2px 6px; font-size: 11px; font-weight: bold; }
+  .del-btn:hover { background: #fecaca; }
+
+  /* 上下拖曳分隔線 */
+  .pane-resizer-vertical-custom {
+    height: 12px; background-color: transparent; cursor: row-resize; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; transition: 0.2s;
+  }
+  .pane-resizer-vertical-custom::after {
+    content: ""; display: block; height: 4px; width: 32px; background: #cbd5e1; border-radius: 2px; transition: 0.2s;
+  }
+  .pane-resizer-vertical-custom:hover::after, .pane-resizer-vertical-custom.active::after { background: #38bdf8; width: 48px; }
+  
+  /* 圖表區 */
+  .chart-pane { min-height: 250px; }
+  .chart-wrap { flex: 1; display: flex; flex-direction: column; padding: 10px; overflow: auto; }
+  .chart-controls { display: flex; gap: 8px; margin-bottom: 8px; font-size: 12px; font-weight: bold; align-items: center; flex-wrap: wrap;}
+  .chart-controls select { padding: 4px 6px; border-radius: 4px; border: 1px solid #cbd5e1; outline: none; font-weight: bold; color: #1e293b; }
+  #btnDrawChart { background: #8b5cf6; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+  #btnDrawChart:hover { background: #7c3aed; }
+  .chart-canvas-container { flex: 1; position: relative; min-height: 180px; }
+  
+  /* 報告區：解鎖自由垂直拖曳拉長 */
+  .logbook-report {
+    margin-top: 12px; display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .logbook-report textarea {
+    width: 100%; height: 90px; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;
+    resize: vertical; /* 開啟原生垂直拖曳改變大小 */
+    font-size: 13px; font-family: inherit; min-height: 60px;
+  }
+  .logbook-report textarea:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.2); }
+</style>
+</head>
+<body>
+<div class="app">
+  <button id="panelShow">☰ 開啟選單</button>
+
+  <div class="panel">
+    <button class="collapse-btn" id="panelHide">« 收合選單</button>
+
+    <h1>浮力與壓力互動實驗室</h1>
+    
+    <div class="group">
+      <h2>物體性質 (自動連動物理限制)</h2>
+      <div class="shape">
+        <label><input type="radio" name="shape" value="circle"> 圓形</label>
+        <label><input type="radio" name="shape" value="square" checked> 方形</label>
+      </div>
+      <div class="row" style="margin-top: 10px;">
+        <label>密度 <span class="val" id="dVal"></span></label>
+        <input type="range" id="density" min="0.1" max="20.0" step="0.1" value="0.6">
+      </div>
+      <div class="preset-btns">
+        <button class="obj-btn" data-rho="0.6">木塊(0.6)</button>
+        <button class="obj-btn" data-rho="2.7">鋁塊(2.7)</button>
+        <button class="obj-btn" data-rho="7.8">鐵塊(7.8)</button>
+        <button class="obj-btn" data-rho="19.3">金塊(19.3)</button>
+      </div>
+      
+      <div class="row" style="margin-top: 12px;">
+        <label>體積 <span class="val" id="aVal"></span></label>
+        <input type="range" id="area" min="5" max="50" step="1" value="30">
+      </div>
+      <div class="row">
+        <label>質量 <span class="val" id="mVal"></span></label>
+        <input type="range" id="mass" min="0.5" max="1000" step="0.5" value="18">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>液體設定</h2>
+      <div class="row">
+        <label>液體密度 <span class="val" id="lVal"></span></label>
+        <input type="range" id="liquid" min="0.4" max="15.0" step="0.05" value="1.0">
+      </div>
+      <div class="preset-btns">
+        <button class="liq-btn" data-rho="0.79">酒精(0.79)</button>
+        <button class="liq-btn" data-rho="0.90">食用油(0.9)</button>
+        <button class="liq-btn" data-rho="1.00">水(1.0)</button>
+        <button class="liq-btn" data-rho="1.26">甘油(1.26)</button>
+        <button class="liq-btn" data-rho="13.6">水銀(13.6)</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>力的箭頭顯示</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="showForce">
+          顯示 <span class="badge" style="background:#ef4444">重力</span>
+          與 <span class="badge" style="background:#3b82f6">浮力</span></label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label>力箭頭比例 <span class="val" id="fsVal"></span></label>
+        <input type="range" id="forceScale" min="0.1" max="3" step="0.05" value="1">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>液體壓力箭頭</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="showObjP"> 顯示對<b style="color:#14b8a6">&nbsp;物體&nbsp;</b>的壓力</label>
+        <label><input type="checkbox" id="showWallP"> 顯示對<b style="color:#f97316">&nbsp;器壁&nbsp;</b>的壓力</label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label>壓力箭頭比例 <span class="val" id="psVal"></span></label>
+        <input type="range" id="pScale" min="0.2" max="6" step="0.1" value="2.5">
+      </div>
+      <div class="row">
+        <label>箭頭密度<span class="val" id="pdVal"></span></label>
+        <input type="range" id="pDensity" min="0.3" max="3" step="0.1" value="1">
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>狀態欄 (實驗區浮層)</h2>
+      <div class="hint" style="margin-top:0;margin-bottom:6px">勾選才會在實驗區顯示（預設全隱藏）。</div>
+      <div class="checks">
+        <label><input type="checkbox" data-line="lineState"> 狀態 (漂浮/沉底)</label>
+        <label><input type="checkbox" data-line="lineDepth"> 底面深度 (cm)</label>
+        <label><input type="checkbox" data-line="lineSub"> 沒入比例</label>
+        <label><input type="checkbox" data-line="lineW"> 重力</label>
+        <label><input type="checkbox" data-line="lineB"> 浮力</label>
+        <label><input type="checkbox" data-line="lineDisp"> 排開液體體積</label>
+        <label><input type="checkbox" data-line="lineDispW"> 排開液體重量</label>
+        <label><input type="checkbox" data-line="lineWH"> 水位刻度</label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>其他設定</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="fixPos"> ⚓ 固定物體位置（拖到哪停在哪）</label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label>畫面縮放 (scale) <span class="val" id="vsVal"></span></label>
+        <input type="range" id="viewScale" min="0.6" max="1.8" step="0.05" value="1.1">
+      </div>
+      <button class="btn" id="reset" style="margin-top: 8px;">重設位置</button>
+    </div>
+  </div>
+  
+  <div class="stage" id="stageContainer">
+    
+    <div class="canvas-container">
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="cv"></canvas>
+        <div id="statusOverlay" class="hidden">
+          <div class="line" id="lineState">狀態：<span class="state-tag" id="rState">—</span></div>
+          <div class="line" id="lineDepth">底面深度：<span><b id="rDepth">0</b> cm</span></div>
+          <div class="line" id="lineSub">沒入比例：<span><b id="rSub">0</b> %</span></div>
+          <div class="line" id="lineW">重力：<span><b id="rW">0</b> gw</span></div>
+          <div class="line" id="lineB">浮力：<span><b id="rB">0</b> gw</span></div>
+          <div class="line" id="lineDisp">排開體積：<span><b id="rDisp">0</b> cm³</span></div>
+          <div class="line" id="lineDispW">排開液重：<span><b id="rDispW">0</b> gw</span></div>
+          <div class="line" id="lineWH">總水量：<span><b id="rWH">0</b> ml</span></div>
+        </div>
+      </div>
+      <button id="btnToggleLogbook">📊 打開實驗記錄簿 ▶</button>
+    </div>
+
+    <div class="logbook-panel" id="logbookPanel">
+      <div class="logbook-header">
+        <h3>📋 實驗記錄簿</h3>
+        <div class="logbook-actions">
+          <input type="text" id="groupInput" placeholder="自訂組別 (例:水)">
+          <button id="btnRecord">➕ 紀錄當下數據</button>
+          <button id="btnClear">🗑️ 清空</button>
+          <button id="btnExport">💾 下載 CSV</button>
+        </div>
+      </div>
+      
+      <div class="logbook-settings">
+        <span style="font-weight: bold; color: #475569; margin-bottom: 4px; display: block;">☑ 勾選要顯示在「表格」且可作圖的資料欄位：</span>
+        <div id="colCheckboxes"></div>
+      </div>
+      
+      <div id="logbookMainArea">
+        
+        <div class="table-pane" id="tablePane" style="height: 200px; display: flex; flex-direction: column; flex-shrink: 0;">
+          <div class="pane-toolbar">
+            <span>📋 實驗數據 (數據過多時可上下捲動)</span>
+          </div>
+          <div class="table-wrap">
+            <table id="dataTable">
+              <thead id="dataHead"></thead>
+              <tbody id="dataBody"></tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div class="pane-resizer-vertical-custom" id="paneResizerV" title="上下拖曳調整表格與圖表高度分佈"></div>
+
+        <div class="chart-pane" id="chartPane" style="flex: 1; display: flex; flex-direction: column;">
+          <div class="pane-toolbar">
+            <span>📈 統計圖表</span>
+            <button class="icon-btn" id="btnPopoutChart" style="font-weight: bold; color: #8b5cf6;">🔲 彈出視窗</button>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-controls">
+              <label>X軸: <select id="chartX"></select></label>
+              <label>Y軸: <select id="chartY"></select></label>
+              <label class="check-item"><input type="checkbox" id="showTrendline"> 📈 一次擬合</label>
+              <button id="btnDrawChart">📈 繪製圖表</button>
+            </div>
+            <div class="chart-canvas-container">
+              <canvas id="logbookChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="logbook-report">
+          <textarea id="reportText" placeholder="在此輸入您的實驗觀察、發現的規律或是結論報告 (右下角可拉動調整大小)..."></textarea>
+        </div>
+        
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ==========================================
+// 1. 物理與畫布核心設定
+// ==========================================
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+const Wcm = 20, Hcm = 16;
+const TANK_DEPTH = 1;                     
+const INIT_WATER_H = 10;                  
+const baseLiquidArea = INIT_WATER_H * Wcm;   
+const ML_PER_AREA = TANK_DEPTH;                      
+const TANK_CAPACITY_ML = Hcm * Wcm * ML_PER_AREA;    
+
+const S = {
+  shape: 'square',
+  density: 0.6, area: 30, // area 在這裡就是體積 (深度=1)
+  rhoLiq: 1.0,
+  forceScale: 1, showForce: false,
+  pScale: 2.5, pDensity: 1, showObjP: false, showWallP: false,
+  fixPos: false, viewScale: 1.1, damp: 3,
+  cx: Wcm/2, cy: 9, vy: 0,
+  dragging: false,
+  manuallyPushedToBottom: false
+};
+const g = 400;
+const PRESSURE_LEN_K = 10;
+
+// ==========================================
+// 幾何、顏色與觸底物理邏輯
+// ==========================================
+function radius(){ return Math.sqrt(S.area/Math.PI); }
+function half(){ return Math.sqrt(S.area)/2; }
+function objHalfH(){ return S.shape==='circle'? radius() : half(); }
+function objHalfW(){ return S.shape==='circle'? radius() : half(); }
+
+function submergedArea(cy, L){
+  if(S.shape==='circle'){
+    const r = radius(); let a = cy - L;
+    if(a <= -r) return Math.PI*r*r;
+    if(a >=  r) return 0;
+    return r*r*Math.acos(a/r) - a*Math.sqrt(r*r - a*a);
+  } else {
+    const hh = half(), side = 2*hh, bottom = cy - hh;
+    return side * Math.max(0, Math.min(side, L - bottom));
+  }
+}
+
+function solveWaterHeight(){
+  let wh = baseLiquidArea / Wcm;
+  for(let i=0;i<10;i++) wh = (baseLiquidArea + submergedArea(S.cy, wh)) / Wcm;
+  return wh;
+}
+
+function isAtBottom() {
+  if (S.shape === 'circle') return false; 
+  return S.manuallyPushedToBottom && Math.abs(S.cy - objHalfH()) < 0.01;
+}
+
+function getBuoyancy(wh, sub) {
+  return isAtBottom() ? 0 : (S.rhoLiq * sub);
+}
+
+function getLiquidColor(rho) {
+  if (rho >= 13.0) return ['rgba(209,213,219,0.95)', 'rgba(107,114,128,0.98)']; 
+  if (rho >= 1.15) return ['rgba(253,230,138,0.45)', 'rgba(217,119,6,0.7)'];   
+  if (rho >= 0.95) return ['rgba(56,189,248,0.55)', 'rgba(14,116,200,0.75)'];  
+  if (rho >= 0.85) return ['rgba(252,211,77,0.55)', 'rgba(245,158,11,0.75)'];  
+  return ['rgba(207,250,254,0.45)', 'rgba(6,182,212,0.65)'];                  
+}
+
+let ppc = 20, originX = 0, originY = 0;
+function computeView(){
+  const marginV = 40, sideM = 40;
+  const fit = Math.min((cv.width - 2*sideM)/Wcm, (cv.height - 2*marginV)/Hcm);
+  ppc = fit * S.viewScale;
+  originX = (cv.width - Wcm*ppc)/2;
+  originY = (cv.height + Hcm*ppc)/2;
+}
+const X = x => originX + x*ppc;
+const Y = y => originY - y*ppc;
+
+function arrow(x1,y1,x2,y2,color,headLen=8,lw=2){
+  const dx=x2-x1, dy=y2-y1, ang=Math.atan2(dy,dx);
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=lw;
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-headLen*Math.cos(ang-0.4), y2-headLen*Math.sin(ang-0.4));
+  ctx.lineTo(x2-headLen*Math.cos(ang+0.4), y2-headLen*Math.sin(ang+0.4));
+  ctx.closePath(); ctx.fill();
+}
+function pArrow(x1,y1,x2,y2,color){
+  arrow(x1,y1,x2,y2,'rgba(255,255,255,0.92)',11,5.4);
+  arrow(x1,y1,x2,y2,color,9,2.6);
+}
+
+// ==========================================
+// 2. 實驗記錄簿架構 (左右排版與自適應高度)
+// ==========================================
+let records = [];
+let recordIdCounter = 1;
+
+const logVars = [
+  { id: 'group', label: '組別', show: true, get: () => document.getElementById('groupInput').value.trim() || '未分組' },
+  { id: 'rhoLiq', label: '液體密度(g/cm³)', show: true, get: () => S.rhoLiq.toFixed(2) },
+  { id: 'rhoObj', label: '物體密度(g/cm³)', show: true, get: () => S.density.toFixed(2) },
+  { id: 'vol', label: '物體體積(cm³)', show: false, get: () => S.area.toFixed(1) },
+  { id: 'objDepth', label: '底面深度(cm)', show: true, get: () => Math.max(0, solveWaterHeight() - (S.cy - objHalfH())).toFixed(2) },
+  { id: 'subVol', label: '排開體積(cm³)', show: true, get: () => submergedArea(S.cy, solveWaterHeight()).toFixed(1) },
+  { id: 'W', label: '重力(gw)', show: true, get: () => (S.density * S.area).toFixed(1) },
+  { id: 'B', label: '浮力(gw)', show: true, get: () => getBuoyancy(solveWaterHeight(), submergedArea(S.cy, solveWaterHeight())).toFixed(1) },
+  { id: 'dispW', label: '排開液重(gw)', show: true, get: () => (S.rhoLiq * submergedArea(S.cy, solveWaterHeight())).toFixed(1) },
+  { id: 'waterVol', label: '總水量(ml)', show: false, get: () => (solveWaterHeight() * Wcm * ML_PER_AREA).toFixed(0) }
+];
+
+const CHART_COLORS = ['#38bdf8', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#f97316'];
+let logChart = null;
+const colCheckboxes = document.getElementById('colCheckboxes');
+const chartX = document.getElementById('chartX');
+const chartY = document.getElementById('chartY');
+const dataHead = document.getElementById('dataHead');
+const dataBody = document.getElementById('dataBody');
+const logbookPanel = document.getElementById('logbookPanel');
+const btnToggleLogbook = document.getElementById('btnToggleLogbook');
+
+// --- 右側面板收合 / 展開事件 ---
+let isLogbookOpen = false;
+btnToggleLogbook.addEventListener('click', () => {
+  isLogbookOpen = !isLogbookOpen;
+  if(isLogbookOpen) {
+    logbookPanel.style.display = 'flex';
+    btnToggleLogbook.textContent = '📊 收合實驗記錄簿 ◀';
+    
+    // 初始化動態高度比例：使表格與圖表預設平分剩餘空間
+    const windowH = window.innerHeight;
+    const reservedH = 340; // 扣除頂部、設定區、報告框及間距的預估高度
+    let idealTableH = Math.max(150, (windowH - reservedH) / 2);
+    document.getElementById('tablePane').style.height = `${idealTableH}px`;
+    
+    if(logChart) logChart.resize(); 
+  } else {
+    logbookPanel.style.display = 'none';
+    btnToggleLogbook.textContent = '📊 打開實驗記錄簿 ▶';
+  }
+});
+
+// --- 內層垂直拖曳分隔線邏輯 (拉長表格/圖表) ---
+let isResizingV = false;
+const paneResizerV = document.getElementById('paneResizerV');
+const tablePane = document.getElementById('tablePane');
+const logbookMainArea = document.getElementById('logbookMainArea');
+
+paneResizerV.addEventListener('mousedown', (e) => {
+  isResizingV = true;
+  paneResizerV.classList.add('active');
+  document.body.style.cursor = 'row-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isResizingV) return;
+  const rect = tablePane.getBoundingClientRect();
+  let newHeight = e.clientY - rect.top; // 換算滑鼠相對高度
+  
+  // 安全範圍限制：表格最矮 80px，且保留足夠空間給圖表
+  if (newHeight < 80) newHeight = 80;
+  
+  tablePane.style.height = `${newHeight}px`;
+  if (logChart) logChart.resize();
+});
+
+document.addEventListener('mouseup', () => {
+  if (isResizingV) {
+    isResizingV = false;
+    paneResizerV.classList.remove('active');
+    document.body.style.cursor = 'default';
+    document.body.style.userSelect = 'auto';
+  }
+});
+
+// ==========================================
+// 繪圖方程式外掛 Plugin (帶半透明防擋背板)
+// ==========================================
+const trendlineEquationPlugin = {
+  id: 'trendlineEquationPlugin',
+  afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    chart.data.datasets.forEach((meta, index) => {
+      if (meta.equationText && chart.isDatasetVisible(index)) {
+        const metaData = chart.getDatasetMeta(index);
+        if(metaData.data.length < 2) return;
+
+        const p1 = metaData.data[0];
+        const p2 = metaData.data[1];
+
+        ctx.save();
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textBaseline = 'top';
+        const text = meta.equationText;
+        const tw = ctx.measureText(text).width;
+        const th = 14;
+
+        let px = p1.x + (p2.x - p1.x) * 0.75;
+        let py = p1.y + (p2.y - p1.y) * 0.75 - 20; 
+
+        if (px + tw + 8 > chart.chartArea.right) px = chart.chartArea.right - tw - 8;
+        if (px < chart.chartArea.left + 4) px = chart.chartArea.left + 4;
+        if (py + th + 8 > chart.chartArea.bottom) py = chart.chartArea.bottom - th - 8;
+        if (py < chart.chartArea.top + 4) py = chart.chartArea.top + 4;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(px - 4, py - 4, tw + 8, th + 8, 4);
+        } else {
+            ctx.rect(px - 4, py - 4, tw + 8, th + 8);
+        }
+        ctx.fill();
+
+        ctx.fillStyle = meta.borderColor;
+        ctx.fillText(text, px, py);
+        ctx.restore();
+      }
+    });
+  }
+};
+
+// 初始化記錄簿 UI
+function initLogbookUI() {
+  colCheckboxes.innerHTML = logVars.filter(v => v.id !== 'group').map(v => `
+    <label class="check-item">
+      <input type="checkbox" value="${v.id}" ${v.show ? 'checked' : ''} onchange="toggleLogCol('${v.id}')"> 
+      <span>${v.label}</span>
+    </label>
+  `).join('');
+
+  updateChartDropdowns();
+
+  const ctxChart = document.getElementById('logbookChart').getContext('2d');
+  Chart.defaults.font.family = 'inherit';
+  
+  logChart = new Chart(ctxChart, {
+    type: 'scatter', 
+    data: { datasets: [] },
+    plugins: [trendlineEquationPlugin], 
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top' } },
+      scales: {
+        x: { type: 'linear', title: { display: true, text: 'X', font: {weight: 'bold'} }, beginAtZero: true },
+        y: { type: 'linear', title: { display: true, text: 'Y', font: {weight: 'bold'} }, beginAtZero: true }
+      }
+    }
+  });
+
+  renderTable();
+}
+
+function updateChartDropdowns() {
+  const activeCols = logVars.filter(v => v.show && v.id !== 'group');
+  let optionsHtml = activeCols.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+  
+  let oldX = chartX.value; let oldY = chartY.value;
+  chartX.innerHTML = optionsHtml; chartY.innerHTML = optionsHtml;
+  
+  if(activeCols.some(c=>c.id==='objDepth') && !oldX) chartX.value = 'objDepth';
+  else if(activeCols.some(c=>c.id===oldX)) chartX.value = oldX; 
+  else if(activeCols.length>0) chartX.value = activeCols[0].id;
+
+  if(activeCols.some(c=>c.id==='B') && !oldY) chartY.value = 'B';
+  else if(activeCols.some(c=>c.id===oldY)) chartY.value = oldY; 
+  else if(activeCols.length>1) chartY.value = activeCols[1].id;
+}
+
+window.toggleLogCol = function(id) {
+  const v = logVars.find(c => c.id === id);
+  if(v) v.show = !v.show;
+  renderTable(); updateChartDropdowns(); 
+}
+
+function renderTable() {
+  const activeCols = logVars.filter(v => v.show);
+  dataHead.innerHTML = `<tr><th>刪除</th>${activeCols.map(c => `<th>${c.label}</th>`).join('')}</tr>`;
+  
+  if (records.length === 0) {
+    dataBody.innerHTML = `<tr><td colspan="${activeCols.length + 1}" style="text-align:center; color:#94a3b8; padding:20px;">點擊上方「➕ 紀錄當下數據」</td></tr>`;
+    return;
+  }
+  
+  dataBody.innerHTML = records.map(r => {
+    let row = `<tr><td><button class="del-btn" onclick="deleteRecord(${r._uid})">✖</button></td>`;
+    activeCols.forEach(c => row += `<td>${r[c.id]}</td>`);
+    row += `</tr>`;
+    return row;
+  }).join('');
+  
+  dataBody.parentElement.parentElement.scrollTop = dataBody.parentElement.parentElement.scrollHeight;
+}
+
+window.deleteRecord = function(uid) {
+  records = records.filter(r => r._uid !== uid); renderTable(); 
+}
+
+document.getElementById('btnRecord').addEventListener('click', () => {
+  let rec = { _uid: recordIdCounter++ };
+  logVars.forEach(v => {
+    let val = v.get();
+    rec[v.id] = isNaN(val) ? val : parseFloat(val);
+  });
+  records.push(rec); renderTable(); 
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  records = []; recordIdCounter = 1; renderTable(); 
+  logChart.data.datasets = []; logChart.update();
+});
+
+// ==== 手動觸發圖表生成與擬合曲線繪製 ====
+function updateLogbookChart() {
+  const xId = chartX.value; const yId = chartY.value;
+  const xVar = logVars.find(v => v.id === xId);
+  const yVar = logVars.find(v => v.id === yId);
+  const showTrend = document.getElementById('showTrendline').checked;
+  
+  if(!xVar || !yVar || records.length === 0) {
+    logChart.data.datasets = []; logChart.update(); return;
+  }
+
+  const groupedData = {};
+  records.forEach(r => {
+    const g = r.group || '未分組';
+    if(!groupedData[g]) groupedData[g] = [];
+    groupedData[g].push(r);
+  });
+
+  const datasets = [];
+  let colorIndex = 0;
+
+  Object.keys(groupedData).forEach(gName => {
+    let sorted = groupedData[gName].sort((a,b) => a[xId] - b[xId]);
+    let points = sorted.map(r => ({ x: r[xId], y: r[yId] }));
+    let color = CHART_COLORS[colorIndex % CHART_COLORS.length];
+    
+    // 原始散佈點：showLine 設為 false，徹底不連折線
+    datasets.push({
+      label: `${gName} (${yVar.label} vs ${xVar.label})`,
+      data: points,
+      backgroundColor: color, borderColor: color,
+      borderWidth: 2, pointRadius: 5, pointHoverRadius: 8,
+      showLine: false
+    });
+
+    if(showTrend && points.length > 1) {
+      let n = points.length, sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+      points.forEach(p => { sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumXX += p.x * p.x; });
+      let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+      let intercept = (sumY - slope * sumX) / n;
+      
+      if(isFinite(slope)) {
+        let minX = Math.min(...points.map(p=>p.x)), maxX = Math.max(...points.map(p=>p.x));
+        let ext = (maxX - minX) * 0.1;
+        let x1 = minX - ext < 0 ? 0 : minX - ext; 
+        let x2 = maxX + ext;
+        
+        let sign = intercept >= 0 ? '+' : '-';
+        let eqStr = `y = ${slope.toFixed(2)}x ${sign} ${Math.abs(intercept).toFixed(2)}`;
+        
+        // 擬合線 dataset：同屬於 Scatter 圖表，藉由 showLine: true 畫出線性迴歸
+        datasets.push({
+          label: `${gName} 擬合線`,
+          data: [{x: x1, y: slope * x1 + intercept}, {x: x2, y: slope * x2 + intercept}],
+          borderColor: color, borderWidth: 2, borderDash: [5, 5],
+          pointRadius: 0, showLine: true, fill: false,
+          equationText: eqStr 
+        });
+      }
+    }
+    colorIndex++;
+  });
+
+  logChart.data.datasets = datasets;
+  logChart.options.scales.x.title.text = xVar.label;
+  logChart.options.scales.y.title.text = yVar.label;
+  logChart.update();
+}
+
+document.getElementById('btnDrawChart').addEventListener('click', updateLogbookChart);
+document.getElementById('showTrendline').addEventListener('change', () => {
+    if (logChart && logChart.data.datasets.length > 0) updateLogbookChart();
+});
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  if (records.length === 0) return alert('沒有數據可匯出！');
+  const report = document.getElementById('reportText').value.replace(/"/g, '""');
+  let csv = "【實驗發現與結論報告】\n" + `"${report}"\n\n` + "【實驗數據】\n";
+  
+  const activeCols = logVars.filter(v => v.show);
+  csv += activeCols.map(c => c.label).join(',') + '\n';
+  records.forEach(r => {
+    csv += activeCols.map(c => r[c.id]).join(',') + '\n';
+  });
+  
+  const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '浮力實驗探究紀錄.csv'; a.click();
+});
+
+// ==========================================
+// 3. 物理與畫布模擬核心
+// ==========================================
+function drawScale(){
+  ctx.save(); ctx.font = '11px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for(let ml = 50; ml <= TANK_CAPACITY_ML + 0.5; ml += 50){
+    const h = ml / (Wcm * ML_PER_AREA);
+    if(h > Hcm + 0.001) break;
+    const yp = Y(h), major = (ml % 100 === 0);
+    ctx.strokeStyle = major ? '#075985' : '#7dd3fc'; ctx.lineWidth = major ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(X(0), yp); ctx.lineTo(X(0) + (major ? 18 : 10), yp); ctx.stroke();
+    if(major){ ctx.fillStyle = '#1e3a5f'; ctx.fillText(ml + ' ml', X(0) - 4, yp); }
+  }
+  ctx.restore();
+}
+
+function draw(){
+  computeView();
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const wh = solveWaterHeight();
+
+  ctx.fillStyle = '#eef6ff';
+  ctx.fillRect(X(0), Y(Hcm), Wcm*ppc, Hcm*ppc);
+
+  const whClamped = Math.min(wh, Hcm);
+  const colors = getLiquidColor(S.rhoLiq);
+  const grad = ctx.createLinearGradient(0, Y(whClamped), 0, Y(0));
+  grad.addColorStop(0, colors[0]);
+  grad.addColorStop(1, colors[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(X(0), Y(whClamped), Wcm*ppc, whClamped*ppc);
+  
+  ctx.strokeStyle = colors[1]; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(X(0), Y(whClamped)); ctx.lineTo(X(Wcm), Y(whClamped)); ctx.stroke();
+  if(wh > Hcm){
+    ctx.fillStyle='#dc2626'; ctx.font='12px sans-serif';
+    ctx.fillText('⚠ 水溢出容器', X(0)+24, Y(Hcm)+14);
+  }
+
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(X(0), Y(Hcm)); ctx.lineTo(X(0), Y(0));
+  ctx.lineTo(X(Wcm), Y(0)); ctx.lineTo(X(Wcm), Y(Hcm)); ctx.stroke();
+
+  drawScale();
+  if(S.showWallP) drawWallPressure(wh);
+  drawObject();
+  if(S.showObjP) drawObjectPressure(wh);
+  if(S.showForce) drawForces(wh);
+  updateReadout(wh);
+}
+
+function drawObject(){
+  if(S.density >= 19.0) ctx.fillStyle = 'rgba(251,191,36,0.9)'; 
+  else if(S.density >= 7.0) ctx.fillStyle = 'rgba(100,116,139,0.9)'; 
+  else if(S.density >= 2.0) ctx.fillStyle = 'rgba(203,213,225,0.9)'; 
+  else ctx.fillStyle = 'rgba(163,83,30,0.9)'; 
+  
+  ctx.strokeStyle = '#451a03'; ctx.lineWidth = 2;
+  if(S.shape==='circle'){
+    const r = radius()*ppc;
+    ctx.beginPath(); ctx.arc(X(S.cx), Y(S.cy), r, 0, 7); ctx.fill(); ctx.stroke();
+  } else {
+    const hh = half()*ppc;
+    ctx.beginPath(); ctx.rect(X(S.cx)-hh, Y(S.cy)-hh, 2*hh, 2*hh); ctx.fill(); ctx.stroke();
+  }
+}
+
+function drawObjectPressure(wh){
+  const col = '#0d9488';
+  const bottomFlag = isAtBottom(); 
+  
+  if(S.shape==='circle'){
+    const r = radius(), perim = 2*Math.PI*r, N = Math.max(8, Math.round(perim * S.pDensity)), segLen = perim / N;
+    for(let i=0;i<N;i++){
+      const th = 2*Math.PI*i/N, px = S.cx + r*Math.cos(th), py = S.cy + r*Math.sin(th), depth = wh - py;
+      if(depth <= 0) continue;
+      if (bottomFlag && Math.sin(th) < -0.1) continue; 
+      const len = S.rhoLiq * depth * segLen * S.pScale * PRESSURE_LEN_K;
+      pArrow(X(px)+Math.cos(th)*len, Y(py)-Math.sin(th)*len, X(px), Y(py), col);
+    }
+  } else {
+    const hh = half(), side = 2*hh;
+    const edges = [
+      {n:[ 1,0], a:[S.cx+hh,S.cy-hh], b:[S.cx+hh,S.cy+hh]},
+      {n:[-1,0], a:[S.cx-hh,S.cy-hh], b:[S.cx-hh,S.cy+hh]},
+      {n:[0, 1], a:[S.cx-hh,S.cy+hh], b:[S.cx+hh,S.cy+hh]},
+      {n:[0,-1], a:[S.cx-hh,S.cy-hh], b:[S.cx+hh,S.cy-hh]}, 
+    ];
+    const N = Math.max(2, Math.round(side * S.pDensity)), segLen = side / N;
+    for(const e of edges){
+      if(bottomFlag && e.n[1] === -1) continue;
+      for(let i=0;i<N;i++){
+        const t = (i+0.5)/N, px = e.a[0] + (e.b[0]-e.a[0])*t, py = e.a[1] + (e.b[1]-e.a[1])*t, depth = wh - py;
+        if(depth <= 0) continue;
+        const len = S.rhoLiq*depth*segLen*S.pScale*PRESSURE_LEN_K;
+        pArrow(X(px)+e.n[0]*len, Y(py)-e.n[1]*len, X(px), Y(py), col);
+      }
+    }
+  }
+}
+
+function drawWallPressure(wh){
+  const col = '#f97316', whc = Math.min(wh, Hcm);
+  const Nside = Math.max(2, Math.round(whc * S.pDensity)), segV = whc / Nside;
+  for(let i=0;i<Nside;i++){
+    const y = (i+0.5)*segV, len = S.rhoLiq*(wh - y)*segV*S.pScale*PRESSURE_LEN_K;
+    pArrow(X(0)+len, Y(y), X(0), Y(y), col); pArrow(X(Wcm)-len, Y(y), X(Wcm), Y(y), col);
+  }
+  const Nb = Math.max(2, Math.round(Wcm * S.pDensity)), segH = Wcm / Nb, Pbot = S.rhoLiq * wh;
+  for(let i=0;i<Nb;i++){
+    const x = (i+0.5)*segH, len = Pbot*segH*S.pScale*PRESSURE_LEN_K;
+    pArrow(X(x), Y(0)-len, X(x), Y(0), col);
+  }
+}
+
+function drawForces(wh){
+  const mass = S.density*S.area, sub = submergedArea(S.cy, wh);
+  const W = mass;
+  const B = getBuoyancy(wh, sub); 
+  const cxp = X(S.cx), cyp = Y(S.cy);
+  const wEnd = W * S.forceScale * 10, bEnd = B * S.forceScale * 10;
+  
+  if(W>0) {
+    arrow(cxp, cyp, cxp, cyp + wEnd, '#ef4444', 24, 3);
+    ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, cyp + Math.max(0, wEnd - 12)); 
+    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 6; ctx.stroke();
+  }
+  if(B>0) {
+    arrow(cxp, cyp, cxp, cyp - bEnd, '#3b82f6', 24, 3);
+    ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, cyp - Math.max(0, bEnd - 12));
+    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 6; ctx.stroke();
+  }
+  
+  ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#ef4444'; ctx.fillText('W='+W.toFixed(1)+' gw', cxp+22, cyp + Math.max(18, wEnd));
+  ctx.fillStyle = '#3b82f6'; ctx.fillText('B='+B.toFixed(1)+' gw', cxp+22, cyp - Math.max(18, bEnd));
+}
+
+function physics(dt){
+  if(S.dragging || S.fixPos){ S.vy = 0; return; }
+  const wh = solveWaterHeight(), mass = S.density*S.area, sub = submergedArea(S.cy, wh);
+  const Fnet = getBuoyancy(wh, sub) - mass, acc = (Fnet/mass)*g;
+  S.vy += acc*dt; S.vy *= Math.exp(-S.damp*dt); S.cy += S.vy*dt;
+  const minCy = objHalfH(), maxCy = Hcm - objHalfH();
+  if(S.cy < minCy){ S.cy = minCy; if(S.vy<0) S.vy=0; } 
+  if(S.cy > maxCy){ S.cy = maxCy; if(S.vy>0) S.vy=0; } 
+}
+
+function updateReadout(wh){
+  const mass = S.density*S.area, sub = submergedArea(S.cy, wh), ratio = sub/S.area*100;
+  document.getElementById('rSub').textContent = ratio.toFixed(0);
+  document.getElementById('rW').textContent = mass.toFixed(1);
+  document.getElementById('rB').textContent = getBuoyancy(wh, sub).toFixed(1);
+  document.getElementById('rDisp').textContent = sub.toFixed(1);
+  document.getElementById('rDispW').textContent = (S.rhoLiq * sub).toFixed(1);
+  document.getElementById('rWH').textContent = (wh * Wcm * ML_PER_AREA).toFixed(0);
+  document.getElementById('rDepth').textContent = Math.max(0, wh - (S.cy - objHalfH())).toFixed(2);
+  
+  const st = document.getElementById('rState');
+  if (isAtBottom()) { st.textContent='沉底 (手動貼底無浮力)'; st.style.color='#f87171'; }
+  else if(Math.abs(S.density - S.rhoLiq) < 0.02){ st.textContent='懸浮 (密度相近)'; st.style.color='#a78bfa'; }
+  else if(S.density < S.rhoLiq){ st.textContent='漂浮'; st.style.color='#22c55e'; }
+  else { st.textContent='下沉中'; st.style.color='#f87171'; }
+}
+
+// ==========================================
+// 4. 事件綁定與控制
+// ==========================================
+function pointerPos(e){
+  const r = cv.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height) };
+}
+function insideObject(px,py){
+  const dx = (px - X(S.cx))/ppc, dy = (py - Y(S.cy))/(-ppc);
+  if(S.shape==='circle') return Math.hypot(dx,dy) <= radius();
+  return Math.abs(dx)<=half() && Math.abs(dy)<=half();
+}
+cv.addEventListener('pointerdown', e=>{
+  const p = pointerPos(e);
+  if(insideObject(p.x,p.y)){ S.dragging=true; S.vy=0; cv.setPointerCapture(e.pointerId); }
+});
+cv.addEventListener('pointermove', e=>{
+  if(!S.dragging) return;
+  const p = pointerPos(e);
+  let nx = (p.x - originX)/ppc, ny = (originY - p.y)/ppc;
+  S.cx = Math.max(objHalfW(), Math.min(Wcm-objHalfW(), nx));
+  S.cy = Math.max(objHalfH(), Math.min(Hcm-objHalfH(), ny));
+  S.vy = 0;
+  
+  if(Math.abs(S.cy - objHalfH()) < 0.01) S.manuallyPushedToBottom = true;
+  else S.manuallyPushedToBottom = false;
+});
+cv.addEventListener('pointerup', ()=> S.dragging=false);
+cv.addEventListener('pointercancel', ()=> S.dragging=false);
+
+function syncUI(){
+  const mass = S.density*S.area;
+  document.getElementById('density').value = S.density;
+  document.getElementById('area').value = S.area;
+  document.getElementById('mass').value = mass;
+  
+  document.getElementById('liquid').value = S.rhoLiq;
+  document.getElementById('forceScale').value = S.forceScale;
+  document.getElementById('pScale').value = S.pScale;
+  document.getElementById('pDensity').value = S.pDensity;
+  document.getElementById('viewScale').value = S.viewScale;
+  
+  document.getElementById('dVal').textContent = S.density.toFixed(2)+' g/cm³';
+  document.getElementById('aVal').textContent = S.area.toFixed(0)+' cm³';
+  document.getElementById('mVal').textContent = mass.toFixed(1)+' g';
+  document.getElementById('lVal').textContent = S.rhoLiq.toFixed(2)+' g/cm³';
+  document.getElementById('fsVal').textContent = '×'+S.forceScale.toFixed(2);
+  document.getElementById('psVal').textContent = '×'+S.pScale.toFixed(1);
+  document.getElementById('pdVal').textContent = S.pDensity.toFixed(1);
+  document.getElementById('vsVal').textContent = '×'+S.viewScale.toFixed(2);
+}
+
+document.getElementById('area').addEventListener('input', e=>{ 
+  S.area = +e.target.value; 
+  let m = S.area * S.density;
+  document.getElementById('mass').value = m;
+  S.manuallyPushedToBottom = false;
+  syncUI(); draw(); 
+});
+document.getElementById('mass').addEventListener('input', e=>{ 
+  let m = +e.target.value;
+  let v = m / S.density;
+  if (v > 50) { v = 50; m = v * S.density; e.target.value = m; }
+  if (v < 5) { v = 5; m = v * S.density; e.target.value = m; }
+  S.area = v;
+  document.getElementById('area').value = v;
+  S.manuallyPushedToBottom = false;
+  syncUI(); draw(); 
+});
+document.getElementById('density').addEventListener('input', e=>{ 
+  let d = +e.target.value;
+  let m = S.area * d;
+  if (m > 1000) { m = 1000; d = m / S.area; e.target.value = d; }
+  if (m < 0.5) { m = 0.5; d = m / S.area; e.target.value = d; }
+  S.density = d;
+  document.getElementById('mass').value = m;
+  S.manuallyPushedToBottom = false;
+  syncUI(); draw(); 
+});
+
+document.getElementById('liquid').addEventListener('input', e=>{ S.rhoLiq=+e.target.value; syncUI(); draw(); });
+document.getElementById('forceScale').addEventListener('input', e=>{ S.forceScale=+e.target.value; syncUI(); draw(); });
+document.getElementById('pScale').addEventListener('input', e=>{ S.pScale=+e.target.value; syncUI(); draw(); });
+document.getElementById('pDensity').addEventListener('input', e=>{ S.pDensity=+e.target.value; syncUI(); draw(); });
+document.getElementById('viewScale').addEventListener('input', e=>{ S.viewScale=+e.target.value; syncUI(); draw();});
+document.getElementById('showForce').addEventListener('change', e=> {S.showForce=e.target.checked; draw();});
+document.getElementById('showObjP').addEventListener('change', e=> {S.showObjP=e.target.checked; draw();});
+document.getElementById('showWallP').addEventListener('change', e=> {S.showWallP=e.target.checked; draw();});
+document.getElementById('fixPos').addEventListener('change', e=> S.fixPos=e.target.checked);
+document.querySelectorAll('input[name=shape]').forEach(r=> r.addEventListener('change', e=> {S.shape=e.target.value; S.manuallyPushedToBottom=false; draw();}));
+document.getElementById('reset').addEventListener('click', ()=>{ S.cx=Wcm/2; S.cy=9; S.vy=0; S.manuallyPushedToBottom=false; draw(); });
+
+document.querySelectorAll('.liq-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    S.rhoLiq = parseFloat(e.target.dataset.rho); syncUI(); draw();
+    document.getElementById('groupInput').value = e.target.innerText.split('(')[0];
+  });
+});
+document.querySelectorAll('.obj-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    let d = parseFloat(e.target.dataset.rho);
+    let m = S.area * d;
+    if (m > 1000) { m = 1000; d = m / S.area; }
+    if (m < 0.5) { m = 0.5; d = m / S.area; }
+    S.density = d;
+    document.getElementById('density').value = d;
+    document.getElementById('mass').value = m;
+    S.manuallyPushedToBottom = false;
+    syncUI(); draw();
+  });
+});
+
+const statusOverlay = document.getElementById('statusOverlay');
+const lineChecks = document.querySelectorAll('input[data-line]');
+function applyLineVisibility(){
+  lineChecks.forEach(c=> document.getElementById(c.dataset.line).style.display = c.checked ? '' : 'none');
+  statusOverlay.classList.toggle('hidden', ![...lineChecks].some(c=>c.checked));
+}
+lineChecks.forEach(c=> c.addEventListener('change', applyLineVisibility));
+
+const panel = document.querySelector('.panel');
+const panelShow = document.getElementById('panelShow');
+document.getElementById('panelHide').addEventListener('click', ()=>{ panel.classList.add('collapsed'); panelShow.style.display = 'block'; });
+panelShow.addEventListener('click', ()=>{ panel.classList.remove('collapsed'); panelShow.style.display = 'none'; });
+
+// 使用 ResizeObserver 徹底解決 Canvas 變形問題
+function resize(){
+  const wrap = cv.parentElement;
+  if (cv.width !== wrap.clientWidth || cv.height !== wrap.clientHeight) {
+      cv.width  = wrap.clientWidth;
+      cv.height = wrap.clientHeight;
+      return true;
+  }
+  return false;
+}
+
+const ro = new ResizeObserver(() => { if (resize()) draw(); });
+ro.observe(document.getElementById('canvasWrap'));
+
+const chartRo = new ResizeObserver(() => { if (logChart) logChart.resize(); });
+chartRo.observe(document.querySelector('.chart-canvas-container'));
+
+let last = performance.now();
+function loop(now){
+  let dt = Math.min((now-last)/1000, 0.03); last=now;
+  physics(dt); draw(); requestAnimationFrame(loop);
+}
+
+window.onload = () => {
+  lineChecks.forEach(c => c.checked = false); 
+  initLogbookUI();
+  resize(); syncUI(); applyLineVisibility(); 
+  requestAnimationFrame(loop);
+};
+
+// --- 獨立浮動視窗 (Dock / Undock) 核心邏輯 ---
+const btnPopoutChart = document.getElementById('btnPopoutChart');
+
+btnPopoutChart.addEventListener('click', () => {
+  const isPopout = chartPane.classList.toggle('popout');
+  
+  if (isPopout) {
+    // 【彈出狀態】
+    btnPopoutChart.textContent = "📌 釘回原處";
+    btnPopoutChart.style.color = "#ef4444";
+    // 預設漂浮起始位置與大小
+    chartPane.style.top = "15vh";
+    chartPane.style.left = "40vw";
+    chartPane.style.width = "550px";
+    chartPane.style.height = "450px";
+    chartPane.style.display = "flex"; 
+  } else {
+    // 【放回狀態】
+    btnPopoutChart.textContent = "🔲 彈出視窗";
+    btnPopoutChart.style.color = "#8b5cf6";
+    // 清除行內樣式，還原給 Flexbox 系統接管
+    chartPane.style.top = "";
+    chartPane.style.left = "";
+    chartPane.style.width = "";
+    chartPane.style.height = "";
+  }
+  
+  // 通知 Chart.js 即時重新計算視圖尺寸
+  setTimeout(() => { if (logChart) logChart.resize(); }, 100);
+});
+
+// 綁定圖表上方的標題列作為「拖曳把手」
+const chartHeader = chartPane.querySelector('.pane-toolbar');
+let isWindowDragging = false;
+let startMouseX, startMouseY;
+let startWinLeft, startWinTop;
+
+chartHeader.addEventListener('mousedown', (e) => {
+  if (!chartPane.classList.contains('popout')) return;
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
+
+  isWindowDragging = true;
+  document.body.style.userSelect = 'none';
+  
+  startMouseX = e.clientX;
+  startMouseY = e.clientY;
+  
+  const rect = chartPane.getBoundingClientRect();
+  startWinLeft = rect.left;
+  startWinTop = rect.top;
+  
+  chartPane.classList.add('no-transition'); // 關閉轉場動畫，保證流暢度
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isWindowDragging) return;
+  let dx = e.clientX - startMouseX;
+  let dy = e.clientY - startMouseY;
+  
+  chartPane.style.left = `${startWinLeft + dx}px`;
+  chartPane.style.top = `${startWinTop + dy}px`;
+});
+
+document.addEventListener('mouseup', () => {
+  if (isWindowDragging) {
+    isWindowDragging = false;
+    document.body.style.userSelect = 'auto';
+    chartPane.classList.remove('no-transition');
+  }
+});
+</script>
+</body></html>
