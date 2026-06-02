@@ -1112,9 +1112,37 @@ function loop(now){
 }
 
 window.onload = () => {
-  lineChecks.forEach(c => c.checked = false); 
+  // 1. 【核心設定】強制規定 Q1 狀態欄要勾選的 dataset line 名稱
+  // 包含：底面深度(lineDepth)、沒入比例(lineSub)、重力(lineW)、浮力(lineB)、總水量(lineWH)
+  const q1Lines = ['lineDepth', 'lineSub', 'lineW', 'lineB', 'lineWH'];
+
+  // 2. 尋找畫面上所有的狀態欄勾選盒，進行強制設定
+  lineChecks.forEach(c => {
+    if (q1Lines.includes(c.dataset.line)) {
+      c.checked = true;  // 在清單內的就打勾
+    } else {
+      c.checked = false; // 不在清單內的就取消
+    }
+  }); 
+  
+  // 3. 呼叫原本程式的更新視圖函式，讓畫面上的數據浮層立刻同步
+  applyLineVisibility(); 
+
+  // 4. 【左側選單關閉】自動觸發一次「收合選單」按鈕的點擊事件
+  const btnHide = document.getElementById('panelHide');
+  if (btnHide) btnHide.click();
+
+  // 5. 【實驗紀錄簿關閉】確保右側紀錄簿面版是隱藏的，按鈕文字維持預設
+  const logPanel = document.getElementById('logbookPanel');
+  const btnToggleLog = document.getElementById('btnToggleLogbook');
+  if (logPanel) logPanel.style.display = 'none';
+  if (btnToggleLog) btnToggleLog.textContent = '📊 打開實驗記錄簿 ▶';
+  isLogbookOpen = false; // 將全域的開關狀態變數重設為關閉
+
+  // 6. 執行原本程式就有的畫布初始化與主迴圈
   initLogbookUI();
-  resize(); syncUI(); applyLineVisibility(); 
+  resize(); 
+  syncUI(); 
   requestAnimationFrame(loop);
 };
 
