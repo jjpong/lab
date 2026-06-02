@@ -199,6 +199,12 @@
     font-size: 13px; font-family: inherit; min-height: 60px;
   }
   .logbook-report textarea:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.2); }
+/* 修改後的防禦樣式：同時精準抹除左側與右側記錄簿的開啟按鈕 */
+.q1-mode #panelShow, 
+.q1-mode .canvas-container > button,
+.q1-mode #btnToggleLogbook {
+  display: none !important;
+}
 </style>
 </head>
 <body>
@@ -389,6 +395,14 @@
 </div>
 
 <script>
+// === 網址參數攔截器：一載入就決定要不要啟動 Q1 防禦 ===
+(function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('q') === '1') {
+    // 如果網址有 ?q=1，直接在網頁最外層 (html 標籤) 加上 q1-mode 記號
+    document.documentElement.classList.add('q1-mode');
+  }
+})();
 // ==========================================
 // 1. 物理與畫布核心設定
 // ==========================================
@@ -1112,34 +1126,31 @@ function loop(now){
 }
 
 window.onload = () => {
-  // 1. 【核心設定】強制規定 Q1 狀態欄要勾選的 dataset line 名稱
-  // 包含：底面深度(lineDepth)、沒入比例(lineSub)、重力(lineW)、浮力(lineB)、總水量(lineWH)
+  // 強制規定 Q1 狀態欄要勾選的項目
   const q1Lines = ['lineDepth', 'lineSub', 'lineW', 'lineB', 'lineWH'];
 
-  // 2. 尋找畫面上所有的狀態欄勾選盒，進行強制設定
+  // 尋找畫面上所有的狀態欄勾選盒進行強制打勾
   lineChecks.forEach(c => {
     if (q1Lines.includes(c.dataset.line)) {
-      c.checked = true;  // 在清單內的就打勾
+      c.checked = true;
     } else {
-      c.checked = false; // 不在清單內的就取消
+      c.checked = false;
     }
   }); 
   
-  // 3. 呼叫原本程式的更新視圖函式，讓畫面上的數據浮層立刻同步
+  // 呼叫更新視圖函式，讓畫面上的數據浮層立刻同步
   applyLineVisibility(); 
 
-  // 4. 【左側選單關閉】自動觸發一次「收合選單」按鈕的點擊事件
-  const btnHide = document.getElementById('panelHide');
-  if (btnHide) btnHide.click();
+  // 自動觸發一次左側選單收合
+  const leftPanel = document.querySelector('.panel');
+  if (leftPanel) leftPanel.classList.add('collapsed');
 
-  // 5. 【實驗紀錄簿關閉】確保右側紀錄簿面版是隱藏的，按鈕文字維持預設
+  // 確保右側紀錄簿初始為隱藏
   const logPanel = document.getElementById('logbookPanel');
-  const btnToggleLog = document.getElementById('btnToggleLogbook');
   if (logPanel) logPanel.style.display = 'none';
-  if (btnToggleLog) btnToggleLog.textContent = '📊 打開實驗記錄簿 ▶';
-  isLogbookOpen = false; // 將全域的開關狀態變數重設為關閉
+  isLogbookOpen = false; 
 
-  // 6. 執行原本程式就有的畫布初始化與主迴圈
+  // 執行原本程式就有的畫布初始化與主迴圈
   initLogbookUI();
   resize(); 
   syncUI(); 
