@@ -199,12 +199,6 @@
     font-size: 13px; font-family: inherit; min-height: 60px;
   }
   .logbook-report textarea:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.2); }
-/* 修改後的防禦樣式：同時精準抹除左側與右側記錄簿的開啟按鈕 */
-.q1-mode #panelShow, 
-.q1-mode .canvas-container > button,
-.q1-mode #btnToggleLogbook {
-  display: none !important;
-}
 </style>
 </head>
 <body>
@@ -395,14 +389,6 @@
 </div>
 
 <script>
-// === 網址參數攔截器：一載入就決定要不要啟動 Q1 防禦 ===
-(function() {
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('q') === '1') {
-    // 如果網址有 ?q=1，直接在網頁最外層 (html 標籤) 加上 q1-mode 記號
-    document.documentElement.classList.add('q1-mode');
-  }
-})();
 // ==========================================
 // 1. 物理與畫布核心設定
 // ==========================================
@@ -1126,34 +1112,9 @@ function loop(now){
 }
 
 window.onload = () => {
-  // 強制規定 Q1 狀態欄要勾選的項目
-  const q1Lines = ['lineDepth', 'lineSub', 'lineW', 'lineB', 'lineWH'];
-
-  // 尋找畫面上所有的狀態欄勾選盒進行強制打勾
-  lineChecks.forEach(c => {
-    if (q1Lines.includes(c.dataset.line)) {
-      c.checked = true;
-    } else {
-      c.checked = false;
-    }
-  }); 
-  
-  // 呼叫更新視圖函式，讓畫面上的數據浮層立刻同步
-  applyLineVisibility(); 
-
-  // 自動觸發一次左側選單收合
-  const leftPanel = document.querySelector('.panel');
-  if (leftPanel) leftPanel.classList.add('collapsed');
-
-  // 確保右側紀錄簿初始為隱藏
-  const logPanel = document.getElementById('logbookPanel');
-  if (logPanel) logPanel.style.display = 'none';
-  isLogbookOpen = false; 
-
-  // 執行原本程式就有的畫布初始化與主迴圈
+  lineChecks.forEach(c => c.checked = false); 
   initLogbookUI();
-  resize(); 
-  syncUI(); 
+  resize(); syncUI(); applyLineVisibility(); 
   requestAnimationFrame(loop);
 };
 
