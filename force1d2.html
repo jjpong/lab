@@ -396,7 +396,13 @@
         <div id="settingsContent">
           <h4 class="text-xs font-semibold text-gray-600 mb-1">📦 選擇物體</h4>
           <div id="objectGrid" class="grid grid-cols-2 gap-1.5 mb-3"></div>
-          
+          <div class="mt-3 border-t pt-2">
+  <div class="flex justify-between text-xs font-semibold text-gray-600 mb-1">
+    <span>🏠 初始位置 (x₀)</span>
+    <span id="lbl_initPos" class="font-mono text-purple-600">0.00 m</span>
+  </div>
+  <input type="range" id="slider_initPos" min="-10" max="10" step="0.1" value="0" class="w-full h-1">
+</div>
           <div id="advSettingsCol" data-collapsed="true" class="mt-3">
             <div class="flex items-center justify-between mb-1 cursor-pointer">
               <h4 class="text-xs font-semibold text-gray-600">⚙ 進階設定</h4>
@@ -485,6 +491,7 @@ let state = {
   g: 9.8,
   appliedForce: 0,
   targetForce: 0, // 👈 新增這行：用來記錄滑鼠實際算出的目標力道
+      initialPosition: 0, // 👈 新增這一行，預設為 0
   position: INITIAL_POSITION,
   velocity: 0,
   acceleration: 0,
@@ -1008,7 +1015,7 @@ function updateUI() {
 
 function resetAll(skipBroadcast = false) {
   state.appliedForce = 0;
-  state.position = INITIAL_POSITION;
+  state.position = state.initialPosition; // 🔴 修改這裡：從 INITIAL_POSITION 改為 state.initialPosition
   state.velocity = 0;
   state.acceleration = 0;
   state.friction = 0;
@@ -1021,7 +1028,8 @@ function resetAll(skipBroadcast = false) {
   state.viewTime = 0;
   if($('forceSlider')) $('forceSlider').value = 0;
   history = { 
-    t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], x: [INITIAL_POSITION],
+    t: [0], F_app: [0], F_fric: [0], F_net: [0], a: [0], v: [0], 
+    x: [state.initialPosition], // 🔴 修改這裡：從 INITIAL_POSITION 改為 state.initialPosition
     W_app: [0], W_fric: [0], W_net: [0], K: [0]
   };
   setMode(MODE.PAUSED);
@@ -1270,6 +1278,22 @@ function wireUpControls() {
       }
       drawCharts(); 
     });
+  });
+      // 🔴 貼在 wireUpControls() 裡面的末端
+  $('slider_initPos')?.addEventListener('input', e => {
+    const val = parseFloat(e.target.value);
+    state.initialPosition = val;
+    if($('lbl_initPos')) $('lbl_initPos').textContent = val.toFixed(2) + ' m';
+    
+    // 當使用者拉動初始位置時，自動將模擬重置回 $t = 0$ 的新起點狀態
+    resetAll(true); 
+    updateStaticDisplay();
+    renderScene();
+    drawCharts();
+  });
+
+  $('slider_initPos')?.addEventListener('change', () => {
+    broadcastStateToParent("調整初始位置至: " + state.initialPosition + " m");
   });
 }
 
