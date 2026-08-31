@@ -14,9 +14,11 @@
     --soft:#eaf1ff; --shadow:0 12px 30px rgba(31,42,68,0.08); --radius:18px;
   }
   *{ box-sizing:border-box; }
+  /* 🌟 防止拖曳探頭/按住灌水排水時，整個頁面跟著上下彈跳捲動（常見於觸控/手機瀏覽器） */
+  html, body{ overscroll-behavior: none; }
   body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
         background:linear-gradient(180deg,#eff5ff 0%,#f9fbff 100%); color:var(--text); overflow-x:hidden; }
-  body.dragging{ cursor:grabbing; }
+  body.dragging{ cursor:grabbing; touch-action: none; overscroll-behavior: none; }
   body.modal-open{ overflow:hidden; }
   .wrapper{ width:100%; max-width:1600px; margin:0 auto; padding:12px; }
 
@@ -242,6 +244,38 @@
   .help-block h3{ margin:0 0 8px; font-size:1rem; color:var(--primary-2); }
   .help-block ul{ margin:0; padding-left:1.2rem; }
   .help-block li{ margin:4px 0; }
+  /* 🎬 互動導覽（coach mark）樣式 */
+  #tourMask {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 4000; pointer-events: none;
+  }
+  #tourSpotlight {
+    position: fixed; border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.72);
+    transition: top 0.35s ease, left 0.35s ease, width 0.35s ease, height 0.35s ease;
+    pointer-events: none;
+    outline: 3px solid var(--info);
+    outline-offset: 4px;
+  }
+  #tourTooltip {
+    position: fixed; z-index: 4001; background: var(--panel); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 16px 18px; width: 280px; max-width: calc(100vw - 32px);
+    transition: top 0.35s ease, left 0.35s ease;
+  }
+  #tourTooltip .tour-step-count { font-size: 0.78rem; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+  #tourTooltip .tour-title { font-size: 1rem; font-weight: 900; color: var(--text); margin-bottom: 6px; }
+  #tourTooltip .tour-text { font-size: 0.88rem; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+  #tourTooltip .tour-actions { display: flex; justify-content: space-between; align-items: center; }
+  #tourTooltip .tour-next-btn {
+    background: var(--info); color: #fff; border: none; padding: 8px 18px; border-radius: 20px;
+    font-weight: 800; cursor: pointer; font-size: 0.88rem;
+  }
+  #tourTooltip .tour-next-btn:hover { filter: brightness(1.08); }
+  #tourTooltip .tour-close-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.82rem;
+    text-decoration: underline; padding: 0;
+  }
+  #tourTooltip.tour-center { width: 320px; text-align: center; }
 </style>
 </head>
 <body>
@@ -251,6 +285,7 @@
       <div><h1>液體壓力虛擬實驗</h1></div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" class="btn-secondary" id="helpBtn">操作說明</button>
+        <button type="button" class="btn-secondary" id="startTourBtn">🎬 互動導覽</button>
         <button type="button" class="btn-reset-all" id="resetAllBtn">🔄 一鍵重置</button>
       </div>
     </div>
@@ -1645,6 +1680,7 @@ ${Object.keys(grouped).map(gn =>
     document.body.classList.remove("modal-open");
   }
   el.helpBtn.addEventListener("click", openHelp);
+  document.getElementById("startTourBtn").addEventListener("click", startTour);
   el.closeHelpBtn.addEventListener("click", closeHelp);
   el.helpBackdrop.addEventListener("click", closeHelp);
 
@@ -1706,6 +1742,163 @@ ${Object.keys(grouped).map(gn =>
   }, 500);
 }
   init();
+
+  // ==========================================
+  // 🎬 互動導覽（coach mark）：純前端功能，不需要 AI
+  // 放在 IIFE 內部才能用到 el / isSimInitialized / broadcastStateToParent，
+  // 但 HTML 按鈕用 onclick="tourNext()" 這種寫法會在全域作用域執行，
+  // 所以最後要把 tourNext、closeTour 明確掛到 window 上。
+  // ==========================================
+  const tourSteps = [
+    { target: "fillBtn", title: "💧 灌液體", text: "按住這個水龍頭可以把液體灌進容器，液面會慢慢升高。" },
+    { target: "drainBtn", title: "🚿 排液體", text: "按住這個水龍頭可以把液體排出容器，液面會慢慢降低。" },
+    { target: "probeGroup", title: "🔴 拖曳探頭", text: "拖曳這個紅色探頭，可以改變測量的深度位置，壓力計會顯示該深度的壓力。" },
+    { target: "changeLiquidBtn", title: "🔄 更換液體", text: "按這裡可以切換不同種類的液體（水、鹽水、油...），甚至可以自訂密度。" },
+    { target: "changeShapeBtn", title: "📐 容器形狀", text: "按這裡可以切換四種不同的容器形狀，觀察形狀會不會影響壓力。" },
+    { target: "pressureUnitBtn", title: "壓力單位", text: "點一下這裡的文字，可以循環切換壓力的顯示單位。" },
+    { target: "zeroBtnGroup", title: "⚖️ TARE 歸零", text: "按這裡可以把目前的讀數歸零，之後只會顯示液體本身造成的壓力，扣掉大氣壓力。" },
+    { target: "resetBtnGroup", title: "↩️ 解除歸零", text: "按這裡可以恢復顯示完整的總壓力（液體壓力 + 大氣壓力）。" },
+    {
+      target: "dataPanelToggle", title: "📈 打開實驗記錄簿",
+      text: "接下來的功能都在這個記錄簿裡面：記錄數據、分組、畫統計圖、下載報告，都要先展開它。"
+    },
+    {
+      target: "currentGroupInput", title: "🏷️ 分組（選填）",
+      text: "如果同時比較不同組別的數據，可以在這裡先幫這一組取個名字，例如「水組」。",
+      before: tourEnsureDataPanelOpen
+    },
+    {
+      target: "recordBtn", title: "➕ 加入紀錄",
+      text: "調整好深度、液體種類之後，按這裡就會把目前這一筆數據記錄下來。",
+      before: tourEnsureDataPanelOpen
+    },
+    {
+      target: "generateChartBtn", title: "📊 畫圖找規律",
+      text: "選好橫軸、縱軸要看哪個變數之後，按這裡就會把蒐集到的數據畫成統計圖，還可以勾選加上擬合線。",
+      before: tourEnsureDataPanelOpen
+    },
+    {
+      target: "exportBtn", title: "💾 下載 / 📤 送出報告",
+      text: "寫好你的觀察與結論之後，可以下載成檔案自己保留，或是直接送出給 AI 夥伴討論、給你回饋。",
+      before: tourEnsureDataPanelOpen
+    },
+    { target: null, title: "🎉 教學結束！", text: "現在你已經認識這個實驗室的所有功能了，開始自由操作、動手做實驗看看吧！", center: true }
+  ];
+
+  let tourIndex = -1;
+  let tourCurrentTargetId = null;
+
+  function tourEnsureDataPanelOpen() {
+    if (el.dataPanelWrap && !el.dataPanelWrap.classList.contains("open")) {
+      el.dataPanelToggle.click();
+    }
+  }
+
+  function startTour() {
+    tourIndex = 0;
+    document.getElementById("tourMask").classList.remove("hidden");
+    document.getElementById("tourTooltip").classList.remove("hidden");
+    showTourStep(tourIndex);
+  }
+
+  function tourNext() {
+    if (isSimInitialized) {
+      try {
+        const finishedStep = tourSteps[tourIndex];
+        broadcastStateToParent(`完成了新手教學第 ${tourIndex + 1} 步：${finishedStep.title}`);
+      } catch (e) {}
+    }
+    tourIndex++;
+    if (tourIndex >= tourSteps.length) { closeTour(true); return; }
+    showTourStep(tourIndex);
+  }
+
+  function closeTour(completed) {
+    document.getElementById("tourMask").classList.add("hidden");
+    document.getElementById("tourTooltip").classList.add("hidden");
+    if (isSimInitialized) {
+      try { broadcastStateToParent(completed ? "完成了整個新手教學" : `提前關閉了新手教學（第 ${tourIndex + 1} 步）`); } catch (e) {}
+    }
+    tourIndex = -1;
+    tourCurrentTargetId = null;
+  }
+
+  function showTourStep(index) {
+    const step = tourSteps[index];
+    const tooltip = document.getElementById("tourTooltip");
+    const spotlight = document.getElementById("tourSpotlight");
+    const nextBtn = document.getElementById("tourNextBtn");
+
+    document.getElementById("tourStepCount").textContent = `第 ${index + 1} / ${tourSteps.length} 步`;
+    document.getElementById("tourTitle").textContent = step.title;
+    document.getElementById("tourText").textContent = step.text;
+    nextBtn.textContent = (index === tourSteps.length - 1) ? "完成 ✓" : "下一步 →";
+    tourCurrentTargetId = step.target;
+
+    const applyPosition = () => {
+      if (step.target) {
+        const targetEl = document.getElementById(step.target);
+        if (targetEl && targetEl.scrollIntoView) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        setTimeout(() => positionTourElements(step.target), 300);
+        tooltip.classList.remove("tour-center");
+      } else {
+        spotlight.style.cssText = "top:50%; left:50%; width:0; height:0; box-shadow: 0 0 0 9999px rgba(15,23,42,0.72);";
+        tooltip.classList.add("tour-center");
+        tooltip.style.top = "50%";
+        tooltip.style.left = "50%";
+        tooltip.style.transform = "translate(-50%, -50%)";
+      }
+    };
+
+    if (step.before) {
+      step.before();
+      setTimeout(applyPosition, 400);
+    } else {
+      applyPosition();
+    }
+  }
+
+  function positionTourElements(targetId) {
+    const targetEl = document.getElementById(targetId);
+    const spotlight = document.getElementById("tourSpotlight");
+    const tooltip = document.getElementById("tourTooltip");
+    tooltip.style.transform = "none";
+    if (!targetEl) return;
+
+    const rect = targetEl.getBoundingClientRect();
+    const pad = 10;
+    spotlight.style.top = (rect.top - pad) + "px";
+    spotlight.style.left = (rect.left - pad) + "px";
+    spotlight.style.width = (rect.width + pad * 2) + "px";
+    spotlight.style.height = (rect.height + pad * 2) + "px";
+    spotlight.style.boxShadow = "0 0 0 9999px rgba(15, 23, 42, 0.72)";
+
+    const tooltipW = tooltip.offsetWidth || 280;
+    const tooltipH = tooltip.offsetHeight || 140;
+    let top = rect.bottom + pad + 12;
+    if (top + tooltipH > window.innerHeight - 10) {
+      top = rect.top - tooltipH - pad - 12;
+    }
+    if (top < 10) top = 10;
+
+    let left = rect.left + rect.width / 2 - tooltipW / 2;
+    left = Math.max(10, Math.min(left, window.innerWidth - tooltipW - 10));
+
+    tooltip.style.top = top + "px";
+    tooltip.style.left = left + "px";
+  }
+
+  window.addEventListener("scroll", () => {
+    if (tourIndex >= 0 && tourCurrentTargetId) positionTourElements(tourCurrentTargetId);
+  }, { passive: true });
+  window.addEventListener("resize", () => {
+    if (tourIndex >= 0 && tourCurrentTargetId) positionTourElements(tourCurrentTargetId);
+  });
+
+  window.tourNext = tourNext;
+  window.closeTour = closeTour;
 })();
 </script>
   <footer style="max-width: 800px; margin: 2rem auto 0; padding: 1rem; text-align: center; font-size: 0.875rem; color: #4b5563; border-top: 1px solid #d1d5db;">
@@ -1722,5 +1915,17 @@ ${Object.keys(grouped).map(gn =>
     <span style="margin-left: 0.5rem;">本作品採用創用 CC 授權</span>
   </p>
 </footer>
+  <div id="tourMask" class="hidden">
+    <div id="tourSpotlight"></div>
+  </div>
+  <div id="tourTooltip" class="hidden">
+    <div class="tour-step-count" id="tourStepCount"></div>
+    <div class="tour-title" id="tourTitle"></div>
+    <div class="tour-text" id="tourText"></div>
+    <div class="tour-actions">
+      <button type="button" class="tour-close-btn" onclick="closeTour()">✕ 關閉教學</button>
+      <button type="button" class="tour-next-btn" id="tourNextBtn" onclick="tourNext()">下一步 →</button>
+    </div>
+  </div>
 </body>
 </html>
