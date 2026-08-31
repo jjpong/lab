@@ -2349,6 +2349,12 @@ submitReportBtn: document.getElementById("submitReportBtn"),
         const xLabel = getColumnLabel(xField);
         const yLabel = getColumnLabel(yField);
 
+        // 🌟 座標軸原點動態決定：資料都是非負值時，維持原本從 0 開始的乾淨視覺；
+        // 只要 x 或 y 出現負值（例如攝氏溫度可能是負的），就改成自動縮放，
+        // 避免負值的資料點與通過它們的擬合線，被強制從 0 開始的座標軸直接裁掉、憑空消失。
+        const xHasNegative = flatDataTable.some(p => p.x < 0);
+        const yHasNegative = flatDataTable.some(p => p.y < 0);
+
         let statusParts = [`統計圖已產生（共 ${groupNames.length} 組）。`];
         if (trendlineInfos.length > 0) {
           statusParts.push("<br>");
@@ -2366,8 +2372,8 @@ submitReportBtn: document.getElementById("submitReportBtn"),
           options: {
             responsive: true, maintainAspectRatio: false,
             scales: {
-              x: { type: 'linear', position: 'bottom', min:0 ,title: { display: true, text: xLabel, font: { size: 14, weight: 'bold' } } },
-              y: {min: 0, 
+              x: { type: 'linear', position: 'bottom', min: xHasNegative ? undefined : 0 ,title: { display: true, text: xLabel, font: { size: 14, weight: 'bold' } } },
+              y: {min: yHasNegative ? undefined : 0, 
                   title: { display: true, text: yLabel, font: { size: 14, weight: 'bold' } } }
             },
             plugins: { 
