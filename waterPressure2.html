@@ -860,7 +860,17 @@ window.parent.postMessage({
     "壓力讀數": readingStr,
     "歸零狀態": Math.abs(zeroOffsetPa) < 1 ? "未歸零（顯示絕對總壓）" : `已歸零（扣除 ${pUnit.fromPa(zeroOffsetPa).toFixed(pUnit.decimals)} ${pUnit.label}）`,
     "已收集的數據筆數": records.length + " 筆",
-    "目前組別輸入框內容": currentGroupName || "(空白)"
+    "目前組別輸入框內容": currentGroupName || "(空白)",
+    // 🌟 完整紀錄：每一筆數據的所有變因（固定單位：cm、g/cm³、atm，不受學生切換顯示單位影響），
+    // 供 Quest 系統檢核「控制變因有沒有守住」「有沒有量錯關係」使用。
+    "完整紀錄": records.map(r => ({
+      "組別": r.group,
+      "液體": r.liquidName,
+      "密度_gcm3": densityGCm3(r.density),
+      "容器形狀": r.shapeName,
+      "深度_cm": r.depthCm,
+      "壓力_atm": r.absolutePressure / ATM_PRESSURE
+    }))
   }
 }, '*');
   } catch(e){ console.error("狀態廣播失敗:", e); }
