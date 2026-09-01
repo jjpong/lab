@@ -1742,7 +1742,50 @@ ${Object.keys(grouped).map(gn =>
   
   // 🌟 ========== 開場廣播（仿氣壓版）==========
   isSimInitialized = true;  // 👈 立刻標記初始化完成
-  
+
+  // 🌟 廣播能力宣告（EXPERIMENT_MANIFEST），供外框與未來管理介面 AI 建議關卡使用
+  // 數值範圍取自實際的輸入框上下限；actions 清單裡的 actionText 都是逐一比對原始碼核實過的精確廣播字串。
+  try {
+    window.parent.postMessage({
+      type: 'EXPERIMENT_MANIFEST',
+      expName: '液體壓力虛擬實驗',
+      variables: [
+        { name: '深度', unit: 'cm', controllable: true, min: 0, max: 200 },
+        { name: '液面高度', unit: 'cm', controllable: true, min: 0, max: 200 },
+        { name: '液體密度', unit: 'g/cm³', controllable: true },
+        { name: '容器形狀', unit: '', controllable: true },
+        { name: '壓力', unit: 'atm', controllable: false }
+      ],
+      features: {
+        hasDataTable: true,
+        hasCurveFit: true,
+        hasMicroView: false,
+        hasGrouping: true
+      },
+      actions: [
+        { name: '灌液體', actionText: '按住「💧 灌液體」水龍頭開始灌液體' },
+        { name: '排液體', actionText: '按住「🚿 排液體」水龍頭開始排液體' },
+        { name: '拖曳探頭改變深度', actionText: '拖曳移動了測量探頭' },
+        { name: '打開更換液體面板', actionText: '點擊「更換液體」，打開液體選擇面板' },
+        { name: '確認更換液體', actionText: '更換為「' },
+        { name: '打開容器形狀面板', actionText: '點擊「容器形狀」，打開形狀選擇面板' },
+        { name: '確認切換容器形狀', actionText: '切換為「' },
+        { name: 'TARE 歸零', actionText: '按下「TARE 歸零」，將目前讀數設為 0' },
+        { name: '解除歸零', actionText: '按下「解除歸零」，恢復顯示絕對總壓力' },
+        { name: '切換壓力顯示單位', actionText: '點擊壓力計單位，切換為' },
+        { name: '展開實驗記錄簿', actionText: '展開了實驗記錄簿' },
+        { name: '收合實驗記錄簿', actionText: '收合了實驗記錄簿' },
+        { name: '加入紀錄（未分組）', actionText: '將當前壓力數據加入紀錄（未指定組別）' },
+        { name: '加入紀錄（有分組）', actionText: '加入一筆紀錄到「' },
+        { name: '設定目前組別', actionText: '設定目前組別為「' },
+        { name: '產生統計圖', actionText: '產生統計圖：X=' },
+        { name: '下載實驗報告', actionText: '下載了實驗報告' },
+        { name: '正式送出實驗報告', actionText: '送出實驗報告' },
+        { name: '清空全部紀錄與分組', actionText: '清空了全部實驗紀錄與分組' }
+      ]
+    }, '*');
+  } catch (e) { console.error('能力宣告廣播失敗:', e); }
+
   // 完整系統開場白
   broadcastStateToParent("【系統開場白】歡迎進入液體壓力虛擬實驗室。主要操作都在實驗區：按住上方『💧 灌液體』水龍頭可灌液、按住下方『🚿 排液體』水龍頭可排液、拖曳紅色探頭可改變測量位置、點左上『🔄 更換液體』可挑選不同液體（含自訂密度）、點右上『📐 容器形狀』可切換四種容器、點壓力計上的單位文字循環切換 gw/cm² → Pa → kPa → kgw/m² → kgw/cm²、按『TARE 歸零』可扣除大氣壓只看液體壓力。左上角的『🎚️ 數值微調』面板預設收合，只有需要輸入精確數值時才展開。");
   
