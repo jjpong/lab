@@ -1148,6 +1148,7 @@ submitReportBtn: document.getElementById("submitReportBtn"),
       }
 
       function triggerExplosion() {
+        if (dragging) endDrag(); // 🌟 爆炸當下如果正在拖曳，先正常結束拖曳，避免狀態卡住
         isExploded = true;
         el.explosionOverlay.classList.add("active");
         if (isSimInitialized) broadcastStateToParent("⚠️ 實驗發生爆炸：壓力超過容器極限 (5 atm)！");
@@ -1155,6 +1156,7 @@ submitReportBtn: document.getElementById("submitReportBtn"),
 
       function resetSimulation() {
         isExploded = false;
+        dragging = false; document.body.classList.remove("dragging"); // 🌟 防呆：確保重置時拖曳狀態一定是乾淨的
         el.explosionOverlay.classList.remove("active");
         el.lockPistonToggle.checked = false;
         currentVolumeL = targetVolumeL = 22.4;
@@ -1701,6 +1703,9 @@ submitReportBtn: document.getElementById("submitReportBtn"),
       });
       el.pistonGroup.addEventListener("pointermove", (e) => {
         if(!dragging) return;
+        // 🌟 防呆：如果 dragging 卡在 true，但滑鼠鍵其實已經沒有按著了（例如e.buttons===0），
+        // 就自動正常結束拖曳，不要讓活塞繼續跟著游標移動。
+        if (e.buttons === 0) { endDrag(); return; }
         const deltaV = -(e.clientY - startY) * (48 / 280); 
         currentVolumeL = Math.min(50, Math.max(2, startV + deltaV));
         updatePhysicsFromState(); renderSimulation();
