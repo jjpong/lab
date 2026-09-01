@@ -2801,6 +2801,8 @@ el.resetAllBtn.addEventListener("click", () => {
 
       // 🌟 廣播能力宣告（EXPERIMENT_MANIFEST），供外框與未來管理介面 AI 建議關卡使用
       // 數值範圍取自實際的滑桿/輸入框上下限（molesRange / volumeRange / tempRange）
+      // actions 清單裡的 actionText，都是逐一比對原始碼核實過的精確廣播字串，
+      // 寫關卡「完成條件」時直接照抄這裡的 actionText，不用再去猜、去試。
       try {
         window.parent.postMessage({
           type: 'EXPERIMENT_MANIFEST',
@@ -2816,7 +2818,31 @@ el.resetAllBtn.addEventListener("click", () => {
             hasCurveFit: true,
             hasMicroView: true,
             hasGrouping: true
-          }
+          },
+          actions: [
+            { name: '加熱', actionText: '使用了底部加熱按鈕' },
+            { name: '冷卻', actionText: '使用了底部冷卻按鈕' },
+            { name: '拖曳活塞改變體積', actionText: '在畫面上拖曳活塞改變了體積' },
+            { name: '鎖定活塞（切換為定容）', actionText: '鎖定活塞' },
+            { name: '解鎖活塞（切換為定壓）', actionText: '解鎖活塞' },
+            { name: '灌氣', actionText: '點擊了灌氣閥門' },
+            { name: '抽氣', actionText: '點擊了抽氣閥門' },
+            { name: '打開更換氣體面板', actionText: '打開氣體選擇面板' },
+            { name: '確認更換氣體', actionText: '更換為「' },
+            { name: '切換壓力顯示單位', actionText: '點擊感測器上的壓力單位，切換為' },
+            { name: '切換溫度顯示單位', actionText: '點擊感測器上的溫度單位，切換為' },
+            { name: '開啟微觀視角', actionText: '開啟了微觀粒子視角' },
+            { name: '關閉微觀視角', actionText: '關閉了微觀粒子視角' },
+            { name: '展開實驗記錄簿', actionText: '展開了底部數據面板' },
+            { name: '收合實驗記錄簿', actionText: '收合了底部數據面板' },
+            { name: '加入紀錄（未分組）', actionText: '將當前的氣體數據加入紀錄表中' },
+            { name: '加入紀錄（有分組）', actionText: '加入一筆紀錄到「' },
+            { name: '設定目前組別', actionText: '設定「目前組別」為「' },
+            { name: '產生統計圖', actionText: '產生了氣體統計圖' },
+            { name: '下載實驗報告', actionText: '下載了實驗報告' },
+            { name: '正式送出實驗報告', actionText: '送出實驗報告' },
+            { name: '清空全部紀錄與分組', actionText: '清空了全部實驗紀錄與分組' }
+          ]
         }, '*');
       } catch (e) { console.error('能力宣告廣播失敗:', e); }
 
