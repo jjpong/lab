@@ -1910,6 +1910,18 @@ submitReportBtn: document.getElementById("submitReportBtn"),
             payload["fits"] = lastFitData.fits;
           }
 
+          // 🌟 完整紀錄：每一筆數據的所有變因（固定單位：K、L、atm，不受學生切換顯示單位影響），
+          // 跟上面畫圖用的 dataTable（只有選定的兩欄）是分開的概念。
+          // 供 Quest 系統檢核「控制變因有沒有守住」「有沒有量錯關係」使用。
+          payload["完整紀錄"] = records.map(r => ({
+            "組別": r.group,
+            "氣體": r.gasName,
+            "莫耳數": r.moles,
+            "體積_L": r.volumeL,
+            "溫度_K": r.tempK,
+            "壓力_atm": r.pressurePa / ATM_PA
+          }));
+
           if (isMicroView) {
               let weightDesc = gas.vMultiplier < 1.0 ? "質量大，視覺上較大顆且移動緩慢" : (gas.vMultiplier > 2.0 ? "質量小，視覺上極小且移動極快" : "質量與空氣相近，速度中等");
               let tempDesc = currentTempK > 400 ? "因處於高溫，粒子移動非常劇烈" : (currentTempK < 200 ? "因處於低溫，粒子移動顯得緩慢" : "目前為室溫狀態");
