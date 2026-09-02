@@ -1,7 +1,8 @@
 <!--
-📝 本次修改項目（2026-09-02，第二次）
-- 「🗑️ 清空全部紀錄」按鈕從底部的 danger-zone 搬到「實驗數據紀錄表」標題右邊，
-  更靠近表格本身、頁面上出現得更早，比較不容易錯過（id 不變，JS 綁定不受影響）
+📝 本次修改項目（2026-09-02，第三次）
+- 修正莫耳數的欄位命名落差：即時狀態廣播的 key 從「莫耳數(n)」改成「莫耳數」，
+  跟「完整紀錄」的 recordField 一致，不會再對不起來
+- 顯示名稱改成「氣體的多寡」（EXPERIMENT_MANIFEST 的 name），recordField 維持「莫耳數」不變
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -1900,7 +1901,7 @@ submitReportBtn: document.getElementById("submitReportBtn"),
             "當前觀察視角": viewDesc,
             "活塞狀態": el.lockPistonToggle.checked ? "鎖定 (定容)" : "活動 (定壓)",
             "氣體種類": gas.name, 
-            "莫耳數(n)": formatNum(currentMoles, 3),
+            "莫耳數": formatNum(currentMoles, 3),
             "體積(L)": formatNum(currentVolumeL, 1), 
             [`溫度(${tUnit.label})`]: formatNum(displayTemp, 1),
             [`壓力(${pUnit.label})`]: formatNum(displayPressure, pUnit.decimals), 
@@ -2817,7 +2818,7 @@ el.resetAllBtn.addEventListener("click", () => {
           variables: [
             { name: '溫度', unit: '°C', controllable: true, min: -100, max: 300, recordField: '溫度_K' },
             { name: '體積', unit: 'L', controllable: true, min: 2, max: 50, recordField: '體積_L' },
-            { name: '莫耳數', unit: 'mol', controllable: true, min: 0.1, max: 10.0, recordField: '莫耳數' },
+            { name: '氣體的多寡', unit: 'mol', controllable: true, min: 0.1, max: 10.0, recordField: '莫耳數' },
             { name: '壓力', unit: 'atm', controllable: false, recordField: '壓力_atm' }
           ],
           features: {
