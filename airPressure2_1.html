@@ -1,3 +1,8 @@
+<!--
+📝 本次修改項目（2026-09-02）
+- EXPERIMENT_MANIFEST 的每個變數補上 recordField，對應到「完整紀錄」廣播裡實際使用的鍵名
+  （供管理介面的「控制變因蒐集數據」任務範本使用，讓表單能正確組出可用的檢核規則）
+-->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -2808,10 +2813,10 @@ el.resetAllBtn.addEventListener("click", () => {
           type: 'EXPERIMENT_MANIFEST',
           expName: '氣體壓力虛擬實驗',
           variables: [
-            { name: '溫度', unit: '°C', controllable: true, min: -100, max: 300 },
-            { name: '體積', unit: 'L', controllable: true, min: 2, max: 50 },
-            { name: '莫耳數', unit: 'mol', controllable: true, min: 0.1, max: 10.0 },
-            { name: '壓力', unit: 'atm', controllable: false }
+            { name: '溫度', unit: '°C', controllable: true, min: -100, max: 300, recordField: '溫度_K' },
+            { name: '體積', unit: 'L', controllable: true, min: 2, max: 50, recordField: '體積_L' },
+            { name: '莫耳數', unit: 'mol', controllable: true, min: 0.1, max: 10.0, recordField: '莫耳數' },
+            { name: '壓力', unit: 'atm', controllable: false, recordField: '壓力_atm' }
           ],
           features: {
             hasDataTable: true,
