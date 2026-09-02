@@ -1,3 +1,8 @@
+<!--
+📝 本次修改項目（2026-09-02）
+- EXPERIMENT_MANIFEST 的變數補上 recordField，對應到「完整紀錄」廣播裡實際使用的鍵名
+  （液面高度沒有對應的完整紀錄欄位，維持不給 recordField，管理介面表單會自動排除它）
+-->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -1750,11 +1755,11 @@ ${Object.keys(grouped).map(gn =>
       type: 'EXPERIMENT_MANIFEST',
       expName: '液體壓力虛擬實驗',
       variables: [
-        { name: '深度', unit: 'cm', controllable: true, min: 0, max: 200 },
+        { name: '深度', unit: 'cm', controllable: true, min: 0, max: 200, recordField: '深度_cm' },
         { name: '液面高度', unit: 'cm', controllable: true, min: 0, max: 200 },
-        { name: '液體密度', unit: 'g/cm³', controllable: true },
-        { name: '容器形狀', unit: '', controllable: true },
-        { name: '壓力', unit: 'atm', controllable: false }
+        { name: '液體密度', unit: 'g/cm³', controllable: true, recordField: '密度_gcm3' },
+        { name: '容器形狀', unit: '', controllable: true, recordField: '容器形狀' },
+        { name: '壓力', unit: 'atm', controllable: false, recordField: '壓力_atm' }
       ],
       features: {
         hasDataTable: true,
