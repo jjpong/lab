@@ -1,7 +1,7 @@
 <!--
-📝 本次修改項目（2026-09-02）
-- EXPERIMENT_MANIFEST 的每個變數補上 recordField，對應到「完整紀錄」廣播裡實際使用的鍵名
-  （供管理介面的「控制變因蒐集數據」任務範本使用，讓表單能正確組出可用的檢核規則）
+📝 本次修改項目（2026-09-02，第二次）
+- 「🗑️ 清空全部紀錄」按鈕從底部的 danger-zone 搬到「實驗數據紀錄表」標題右邊，
+  更靠近表格本身、頁面上出現得更早，比較不容易錯過（id 不變，JS 綁定不受影響）
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -802,7 +802,10 @@
       <div class="data-panel-content" id="dataPanelContent">
         <div class="data-panel-inner">
           <div class="sub-panel">
-            <h3 class="sub-title">實驗數據紀錄表</h3>
+            <h3 class="sub-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>實驗數據紀錄表</span>
+              <button type="button" class="btn-danger" id="clearBtn" style="font-size:0.8rem; padding:6px 12px;">🗑️ 清空全部紀錄</button>
+            </h3>
             <div class="table-wrap">
               <table>
                 <thead id="tableHead"></thead>
@@ -841,7 +844,6 @@
 <div class="danger-zone">
     <button type="button" class="btn-primary" id="submitReportBtn">📤 與AI討論（AI情境）</button>
     <button type="button" class="btn-success" id="exportBtn">💾 下載實驗數據與討論</button>
-    <button type="button" class="btn-danger" id="clearBtn">🗑️ 清空全部紀錄</button>
   </div>
         </div>
       </div>
