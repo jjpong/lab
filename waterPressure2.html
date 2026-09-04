@@ -1,7 +1,11 @@
 <!--
-📝 本次修改項目（2026-09-02，第四次）
-- 把「畫圖橫縱軸資料」跟「擬合線結果」解耦，做法跟氣壓版本同步：只要成功畫出圖就一定
-  廣播 fitXVar/fitYVar/dataTable，fits 變成有勾擬合線才有內容的附加資訊
+📝 本次修改項目（2026-09-02，第五次，重要修復）
+- 修正「橫縱軸明明選對了，但任務系統判定沒過」的問題：圖表軸標籤同時被用在「畫面顯示」
+  （帶單位，且會隨學生切換單位改變，例如「液壓 (gw/cm²)」）跟「廣播給任務系統比對」
+  這兩個地方，導致老師設定的「壓力」對不上實際廣播的「液壓 (gw/cm²)」。
+  新增 getCanonicalName：深度/液體密度/容器形狀/壓力這幾個對應 manifest 變數的欄位，
+  補上不含單位、跟 manifest 一致的標準名稱，fitXVar/fitYVar 改用這個廣播；
+  畫面上的圖表標題維持原樣（含單位），不受影響
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -1166,12 +1170,12 @@ window.parent.postMessage({
     { key:"time",            label:() => "時間",                            get:r => r.time },
     { key:"group",           label:() => "組別",                            get:r => r.group || "" },
     { key:"liquid",          label:() => "液體",                            get:r => r.liquidName },
-    { key:"density",         label:() => "密度 (g/cm³)",   type:"number",   get:r => Number(densityGCm3(r.density).toFixed(3)) },
-    { key:"shape",           label:() => "容器形狀",                        get:r => r.shapeName },
+    { key:"density",         label:() => "密度 (g/cm³)",   type:"number",   get:r => Number(densityGCm3(r.density).toFixed(3)), canonicalName:"液體密度" },
+    { key:"shape",           label:() => "容器形狀",                        get:r => r.shapeName, canonicalName:"容器形狀" },
     { key:"fluidHeight",     label:() => "液面 (cm)",      type:"number",   get:r => Number(r.fluidHeightCm.toFixed(0)) },
-    { key:"depth",           label:() => "深度 h (cm)",    type:"number",   get:r => Number(r.depthCm.toFixed(0)) },
+    { key:"depth",           label:() => "深度 h (cm)",    type:"number",   get:r => Number(r.depthCm.toFixed(0)), canonicalName:"深度" },
     { key:"distFromBottom",  label:() => "距底高度 (cm)",  type:"number",   get:r => Number(r.distFromBottomCm.toFixed(0)) },
-    { key:"gaugeDisplay",    label:() => `液壓 (${getPUnit().label})`,    type:"number", get:r => Number(getPUnit().fromPa(r.gaugePressure).toFixed(getPUnit().decimals)) },
+    { key:"gaugeDisplay",    label:() => `液壓 (${getPUnit().label})`,    type:"number", get:r => Number(getPUnit().fromPa(r.gaugePressure).toFixed(getPUnit().decimals)), canonicalName:"壓力" },
     { key:"absDisplay",      label:() => `總壓力 (${getPUnit().label})`,  type:"number", get:r => Number(getPUnit().fromPa(r.absolutePressure).toFixed(getPUnit().decimals)) }
   ];
   const defaultCheckKeys = ["id","group","liquid","shape","depth","density","gaugeDisplay"];
@@ -1187,6 +1191,10 @@ window.parent.postMessage({
     });
   }
   const getColumnLabel = col => typeof col.label === "function" ? col.label() : col.label;
+  // 🌟 標準名稱：專門給廣播給任務系統比對用，固定不含單位、跟 EXPERIMENT_MANIFEST 宣告的
+  // 變數名稱一致。跟 getColumnLabel（畫面顯示用，含單位、且可能隨學生切換單位而改變）分開，
+  // 避免「橫縱軸明明選對了，卻因為標籤帶了單位或用字不同而比對不起來」的問題。
+  const getCanonicalName = col => col.canonicalName || getColumnLabel(col);
   function updateColumnCheckboxLabels(){
     columns.forEach(col => {
       const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`);
@@ -1486,8 +1494,8 @@ window.parent.postMessage({
     const flatDataTable = [];
     gns.forEach(gn => { gd[gn].forEach(p => flatDataTable.push({ x: p.x, y: p.y, group: gn })); });
     lastFitData = {
-      fitXVar: xL,
-      fitYVar: yL,
+      fitXVar: getCanonicalName(xf),
+      fitYVar: getCanonicalName(yf),
       dataTable: flatDataTable,
       fits: (el.trendlineToggle.checked && trendInfos.length > 0)
         ? trendInfos.map(t => ({ group: t.group, slope: t.slope, intercept: t.intercept, rSquared: t.rSquared }))
