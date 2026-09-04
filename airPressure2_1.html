@@ -1,8 +1,10 @@
 <!--
-📝 本次修改項目（2026-09-02，第五次）
-- 把「畫圖橫縱軸資料」跟「擬合線結果」解耦：只要成功畫出圖就一定廣播 fitXVar/fitYVar/
-  dataTable，不再綁定「有沒有勾擬合線」；fits 變成有勾才有內容的附加資訊（沒勾是空陣列）。
-  讓「繪圖與擬合分析」這類任務可以只檢查橫縱軸對不對、不強制要求一定要有擬合線
+📝 本次修改項目（2026-09-02，第六次，重要修復）
+- 修正跟水壓同樣的問題：圖表軸標籤（含符號跟單位，例如「壓力 P (atm)」）被同時用在
+  畫面顯示跟廣播給任務系統比對這兩個地方，導致老師設定的「壓力」對不上實際廣播的內容。
+  新增 getCanonicalName：氣體的多寡/體積/溫度/壓力這幾個對應 manifest 變數的欄位，
+  補上不含符號單位、跟 manifest 一致的標準名稱，fitXVar/fitYVar 改用這個廣播；
+  畫面上的圖表標題維持原樣，不受影響
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -2088,11 +2090,11 @@ submitReportBtn: document.getElementById("submitReportBtn"),
         { key: "id", label: "編號", get: r => r.id },
         { key: "group", label: "組別", get: r => r.group || "" },
         { key: "gas", label: "氣體", get: r => r.gasName },
-        { key: "moles", label: "莫耳數 n (mol)", type: "number", get: r => Number(r.moles.toFixed(3)) },
-        { key: "volume", label: "體積 V (L)", type: "number", get: r => Number(r.volumeL.toFixed(1)) },
-        { key: "tempDisplay", label: () => `溫度 T (${getTUnit().label})`, type: "number", get: r => Number(getTUnit().fromK(r.tempK).toFixed(1)) },
+        { key: "moles", label: "莫耳數 n (mol)", type: "number", get: r => Number(r.moles.toFixed(3)), canonicalName: "氣體的多寡" },
+        { key: "volume", label: "體積 V (L)", type: "number", get: r => Number(r.volumeL.toFixed(1)), canonicalName: "體積" },
+        { key: "tempDisplay", label: () => `溫度 T (${getTUnit().label})`, type: "number", get: r => Number(getTUnit().fromK(r.tempK).toFixed(1)), canonicalName: "溫度" },
         { key: "density", label: "密度 (mol/L)", type: "number", get: r => Number((r.moles / r.volumeL).toFixed(4)) },
-        { key: "pressureDisplay", label: () => `壓力 P (${getPUnit().label})`, type: "number", get: r => Number(getPUnit().fromPa(r.pressurePa).toFixed(getPUnit().decimals)) }
+        { key: "pressureDisplay", label: () => `壓力 P (${getPUnit().label})`, type: "number", get: r => Number(getPUnit().fromPa(r.pressurePa).toFixed(getPUnit().decimals)), canonicalName: "壓力" }
       ];
 
       const defaultCheckKeys = ["id", "group", "gas", "moles", "volume", "tempDisplay", "pressureDisplay"];
@@ -2107,6 +2109,10 @@ submitReportBtn: document.getElementById("submitReportBtn"),
       }
 
       function getColumnLabel(col) { return typeof col.label === "function" ? col.label() : col.label; }
+      // 🌟 標準名稱：專門給廣播給任務系統比對用，固定不含單位跟符號、跟 EXPERIMENT_MANIFEST
+      // 宣告的變數名稱一致。跟 getColumnLabel（畫面顯示用，含單位符號）分開，避免「橫縱軸
+      // 明明選對了，卻因為標籤帶了單位而比對不起來」的問題。
+      function getCanonicalName(col) { return col.canonicalName || getColumnLabel(col); }
       function updateColumnCheckboxLabels() { columns.forEach(col => { const ls = el.columnCheckboxes.querySelector(`[data-col-label="${col.key}"]`); if (ls) ls.textContent = getColumnLabel(col); }); }
       function getSelectedColumns() { const checked = [...el.columnCheckboxes.querySelectorAll('input[type="checkbox"]:checked')].map(i => i.value); return columns.filter(c => checked.includes(c.key)); }
       
@@ -2396,8 +2402,8 @@ submitReportBtn: document.getElementById("submitReportBtn"),
           });
         });
         lastFitData = {
-          fitXVar: xLabel,
-          fitYVar: yLabel,
+          fitXVar: getCanonicalName(xField),
+          fitYVar: getCanonicalName(yField),
           dataTable: flatDataTable,
           fits: (el.trendlineToggle.checked && trendlineInfos.length > 0)
             ? trendlineInfos.map(t => ({ group: t.group, slope: t.slope, intercept: t.intercept, rSquared: t.rSquared }))
