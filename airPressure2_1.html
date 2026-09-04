@@ -1,8 +1,8 @@
 <!--
-📝 本次修改項目（2026-09-02，第三次）
-- 修正莫耳數的欄位命名落差：即時狀態廣播的 key 從「莫耳數(n)」改成「莫耳數」，
-  跟「完整紀錄」的 recordField 一致，不會再對不起來
-- 顯示名稱改成「氣體的多寡」（EXPERIMENT_MANIFEST 的 name），recordField 維持「莫耳數」不變
+📝 本次修改項目（2026-09-02，第五次）
+- 把「畫圖橫縱軸資料」跟「擬合線結果」解耦：只要成功畫出圖就一定廣播 fitXVar/fitYVar/
+  dataTable，不再綁定「有沒有勾擬合線」；fits 變成有勾才有內容的附加資訊（沒勾是空陣列）。
+  讓「繪圖與擬合分析」這類任務可以只檢查橫縱軸對不對、不強制要求一定要有擬合線
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -2315,6 +2315,10 @@ submitReportBtn: document.getElementById("submitReportBtn"),
         const yField = graphFields.find(f => f.key === yKey);
         if (!xField || !yField) return;
 
+        // 🌟 提前宣告，避免後面 lastFitData 那段在真正宣告之前就用到，導致 ReferenceError 讓整個函式中斷
+        const xLabel = getColumnLabel(xField);
+        const yLabel = getColumnLabel(yField);
+
         const groupedData = {};
         records.forEach(record => {
           const groupKey = (record.group || "").trim();
@@ -2381,31 +2385,27 @@ submitReportBtn: document.getElementById("submitReportBtn"),
           }
         });
 
-        // 🌟 整理規範保留欄位：dataTable / fitXVar / fitYVar / fits（依規範文件的擬合保留欄位延伸為多組陣列）
+        // 🌟 整理規範保留欄位：dataTable / fitXVar / fitYVar / fits
+        // 這裡刻意跟「有沒有勾擬合線」解耦——只要成功畫出圖（有橫縱軸、有資料），
+        // 就一定廣播 fitXVar/fitYVar/dataTable，讓「繪圖與擬合分析」這類關卡可以只檢查
+        // 「橫縱軸有沒有選對」而不強制要求一定要有擬合線。fits 才是「有勾選才會有內容」的附加資訊。
         const flatDataTable = [];
         groupNames.forEach(groupName => {
           groupedData[groupName].forEach(p => {
             flatDataTable.push({ x: p.x, y: p.y, group: groupName });
           });
         });
-        if (el.trendlineToggle.checked && trendlineInfos.length > 0) {
-          lastFitData = {
-            fitXVar: xLabel,
-            fitYVar: yLabel,
-            dataTable: flatDataTable,
-            fits: trendlineInfos.map(t => ({
-              group: t.group, slope: t.slope, intercept: t.intercept, rSquared: t.rSquared
-            }))
-          };
-        } else {
-          lastFitData = null;
-        }
+        lastFitData = {
+          fitXVar: xLabel,
+          fitYVar: yLabel,
+          dataTable: flatDataTable,
+          fits: (el.trendlineToggle.checked && trendlineInfos.length > 0)
+            ? trendlineInfos.map(t => ({ group: t.group, slope: t.slope, intercept: t.intercept, rSquared: t.rSquared }))
+            : []
+        };
 
         el.chartCanvas.innerHTML = '<canvas id="pressureChart"></canvas>';
         const ctx = document.getElementById('pressureChart').getContext('2d');
-        
-        const xLabel = getColumnLabel(xField);
-        const yLabel = getColumnLabel(yField);
 
         // 🌟 座標軸原點動態決定：資料都是非負值時，維持原本從 0 開始的乾淨視覺；
         // 只要 x 或 y 出現負值（例如攝氏溫度可能是負的），就改成自動縮放，
