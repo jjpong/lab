@@ -1,7 +1,7 @@
 <!--
-📝 本次修改項目（2026-09-02，第二次）
-- 「🗑️ 清空全部紀錄」按鈕從底部的 danger-zone 搬到「實驗數據紀錄表」標題右邊
-  （id 不變，JS 綁定不受影響）
+📝 本次修改項目（2026-09-02，第四次）
+- 把「畫圖橫縱軸資料」跟「擬合線結果」解耦，做法跟氣壓版本同步：只要成功畫出圖就一定
+  廣播 fitXVar/fitYVar/dataTable，fits 變成有勾擬合線才有內容的附加資訊
 -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
@@ -640,6 +640,7 @@
   let currentGroupName = "";
   let groupColors = {};
   let chartRequested = false;
+  let lastFitData = null; // 🌟 供 SIMULATION_STATE 廣播 dataTable/fitXVar/fitYVar/fits 保留欄位用
   let isSimInitialized = false;
   let myChart = null;
   let dragging = false, activePointerId = null;
@@ -877,7 +878,15 @@ window.parent.postMessage({
       "容器形狀": r.shapeName,
       "深度_cm": r.depthCm,
       "壓力_atm": r.absolutePressure / ATM_PRESSURE
-    }))
+    })),
+    // 🌟 夾帶規範保留欄位：若目前有已產生的統計圖擬合結果，一併附上供 Quest 系統的
+    // 「繪圖與擬合分析」這類關卡直接讀取，不用重新做迴歸運算（跟氣壓版本同步）
+    ...(lastFitData ? {
+      dataTable: lastFitData.dataTable,
+      fitXVar: lastFitData.fitXVar,
+      fitYVar: lastFitData.fitYVar,
+      fits: lastFitData.fits
+    } : {})
   }
 }, '*');
   } catch(e){ console.error("狀態廣播失敗:", e); }
@@ -1397,9 +1406,21 @@ window.parent.postMessage({
     const dmn = mn===mx ? mn-1 : mn-m;
     const dmx = mn===mx ? mx+1 : mx+m;
     const sign = intercept >= 0 ? '+' : '-';
+
+    // 🌟 補算 R²（判定係數），供任務系統的「繪圖與擬合分析」這類關卡使用（跟氣壓版本同步）
+    const meanY = sY / n;
+    let ssTot = 0, ssRes = 0;
+    for (let p of pts) {
+      const predictedY = slope * p.x + intercept;
+      ssTot += Math.pow(p.y - meanY, 2);
+      ssRes += Math.pow(p.y - predictedY, 2);
+    }
+    const rSquared = ssTot === 0 ? 1 : (1 - ssRes / ssTot);
+
     return {
       points:[{x:dmn,y:slope*dmn+intercept},{x:dmx,y:slope*dmx+intercept}],
-      equation:`y = ${slope.toPrecision(4)}x ${sign} ${Math.abs(intercept).toPrecision(4)}`
+      equation:`y = ${slope.toPrecision(4)}x ${sign} ${Math.abs(intercept).toPrecision(4)}`,
+      slope, intercept, rSquared
     };
   }
   const hexToRgba = (hex, a) => {
@@ -1443,7 +1464,7 @@ window.parent.postMessage({
       if (el.trendlineToggle.checked && gd[gn].length >= 2) {
         const td = calculateTrendline(gd[gn]);
         if (td) {
-          trendInfos.push({group:gn, color, equation:td.equation});
+          trendInfos.push({group:gn, color, equation:td.equation, slope:td.slope, intercept:td.intercept, rSquared:td.rSquared});
           datasets.push({
             label:`${gn} 擬合線`, data:td.points,
             backgroundColor:'transparent', borderColor:color,
@@ -1457,6 +1478,21 @@ window.parent.postMessage({
     el.chartCanvas.innerHTML = '<canvas id="pressureChart"></canvas>';
     const ctx = document.getElementById('pressureChart').getContext('2d');
     const xL = getColumnLabel(xf), yL = getColumnLabel(yf);
+
+    // 🌟 整理規範保留欄位：dataTable / fitXVar / fitYVar / fits，供任務系統的
+    // 「繪圖與擬合分析」這類關卡讀取。刻意跟「有沒有勾擬合線」解耦——只要成功畫出圖
+    // 就一定廣播 fitXVar/fitYVar/dataTable，讓關卡可以只檢查橫縱軸對不對、不強制要求擬合線。
+    // fits 才是「有勾選才會有內容」的附加資訊，沒勾就是空陣列而不是整包不廣播。
+    const flatDataTable = [];
+    gns.forEach(gn => { gd[gn].forEach(p => flatDataTable.push({ x: p.x, y: p.y, group: gn })); });
+    lastFitData = {
+      fitXVar: xL,
+      fitYVar: yL,
+      dataTable: flatDataTable,
+      fits: (el.trendlineToggle.checked && trendInfos.length > 0)
+        ? trendInfos.map(t => ({ group: t.group, slope: t.slope, intercept: t.intercept, rSquared: t.rSquared }))
+        : []
+    };
     let parts = [`統計圖已產生（共 ${gns.length} 組）。`];
     if (trendInfos.length) {
       parts.push("<br>");
@@ -1673,6 +1709,7 @@ ${Object.keys(grouped).map(gn =>
   });
   el.clearChartBtn.addEventListener("click", () => {
     chartRequested = false;
+    lastFitData = null;
     el.chartXSelect.value = ""; el.chartYSelect.value = "";
     el.trendlineToggle.checked = false;
     renderChart();
