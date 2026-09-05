@@ -1,3 +1,28 @@
+<!--
+📝 AI 互動實驗室架構對齊（2026-09-05，第一次）
+- 這個實驗原本完全沒有任何廣播機制（連 broadcastStateToParent 都沒有），從零開始搭建。
+  但底層的資料模型本來就整理得很乾淨：records 本來就是完整的（不受顯示勾選影響），
+  這點跟伽利略斜面不一樣，不用另外搭 fullRecords 陣列。
+
+1. 新增 EXPERIMENT_MANIFEST：宣告 4 個可控制變數（形狀、物體密度、物體體積、液體密度）
+   + 6 個觀測量（底面深度、排開體積、重力、浮力、排開液重、總水量）。
+
+2. logVars 補上「形狀」欄位（原本完全沒有被記錄的缺口，跟伽利略斜面的完整性問題是
+   同一類），並補上 canonicalName（跟 manifest 變數名稱一致、不含單位符號）。
+
+3. 新增完整的 broadcastStateToParent，掛在：紀錄、清空、產生統計圖/切換擬合線顯示、
+   三個連動滑桿（用 change 事件，拖曳放開才廣播，避免洗版）、液體密度滑桿、形狀切換、
+   物體/液體密度預設按鈕。
+
+4. 把原本寫死在 updateLogbookChart 裡的迴歸計算抽成獨立函式 computeTrendline，
+   補上原本沒有的 R² 計算（原本只有算斜率、截距），圖表顯示跟廣播共用同一份計算結果，
+   避免兩邊算出不一致的數字。已用符合阿基米德原理的已知資料驗證過（B = ρ液×V排開，
+   斜率應該等於液體密度），也測過退化情況（x座標全部相同時正確回傳null，不會崩潰）。
+
+5. records 內部用簡短 id（rhoLiq、rhoObj...），但 manifest 用標準中文名稱，
+   新增 buildFullRecordsForBroadcast 做轉換，不動 records 本身的內部結構
+   （避免影響既有的表格渲染、圖表繪製、CSV匯出邏輯）。
+-->
 <!DOCTYPE html><html lang="zh-Hant"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -467,21 +492,101 @@ function pArrow(x1,y1,x2,y2,color){
 // ==========================================
 let records = [];
 let recordIdCounter = 1;
+let lastFitData = null; // 🌟 供 SIMULATION_STATE 廣播 dataTable/fitXVar/fitYVar/fits 使用
+
+// 🌟 records 內部用的是簡短 id（rhoLiq、rhoObj...），但 manifest 宣告的 recordField 是
+// 標準中文名稱（跟畫面上的圖表X/Y軸選項一致）。這裡做轉換，不動 records 本身的內部結構，
+// 避免影響既有的表格渲染、圖表繪製、CSV匯出等邏輯。
+function buildFullRecordsForBroadcast() {
+  return records.map(r => {
+    const out = {};
+    logVars.forEach(v => { if (v.canonicalName) out[v.canonicalName] = r[v.id]; });
+    return out;
+  });
+}
+
+// ==========================================
+// 🌟 廣播狀態到父層 (AI) 的函數
+// ==========================================
+function broadcastStateToParent(actionName, details = {}) {
+  try {
+    const payload = {
+      "學生最後的動作": actionName,
+      "目前物體形狀": S.shape === 'circle' ? '圓形' : '方形',
+      "目前物體密度_gcm3": S.density.toFixed(2),
+      "目前物體體積_cm3": S.area.toFixed(1),
+      "目前液體密度_gcm3": S.rhoLiq.toFixed(2),
+      "已收集的數據筆數": records.length + " 筆",
+      "目前組別輸入框內容": document.getElementById('groupInput').value.trim() || "(空白)",
+      // 🌟 完整紀錄：每一筆都是完整的（logVars 本來就不受顯示勾選影響，全部欄位都會存），
+      // 供 Quest 系統的控制變因檢核使用，欄位名稱轉成跟 manifest 一致的標準名稱
+      "完整紀錄": buildFullRecordsForBroadcast(),
+      ...details
+    };
+
+    // 🌟 夾帶規範保留欄位：若目前有已產生的統計圖擬合結果，一併附上供 Quest 系統的
+    // 「繪圖與擬合分析」這類關卡直接讀取，不用重新做迴歸運算
+    if (lastFitData) {
+      payload["dataTable"] = lastFitData.dataTable;
+      payload["fitXVar"] = lastFitData.fitXVar;
+      payload["fitYVar"] = lastFitData.fitYVar;
+      payload["fits"] = lastFitData.fits;
+    }
+
+    console.log("【廣播送到AI】", payload);
+    window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
+  } catch (e) { console.error("狀態廣播失敗:", e); }
+}
 
 const logVars = [
   { id: 'group', label: '組別', show: true, get: () => document.getElementById('groupInput').value.trim() || '未分組' },
-  { id: 'rhoLiq', label: '液體密度(g/cm³)', show: true, get: () => S.rhoLiq.toFixed(2) },
-  { id: 'rhoObj', label: '物體密度(g/cm³)', show: true, get: () => S.density.toFixed(2) },
-  { id: 'vol', label: '物體體積(cm³)', show: false, get: () => S.area.toFixed(1) },
-  { id: 'objDepth', label: '底面深度(cm)', show: true, get: () => Math.max(0, solveWaterHeight() - (S.cy - objHalfH())).toFixed(2) },
-  { id: 'subVol', label: '排開體積(cm³)', show: true, get: () => submergedArea(S.cy, solveWaterHeight()).toFixed(1) },
-  { id: 'W', label: '重力(gw)', show: true, get: () => (S.density * S.area).toFixed(1) },
-  { id: 'B', label: '浮力(gw)', show: true, get: () => getBuoyancy(solveWaterHeight(), submergedArea(S.cy, solveWaterHeight())).toFixed(1) },
-  { id: 'dispW', label: '排開液重(gw)', show: true, get: () => (S.rhoLiq * submergedArea(S.cy, solveWaterHeight())).toFixed(1) },
-  { id: 'waterVol', label: '總水量(ml)', show: false, get: () => (solveWaterHeight() * Wcm * ML_PER_AREA).toFixed(0) }
+  { id: 'shape', label: '形狀', show: false, canonicalName: '形狀', get: () => (S.shape === 'circle' ? '圓形' : '方形') }, // 🌟 新增：原本完全沒有被記錄，補齊完整性
+  { id: 'rhoLiq', label: '液體密度(g/cm³)', show: true, canonicalName: '液體密度', get: () => S.rhoLiq.toFixed(2) },
+  { id: 'rhoObj', label: '物體密度(g/cm³)', show: true, canonicalName: '物體密度', get: () => S.density.toFixed(2) },
+  { id: 'vol', label: '物體體積(cm³)', show: false, canonicalName: '物體體積', get: () => S.area.toFixed(1) },
+  { id: 'objDepth', label: '底面深度(cm)', show: true, canonicalName: '底面深度', get: () => Math.max(0, solveWaterHeight() - (S.cy - objHalfH())).toFixed(2) },
+  { id: 'subVol', label: '排開體積(cm³)', show: true, canonicalName: '排開體積', get: () => submergedArea(S.cy, solveWaterHeight()).toFixed(1) },
+  { id: 'W', label: '重力(gw)', show: true, canonicalName: '重力', get: () => (S.density * S.area).toFixed(1) },
+  { id: 'B', label: '浮力(gw)', show: true, canonicalName: '浮力', get: () => getBuoyancy(solveWaterHeight(), submergedArea(S.cy, solveWaterHeight())).toFixed(1) },
+  { id: 'dispW', label: '排開液重(gw)', show: true, canonicalName: '排開液重', get: () => (S.rhoLiq * submergedArea(S.cy, solveWaterHeight())).toFixed(1) },
+  { id: 'waterVol', label: '總水量(ml)', show: false, canonicalName: '總水量', get: () => (solveWaterHeight() * Wcm * ML_PER_AREA).toFixed(0) }
 ];
 
 const CHART_COLORS = ['#38bdf8', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#f97316'];
+
+// ==========================================
+// 🌟 EXPERIMENT_MANIFEST：這個實驗的能力宣告，供 AI 實驗助理架構讀取。
+// ==========================================
+const EXPERIMENT_MANIFEST = {
+  type: 'EXPERIMENT_MANIFEST',
+  expName: '浮力與壓力互動實驗室',
+  variables: [
+    { name: '形狀', unit: '', controllable: true, recordField: '形狀' },
+    { name: '物體密度', unit: 'g/cm³', controllable: true, min: 0.1, max: 20.0, recordField: '物體密度' },
+    { name: '物體體積', unit: 'cm³', controllable: true, min: 5, max: 50, recordField: '物體體積' },
+    { name: '液體密度', unit: 'g/cm³', controllable: true, min: 0.4, max: 15.0, recordField: '液體密度' },
+    { name: '底面深度', unit: 'cm', controllable: false, recordField: '底面深度' },
+    { name: '排開體積', unit: 'cm³', controllable: false, recordField: '排開體積' },
+    { name: '重力', unit: 'gw', controllable: false, recordField: '重力' },
+    { name: '浮力', unit: 'gw', controllable: false, recordField: '浮力' },
+    { name: '排開液重', unit: 'gw', controllable: false, recordField: '排開液重' },
+    { name: '總水量', unit: 'ml', controllable: false, recordField: '總水量' }
+  ],
+  features: { hasDataTable: true, hasCurveFit: true, curveFitTypes: ['linear'], hasMicroView: false, hasGrouping: true },
+  actions: [
+    { name: '紀錄當下數據', actionText: '紀錄當下數據' },
+    { name: '清空紀錄', actionText: '清空紀錄' },
+    { name: '產生統計圖', actionText: '產生統計圖' },
+    { name: '調整物體密度', actionText: '調整物體密度' },
+    { name: '調整物體體積', actionText: '調整物體體積' },
+    { name: '調整液體密度', actionText: '調整液體密度' },
+    { name: '切換物體形狀', actionText: '切換物體形狀' },
+    { name: '使用物體密度預設按鈕', actionText: '使用物體密度預設' },
+    { name: '使用液體密度預設按鈕', actionText: '使用液體密度預設' }
+  ]
+};
+
+let isSimInitialized = false;
 let logChart = null;
 const colCheckboxes = document.getElementById('colCheckboxes');
 const chartX = document.getElementById('chartX');
@@ -653,12 +758,38 @@ document.getElementById('btnRecord').addEventListener('click', () => {
     rec[v.id] = isNaN(val) ? val : parseFloat(val);
   });
   records.push(rec); renderTable();
+  broadcastStateToParent("紀錄當下數據");
 });
 
 document.getElementById('btnClear').addEventListener('click', () => {
-  records = []; recordIdCounter = 1; renderTable();
+  records = []; recordIdCounter = 1; lastFitData = null; renderTable();
   logChart.data.datasets = []; logChart.update();
+  broadcastStateToParent("清空紀錄");
 });
+
+// 🌟 抽成獨立函式，補上原本沒有的 R² 計算，回傳結構化數值供圖表顯示跟廣播共用
+function computeTrendline(points) {
+  if (points.length < 2) return null;
+  let n = points.length, sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+  points.forEach(p => { sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumXX += p.x * p.x; });
+  let denom = n * sumXX - sumX * sumX;
+  if (!isFinite(1 / denom)) return null; // 分母趨近0時避免產生Infinity/NaN
+  let slope = (n * sumXY - sumX * sumY) / denom;
+  let intercept = (sumY - slope * sumX) / n;
+  if (!isFinite(slope)) return null;
+
+  const meanY = sumY / n;
+  let ssTot = 0, ssRes = 0;
+  points.forEach(p => {
+    ssTot += Math.pow(p.y - meanY, 2);
+    ssRes += Math.pow(p.y - (slope * p.x + intercept), 2);
+  });
+  const rSquared = ssTot === 0 ? 1 : Math.max(0, Math.min(1, 1 - ssRes / ssTot));
+
+  const sign = intercept >= 0 ? '+' : '-';
+  const eqStr = `y = ${slope.toFixed(2)}x ${sign} ${Math.abs(intercept).toFixed(2)}`;
+  return { slope, intercept, rSquared, eqStr };
+}
 
 function updateLogbookChart() {
   const xId = chartX.value; const yId = chartY.value;
@@ -666,7 +797,7 @@ function updateLogbookChart() {
   const yVar = logVars.find(v => v.id === yId);
   const showTrend = document.getElementById('showTrendline').checked;
   if(!xVar || !yVar || records.length === 0) {
-    logChart.data.datasets = []; logChart.update(); return;
+    logChart.data.datasets = []; logChart.update(); lastFitData = null; return;
   }
   const groupedData = {};
   records.forEach(r => {
@@ -676,6 +807,8 @@ function updateLogbookChart() {
   });
   const datasets = [];
   let colorIndex = 0;
+  const broadcastDataTable = [];
+  const broadcastFits = [];
   Object.keys(groupedData).forEach(gName => {
     let sorted = groupedData[gName].sort((a,b) => a[xId] - b[xId]);
     let points = sorted.map(r => ({ x: r[xId], y: r[yId] }));
@@ -687,25 +820,23 @@ function updateLogbookChart() {
       borderWidth: 2, pointRadius: 5, pointHoverRadius: 8,
       showLine: false
     });
+    points.forEach(p => broadcastDataTable.push({ x: p.x, y: p.y, group: gName }));
+
     if(showTrend && points.length > 1) {
-      let n = points.length, sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-      points.forEach(p => { sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumXX += p.x * p.x; });
-      let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-      let intercept = (sumY - slope * sumX) / n;
-      if(isFinite(slope)) {
+      const fit = computeTrendline(points);
+      if(fit) {
         let minX = Math.min(...points.map(p=>p.x)), maxX = Math.max(...points.map(p=>p.x));
         let ext = (maxX - minX) * 0.1;
         let x1 = minX - ext < 0 ? 0 : minX - ext;
         let x2 = maxX + ext;
-        let sign = intercept >= 0 ? '+' : '-';
-        let eqStr = `y = ${slope.toFixed(2)}x ${sign} ${Math.abs(intercept).toFixed(2)}`;
         datasets.push({
           label: `${gName} 擬合線`,
-          data: [{x: x1, y: slope * x1 + intercept}, {x: x2, y: slope * x2 + intercept}],
+          data: [{x: x1, y: fit.slope * x1 + fit.intercept}, {x: x2, y: fit.slope * x2 + fit.intercept}],
           borderColor: color, borderWidth: 2, borderDash: [5, 5],
           pointRadius: 0, showLine: true, fill: false,
-          equationText: eqStr
+          equationText: fit.eqStr
         });
+        broadcastFits.push({ group: gName, slope: fit.slope, intercept: fit.intercept, rSquared: Number(fit.rSquared.toFixed(3)) });
       }
     }
     colorIndex++;
@@ -714,6 +845,10 @@ function updateLogbookChart() {
   logChart.options.scales.x.title.text = xVar.label;
   logChart.options.scales.y.title.text = yVar.label;
   logChart.update();
+
+  // 🌟 更新 lastFitData，供下一次廣播使用
+  lastFitData = { fitXVar: xVar.canonicalName, fitYVar: yVar.canonicalName, dataTable: broadcastDataTable, fits: broadcastFits };
+  broadcastStateToParent(`產生統計圖：X=${xVar.canonicalName}，Y=${yVar.canonicalName}`);
 }
 
 document.getElementById('btnDrawChart').addEventListener('click', updateLogbookChart);
@@ -947,6 +1082,8 @@ document.getElementById('area').addEventListener('input', e=>{
   S.manuallyPushedToBottom = false;
   syncUI(); draw();
 });
+document.getElementById('area').addEventListener('change', () => broadcastStateToParent("調整物體體積"));
+
 document.getElementById('mass').addEventListener('input', e=>{
   let m = +e.target.value;
   let v = m / S.density;
@@ -957,6 +1094,8 @@ document.getElementById('mass').addEventListener('input', e=>{
   S.manuallyPushedToBottom = false;
   syncUI(); draw();
 });
+document.getElementById('mass').addEventListener('change', () => broadcastStateToParent("調整物體體積"));
+
 document.getElementById('density').addEventListener('input', e=>{
   let d = +e.target.value;
   let m = S.area * d;
@@ -967,8 +1106,10 @@ document.getElementById('density').addEventListener('input', e=>{
   S.manuallyPushedToBottom = false;
   syncUI(); draw();
 });
+document.getElementById('density').addEventListener('change', () => broadcastStateToParent("調整物體密度"));
 
 document.getElementById('liquid').addEventListener('input', e=>{ S.rhoLiq=+e.target.value; syncUI(); draw(); });
+document.getElementById('liquid').addEventListener('change', () => broadcastStateToParent("調整液體密度"));
 document.getElementById('forceScale').addEventListener('input', e=>{ S.forceScale=+e.target.value; syncUI(); draw(); });
 document.getElementById('pScale').addEventListener('input', e=>{ S.pScale=+e.target.value; syncUI(); draw(); });
 document.getElementById('pDensity').addEventListener('input', e=>{ S.pDensity=+e.target.value; syncUI(); draw(); });
@@ -977,13 +1118,17 @@ document.getElementById('showForce').addEventListener('change', e=> {S.showForce
 document.getElementById('showObjP').addEventListener('change', e=> {S.showObjP=e.target.checked; draw();});
 document.getElementById('showWallP').addEventListener('change', e=> {S.showWallP=e.target.checked; draw();});
 document.getElementById('fixPos').addEventListener('change', e=> S.fixPos=e.target.checked);
-document.querySelectorAll('input[name=shape]').forEach(r=> r.addEventListener('change', e=> {S.shape=e.target.value; S.manuallyPushedToBottom=false; draw();}));
+document.querySelectorAll('input[name=shape]').forEach(r=> r.addEventListener('change', e=> {
+  S.shape=e.target.value; S.manuallyPushedToBottom=false; draw();
+  broadcastStateToParent("切換物體形狀為【" + (S.shape === 'circle' ? '圓形' : '方形') + "】");
+}));
 document.getElementById('reset').addEventListener('click', ()=>{ S.cx=Wcm/2; S.cy=9; S.vy=0; S.manuallyPushedToBottom=false; draw(); });
 
 document.querySelectorAll('.liq-btn').forEach(btn => {
   btn.addEventListener('click', e => {
     S.rhoLiq = parseFloat(e.target.dataset.rho); syncUI(); draw();
     document.getElementById('groupInput').value = e.target.innerText.split('(')[0];
+    broadcastStateToParent("使用液體密度預設：" + e.target.innerText);
   });
 });
 document.querySelectorAll('.obj-btn').forEach(btn => {
@@ -997,6 +1142,7 @@ document.querySelectorAll('.obj-btn').forEach(btn => {
     document.getElementById('mass').value = m;
     S.manuallyPushedToBottom = false;
     syncUI(); draw();
+    broadcastStateToParent("使用物體密度預設：" + e.target.innerText);
   });
 });
 
@@ -1262,6 +1408,14 @@ window.onload = () => {
   if(preset) applyPreset(preset);
 
   requestAnimationFrame(loop);
+  isSimInitialized = true;
+
+  // 🌟 廣播能力宣告，管理介面的「擷取實驗能力」會接住這個訊息
+  try { window.parent.postMessage(EXPERIMENT_MANIFEST, '*'); } catch (e) { console.error('能力宣告廣播失敗:', e); }
+
+  setTimeout(() => {
+    broadcastStateToParent("【系統開場白】歡迎進入「浮力與壓力互動實驗室」！這是一個可以探索阿基米德原理、浮力、壓力與密度關係的模擬環境。你可以調整物體的形狀、密度、體積，以及液體的密度，觀察物體的浮沉狀態。也可以用「紀錄當下數據」把目前的狀態存進實驗記錄簿，之後畫成圖表分析變因之間的關係！");
+  }, 500);
 };
 
 // --- 獨立浮動視窗 (Dock / Undock) 核心邏輯 ---
