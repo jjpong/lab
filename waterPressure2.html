@@ -1,4 +1,11 @@
 <!--
+📝 本次修改項目（2026-09-02，第六次，重要修復）
+- 修正「完整紀錄」跟擬合結果會出現十幾位小數的問題：「壓力_atm」「密度_gcm3」「深度_cm」
+  原本都是原始數值（部分還是直接除法），完全沒有四捨五入；擬合線的斜率、截距、R² 也是
+  迴歸計算的原始結果。全部改成 Number(x.toFixed(2))，統一只保留小數點後兩位，
+  圖表本身的視覺呈現不受影響，只有廣播/顯示用的數值有改（做法跟氣壓版本同步）
+-->
+<!--
 📝 本次修改項目（2026-09-02，第五次，重要修復）
 - 修正「橫縱軸明明選對了，但任務系統判定沒過」的問題：圖表軸標籤同時被用在「畫面顯示」
   （帶單位，且會隨學生切換單位改變，例如「液壓 (gw/cm²)」）跟「廣播給任務系統比對」
@@ -878,10 +885,10 @@ window.parent.postMessage({
     "完整紀錄": records.map(r => ({
       "組別": r.group,
       "液體": r.liquidName,
-      "密度_gcm3": densityGCm3(r.density),
+      "密度_gcm3": Number(densityGCm3(r.density).toFixed(2)),
       "容器形狀": r.shapeName,
-      "深度_cm": r.depthCm,
-      "壓力_atm": r.absolutePressure / ATM_PRESSURE
+      "深度_cm": Number(r.depthCm.toFixed(2)),
+      "壓力_atm": Number((r.absolutePressure / ATM_PRESSURE).toFixed(2))
     })),
     // 🌟 夾帶規範保留欄位：若目前有已產生的統計圖擬合結果，一併附上供 Quest 系統的
     // 「繪圖與擬合分析」這類關卡直接讀取，不用重新做迴歸運算（跟氣壓版本同步）
@@ -1472,7 +1479,7 @@ window.parent.postMessage({
       if (el.trendlineToggle.checked && gd[gn].length >= 2) {
         const td = calculateTrendline(gd[gn]);
         if (td) {
-          trendInfos.push({group:gn, color, equation:td.equation, slope:td.slope, intercept:td.intercept, rSquared:td.rSquared});
+          trendInfos.push({group:gn, color, equation:td.equation, slope:Number(td.slope.toFixed(2)), intercept:Number(td.intercept.toFixed(2)), rSquared:Number(td.rSquared.toFixed(2))});
           datasets.push({
             label:`${gn} 擬合線`, data:td.points,
             backgroundColor:'transparent', borderColor:color,
