@@ -674,7 +674,7 @@
                     payload["fits"] = lastFitData.fits;
                 }
                 
-                console.log("【廣播送到AI】", payload);
+                console.log("【廣播送到AI】\n" + JSON.stringify(payload, null, 2));
                 window.parent.postMessage({ type: 'SIMULATION_STATE', payload: payload }, '*');
                 
             } catch (e) { console.error("狀態廣播失敗:", e); }
