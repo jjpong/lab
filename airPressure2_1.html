@@ -1,4 +1,12 @@
 <!--
+📝 本次修改項目（2026-09-02，第七次，重要修復）
+- 修正「完整紀錄」跟擬合結果會出現十幾位小數的問題：
+  「壓力_atm」原本是直接除法（r.pressurePa / ATM_PA）完全沒有四捨五入；
+  擬合線的斜率、截距、R² 也是迴歸計算的原始結果，一樣沒有四捨五入。
+  兩處都改成 Number(x.toFixed(2))，統一只保留小數點後兩位，圖表本身的視覺呈現
+  （trendData.points）不受影響，只有廣播/顯示用的數值有改
+-->
+<!--
 📝 本次修改項目（2026-09-02，第六次，重要修復）
 - 修正跟水壓同樣的問題：圖表軸標籤（含符號跟單位，例如「壓力 P (atm)」）被同時用在
   畫面顯示跟廣播給任務系統比對這兩個地方，導致老師設定的「壓力」對不上實際廣播的內容。
@@ -1926,10 +1934,10 @@ submitReportBtn: document.getElementById("submitReportBtn"),
           payload["完整紀錄"] = records.map(r => ({
             "組別": r.group,
             "氣體": r.gasName,
-            "莫耳數": r.moles,
-            "體積_L": r.volumeL,
-            "溫度_K": r.tempK,
-            "壓力_atm": r.pressurePa / ATM_PA
+            "莫耳數": Number(r.moles.toFixed(2)),
+            "體積_L": Number(r.volumeL.toFixed(2)),
+            "溫度_K": Number(r.tempK.toFixed(2)),
+            "壓力_atm": Number((r.pressurePa / ATM_PA).toFixed(2))
           }));
 
           if (isMicroView) {
@@ -2371,7 +2379,7 @@ submitReportBtn: document.getElementById("submitReportBtn"),
             if (trendData) {
               trendlineInfos.push({
                 group: groupName, color: color, equation: trendData.equation,
-                slope: trendData.slope, intercept: trendData.intercept, rSquared: trendData.rSquared
+                slope: Number(trendData.slope.toFixed(2)), intercept: Number(trendData.intercept.toFixed(2)), rSquared: Number(trendData.rSquared.toFixed(2))
               });
               datasets.push({
                 label: `${groupName} 擬合線`,
