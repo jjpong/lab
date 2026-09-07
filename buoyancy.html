@@ -1,27 +1,13 @@
 <!--
-📝 AI 互動實驗室架構對齊（2026-09-05，第一次）
-- 這個實驗原本完全沒有任何廣播機制（連 broadcastStateToParent 都沒有），從零開始搭建。
-  但底層的資料模型本來就整理得很乾淨：records 本來就是完整的（不受顯示勾選影響），
-  這點跟伽利略斜面不一樣，不用另外搭 fullRecords 陣列。
-
-1. 新增 EXPERIMENT_MANIFEST：宣告 4 個可控制變數（形狀、物體密度、物體體積、液體密度）
-   + 6 個觀測量（底面深度、排開體積、重力、浮力、排開液重、總水量）。
-
-2. logVars 補上「形狀」欄位（原本完全沒有被記錄的缺口，跟伽利略斜面的完整性問題是
-   同一類），並補上 canonicalName（跟 manifest 變數名稱一致、不含單位符號）。
-
-3. 新增完整的 broadcastStateToParent，掛在：紀錄、清空、產生統計圖/切換擬合線顯示、
-   三個連動滑桿（用 change 事件，拖曳放開才廣播，避免洗版）、液體密度滑桿、形狀切換、
-   物體/液體密度預設按鈕。
-
-4. 把原本寫死在 updateLogbookChart 裡的迴歸計算抽成獨立函式 computeTrendline，
-   補上原本沒有的 R² 計算（原本只有算斜率、截距），圖表顯示跟廣播共用同一份計算結果，
-   避免兩邊算出不一致的數字。已用符合阿基米德原理的已知資料驗證過（B = ρ液×V排開，
-   斜率應該等於液體密度），也測過退化情況（x座標全部相同時正確回傳null，不會崩潰）。
-
-5. records 內部用簡短 id（rhoLiq、rhoObj...），但 manifest 用標準中文名稱，
-   新增 buildFullRecordsForBroadcast 做轉換，不動 records 本身的內部結構
-   （避免影響既有的表格渲染、圖表繪製、CSV匯出邏輯）。
+📝 AI 互動實驗室架構對齊（2026-09-05，第二次）
+- manifest 跟開場白都跟著網址情境(q1~q4)走，總共五種：q1~q4 各自專屬 + 沒有後綴時維持
+  原本完整版不變。每個情境的 manifestOverride 都對照 panel 設定逐一核對過（例如 q2 的
+  液體密度上限鎖在1.26、q3液體密度全開到13.6，manifest的min/max精確反映實際限制，
+  不是照搬完整版的範圍），已用程式驗證跟panel設定完全對得起來。
+- 每次廣播（不只是頁面載入時的manifest）都附帶「目前情境」欄位，避免對話一長AI忘記
+  最一開始的能力宣告，誤判學生能操作這個情境其實沒開放的功能
+- 補上拖曳釋放物體的廣播（原本完全沒有）：q1情境下這是學生唯一能做的操作，
+  之前完全沒被廣播出去，AI等於看不到q1底下學生實際在做什麼
 -->
 <!DOCTYPE html><html lang="zh-Hant"><head>
 <meta charset="UTF-8">
@@ -510,7 +496,14 @@ function buildFullRecordsForBroadcast() {
 // ==========================================
 function broadcastStateToParent(actionName, details = {}) {
   try {
+    const presetCfg = currentPresetName ? PRESETS[currentPresetName] : null;
+    const scenarioLabel = (presetCfg && presetCfg.manifestOverride && presetCfg.manifestOverride.expName)
+      ? presetCfg.manifestOverride.expName
+      : '浮力與壓力互動實驗室（完整版，沒有限制哪些功能）';
     const payload = {
+      // 🌟 每次廣播都附帶目前情境，避免對話一長，AI 忘記最一開始的能力宣告，
+      // 誤以為學生可以操作這個情境其實沒開放的功能
+      "目前情境": scenarioLabel,
       "學生最後的動作": actionName,
       "目前物體形狀": S.shape === 'circle' ? '圓形' : '方形',
       "目前物體密度_gcm3": S.density.toFixed(2),
@@ -1052,7 +1045,14 @@ cv.addEventListener('pointermove', e=>{
   if(Math.abs(S.cy - objHalfH()) < 0.01) S.manuallyPushedToBottom = true;
   else S.manuallyPushedToBottom = false;
 });
-cv.addEventListener('pointerup', ()=> S.dragging=false);
+cv.addEventListener('pointerup', ()=> {
+  if (S.dragging) {
+    const wh = solveWaterHeight();
+    const depth = Math.max(0, wh - (S.cy - objHalfH()));
+    broadcastStateToParent("拖曳物體改變位置", { "釋放時的底面深度_cm": depth.toFixed(2) });
+  }
+  S.dragging = false;
+});
 cv.addEventListener('pointercancel', ()=> S.dragging=false);
 
 function syncUI(){
@@ -1216,7 +1216,22 @@ const PRESETS = {
     shape: 'circle',
     density: 0.6,
     rhoLiq: 1.0,
-    lines: ['lineDepth', 'lineSub', 'lineB']
+    lines: ['lineDepth', 'lineSub', 'lineB'],
+    // 🌟 這個情境實際開放的能力：面板整個鎖死，學生唯一能做的事就是拖曳物體，
+    // 沒有任何滑桿、按鈕可以動，manifest 要精確反映這件事，不能照搬完整版
+    manifestOverride: {
+      expName: '浮力與壓力互動實驗室（Q1：深度與浮力關係）',
+      variables: [
+        { name: '底面深度', unit: 'cm', controllable: false, recordField: '底面深度' },
+        { name: '排開體積', unit: 'cm³', controllable: false, recordField: '排開體積' },
+        { name: '浮力', unit: 'gw', controllable: false, recordField: '浮力' }
+      ],
+      features: { hasDataTable: false, hasCurveFit: false, hasMicroView: false, hasGrouping: false },
+      actions: [
+        { name: '拖曳物體改變位置', actionText: '拖曳物體改變位置' }
+      ]
+    },
+    introMsg: '【系統開場白】歡迎進入「浮力探究：深度與浮力關係」！這一關的畫面比較單純，你只能用滑鼠拖曳圓形木塊，觀察它在水裡不同深度時的浮力變化。仔細看看：物體完全沒入水中之後，往更深的地方拖，浮力還會不會改變？'
   },
 
   // ───────────────────────────────────────
@@ -1240,7 +1255,28 @@ const PRESETS = {
       liquidMax: 1.26,
       object: ['volume','density']
 
-    }
+    },
+    // 🌟 物體性質區只開放density/volume兩列(形狀、材質按鈕都被藏起來)，
+    // 液體密度滑桿上限被鎖在1.26(水銀範圍碰不到)，manifest的min/max要照實際範圍寫
+    manifestOverride: {
+      expName: '浮力與壓力互動實驗室（Q2：換液體與浮力關係）',
+      variables: [
+        { name: '物體密度', unit: 'g/cm³', controllable: true, min: 0.1, max: 20.0, recordField: '物體密度' },
+        { name: '物體體積', unit: 'cm³', controllable: true, min: 5, max: 50, recordField: '物體體積' },
+        { name: '液體密度', unit: 'g/cm³', controllable: true, min: 0.4, max: 1.26, recordField: '液體密度' },
+        { name: '底面深度', unit: 'cm', controllable: false, recordField: '底面深度' },
+        { name: '排開體積', unit: 'cm³', controllable: false, recordField: '排開體積' },
+        { name: '浮力', unit: 'gw', controllable: false, recordField: '浮力' }
+      ],
+      features: { hasDataTable: false, hasCurveFit: false, hasMicroView: false, hasGrouping: false },
+      actions: [
+        { name: '調整物體密度', actionText: '調整物體密度' },
+        { name: '調整物體體積', actionText: '調整物體體積' },
+        { name: '調整液體密度', actionText: '調整液體密度' },
+        { name: '使用液體密度預設按鈕', actionText: '使用液體密度預設' }
+      ]
+    },
+    introMsg: '【系統開場白】歡迎進入「浮力探究：換液體與浮力關係」！你可以調整物體的密度、體積，還有液體的密度（這一關只開放酒精、食用油、水、甘油這幾種，範圍比較小的液體）。觀察看看：物體完全沒入不同的液體裡時，浮力會不會因為換了液體而改變？'
   },
 
   // ───────────────────────────────────────
@@ -1259,7 +1295,24 @@ const PRESETS = {
       groups: ['liquid'],
       liquidBtns: [0.79, 0.9, 1.0, 1.26, 13.6],
       liquidMax: 13.6
-    }
+    },
+    // 🌟 只開放liquid這一整塊(物體性質區完全隱藏)，液體密度是唯一能控制的變數，
+    // 這一關範圍是全開的(五顆按鈕含水銀、上限13.6)
+    manifestOverride: {
+      expName: '浮力與壓力互動實驗室（Q3：浮力與排開液重的關係）',
+      variables: [
+        { name: '液體密度', unit: 'g/cm³', controllable: true, min: 0.4, max: 13.6, recordField: '液體密度' },
+        { name: '排開體積', unit: 'cm³', controllable: false, recordField: '排開體積' },
+        { name: '浮力', unit: 'gw', controllable: false, recordField: '浮力' },
+        { name: '排開液重', unit: 'gw', controllable: false, recordField: '排開液重' }
+      ],
+      features: { hasDataTable: false, hasCurveFit: false, hasMicroView: false, hasGrouping: false },
+      actions: [
+        { name: '調整液體密度', actionText: '調整液體密度' },
+        { name: '使用液體密度預設按鈕', actionText: '使用液體密度預設' }
+      ]
+    },
+    introMsg: '【系統開場白】歡迎進入「浮力探究：浮力與排開液重的關係」！這一關只能調整液體的種類與密度，物體（鐵塊）已經固定完全沒入水中。仔細比較：換不同液體的時候，浮力的數字，跟「排開液重」的數字，是不是一直都相等？'
   },
 
   // ───────────────────────────────────────
@@ -1278,7 +1331,22 @@ const PRESETS = {
     panel: {
       groups: ['object'],
       object: ['volume']
-    }
+    },
+    // 🌟 只開放object群組裡的volume一列(液體整塊隱藏)，物體體積是唯一能控制的變數
+    manifestOverride: {
+      expName: '浮力與壓力互動實驗室（Q4：開放探究體積因素）',
+      variables: [
+        { name: '物體體積', unit: 'cm³', controllable: true, min: 5, max: 50, recordField: '物體體積' },
+        { name: '排開體積', unit: 'cm³', controllable: false, recordField: '排開體積' },
+        { name: '浮力', unit: 'gw', controllable: false, recordField: '浮力' },
+        { name: '排開液重', unit: 'gw', controllable: false, recordField: '排開液重' }
+      ],
+      features: { hasDataTable: false, hasCurveFit: false, hasMicroView: false, hasGrouping: false },
+      actions: [
+        { name: '調整物體體積', actionText: '調整物體體積' }
+      ]
+    },
+    introMsg: '【系統開場白】歡迎進入「浮力探究：體積因素」！這一關只能調整物體的體積，密度跟液體都已經固定。觀察看看：物體體積變大或變小，浮力會怎麼跟著改變？'
   }
 };
   // 你可以照上面格式繼續往下新增 q4, q5 ...
@@ -1398,6 +1466,8 @@ function applyPreset(name){
   draw();
 }
 
+let currentPresetName = null; // 🌟 記住目前是哪個網址情境(或null=完整版)，供每次廣播時附帶說明
+
 window.onload = () => {
   lineChecks.forEach(c => c.checked = false);
   initLogbookUI();
@@ -1405,16 +1475,26 @@ window.onload = () => {
 
   // ★ 套用網址情境模式（若沒有對應參數則維持原本預設行為）
   const preset = detectPreset();
+  currentPresetName = preset;
   if(preset) applyPreset(preset);
 
   requestAnimationFrame(loop);
   isSimInitialized = true;
 
-  // 🌟 廣播能力宣告，管理介面的「擷取實驗能力」會接住這個訊息
-  try { window.parent.postMessage(EXPERIMENT_MANIFEST, '*'); } catch (e) { console.error('能力宣告廣播失敗:', e); }
+  // 🌟 廣播能力宣告：有對應情境的話，用該情境專屬的 manifestOverride（精確反映這個情境
+  // 實際開放了哪些變數/動作，不是無腦廣播完整版）；沒有情境（完整版）就維持原本的行為。
+  const presetCfg = preset ? PRESETS[preset] : null;
+  const manifestToSend = (presetCfg && presetCfg.manifestOverride)
+    ? { type: 'EXPERIMENT_MANIFEST', ...presetCfg.manifestOverride }
+    : EXPERIMENT_MANIFEST;
+  try { window.parent.postMessage(manifestToSend, '*'); } catch (e) { console.error('能力宣告廣播失敗:', e); }
 
+  // 🌟 開場白也跟著情境走：有專屬開場白就用專屬的，沒有就維持原本完整版的開場白
+  const introToSend = (presetCfg && presetCfg.introMsg)
+    ? presetCfg.introMsg
+    : "【系統開場白】歡迎進入「浮力與壓力互動實驗室」！這是一個可以探索阿基米德原理、浮力、壓力與密度關係的模擬環境。你可以調整物體的形狀、密度、體積，以及液體的密度，觀察物體的浮沉狀態。也可以用「紀錄當下數據」把目前的狀態存進實驗記錄簿，之後畫成圖表分析變因之間的關係！";
   setTimeout(() => {
-    broadcastStateToParent("【系統開場白】歡迎進入「浮力與壓力互動實驗室」！這是一個可以探索阿基米德原理、浮力、壓力與密度關係的模擬環境。你可以調整物體的形狀、密度、體積，以及液體的密度，觀察物體的浮沉狀態。也可以用「紀錄當下數據」把目前的狀態存進實驗記錄簿，之後畫成圖表分析變因之間的關係！");
+    broadcastStateToParent(introToSend);
   }, 500);
 };
 
