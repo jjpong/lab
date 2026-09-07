@@ -1,13 +1,14 @@
 <!--
-📝 AI 互動實驗室架構對齊（2026-09-05，第二次）
-- manifest 跟開場白都跟著網址情境(q1~q4)走，總共五種：q1~q4 各自專屬 + 沒有後綴時維持
-  原本完整版不變。每個情境的 manifestOverride 都對照 panel 設定逐一核對過（例如 q2 的
-  液體密度上限鎖在1.26、q3液體密度全開到13.6，manifest的min/max精確反映實際限制，
-  不是照搬完整版的範圍），已用程式驗證跟panel設定完全對得起來。
-- 每次廣播（不只是頁面載入時的manifest）都附帶「目前情境」欄位，避免對話一長AI忘記
-  最一開始的能力宣告，誤判學生能操作這個情境其實沒開放的功能
-- 補上拖曳釋放物體的廣播（原本完全沒有）：q1情境下這是學生唯一能做的操作，
-  之前完全沒被廣播出去，AI等於看不到q1底下學生實際在做什麼
+📝 AI 互動實驗室架構對齊（2026-09-05，第三次，修正AI建議了未開放功能的問題）
+- 根本原因：跟學生聊天的AI，看到的資訊來源是每次動作廣播（SIMULATION_STATE），
+  跟EXPERIMENT_MANIFEST完全是兩條不同的路徑（manifest只有管理介面設計關卡時會讀取）。
+  上一輪只在廣播裡加了「目前情境」這個情境名稱，AI看到名稱猜不出具體能做什麼，
+  容易靠自己對「浮力實驗通常會有記錄簿」的一般知識腦補，講出這個情境其實沒開放的功能
+  （例如q1完全沒有記錄簿，AI卻建議學生「按下面那個加入紀錄」）。
+- 修正：新增「這個情境能做的事」欄位，直接從 manifestOverride.actions 動態產生明確的
+  能力限制說明（列出開放的操作、明講除此之外都還沒開放、特別提醒不要用「按下面那個」
+  這種說法引導不存在的功能）。動態產生的好處是以後新增q5、q6只要照樣寫好
+  manifestOverride，這段說明會自動正確，不用另外手動維護一份重複的文字。
 -->
 <!DOCTYPE html><html lang="zh-Hant"><head>
 <meta charset="UTF-8">
@@ -497,13 +498,26 @@ function buildFullRecordsForBroadcast() {
 function broadcastStateToParent(actionName, details = {}) {
   try {
     const presetCfg = currentPresetName ? PRESETS[currentPresetName] : null;
-    const scenarioLabel = (presetCfg && presetCfg.manifestOverride && presetCfg.manifestOverride.expName)
+    const hasOverride = presetCfg && presetCfg.manifestOverride;
+    const scenarioLabel = hasOverride
       ? presetCfg.manifestOverride.expName
       : '浮力與壓力互動實驗室（完整版，沒有限制哪些功能）';
+
+    // 🌟 明確列出這個情境目前能做的事，而不是只給情境名稱讓 AI 自己猜——AI 看到的是這次
+    // 廣播的內容，看不到 EXPERIMENT_MANIFEST（那個只有管理介面設計關卡時才會讀取），
+    // 只給名稱的話，AI 容易靠自己對「浮力實驗通常會有記錄簿」之類的一般知識腦補，
+    // 講出這個情境其實沒開放的功能（例如加入紀錄）。直接從 manifestOverride.actions
+    // 動態產生，以後新增 q5、q6 只要照樣寫好 manifestOverride，這段說明會自動正確，
+    // 不用另外手動維護一份重複的文字。
+    const capabilityNote = hasOverride
+      ? `這個情境目前只開放這些操作：${presetCfg.manifestOverride.actions.map(a => a.name).join('、')}。除了上面列出來的以外，其他功能（包括加入紀錄、清空紀錄、產生統計圖、調整任何上面沒提到的滑桿或按鈕）在這個情境都還沒開放給學生，畫面上也看不到對應的按鈕，請不要建議或暗示學生使用，也不要用「按下面那個」這種說法去引導不存在的功能。`
+      : '這個情境是完整版，所有功能都已開放。';
+
     const payload = {
       // 🌟 每次廣播都附帶目前情境，避免對話一長，AI 忘記最一開始的能力宣告，
       // 誤以為學生可以操作這個情境其實沒開放的功能
       "目前情境": scenarioLabel,
+      "這個情境能做的事": capabilityNote,
       "學生最後的動作": actionName,
       "目前物體形狀": S.shape === 'circle' ? '圓形' : '方形',
       "目前物體密度_gcm3": S.density.toFixed(2),
