@@ -1,64 +1,249 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
-<title>程式列表</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>實體實驗輔助或虛擬實驗程式列表</title>
 <style>
-  body { font-family: sans-serif; margin: 20px; }
-  ul { list-style-type: none; padding: 0; }
-  li { margin-bottom: 10px; }
-  a { text-decoration: none; color: #007bff; }
-  a:hover { text-decoration: underline; }
+  :root {
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --text: #1d2433;
+    --muted: #5d6779;
+    --line: #e2e7f0;
+    --accent: #2563eb;
+    --accent-soft: #e8f0ff;
+    --shadow: 0 1px 3px rgba(20, 30, 60, .08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141d;
+      --card: #182031;
+      --text: #e8edf6;
+      --muted: #9aa6bb;
+      --line: #2a344a;
+      --accent: #6ea0ff;
+      --accent-soft: #1f2d4d;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 16px 56px; }
+  header h1 { margin: 0 0 4px; font-size: 1.7rem; }
+  header p { margin: 0; color: var(--muted); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 24px 0 8px; }
+  .search {
+    flex: 1 1 240px;
+    padding: 10px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+  }
+  .search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: .92rem;
+    cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .count { color: var(--muted); font-size: .9rem; margin: 4px 0 0; }
+
+  section { margin-top: 32px; }
+  section h2 {
+    font-size: 1.15rem;
+    margin: 0 0 12px;
+    padding-left: 10px;
+    border-left: 4px solid var(--accent);
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card .title { font-weight: 600; font-size: 1.02rem; color: var(--accent); text-decoration: none; }
+  .card .title:hover { text-decoration: underline; }
+  .card .desc { color: var(--muted); font-size: .9rem; margin: 0; flex: 1; }
+  .versions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .versions a {
+    font-size: .78rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .versions a:hover { text-decoration: underline; }
+  .empty { display: none; text-align: center; color: var(--muted); padding: 40px 0; }
+  footer { margin-top: 40px; color: var(--muted); font-size: .85rem; text-align: center; }
 </style>
 </head>
 <body>
+<div class="wrap">
+  <header>
+    <h1>實體實驗輔助或虛擬實驗程式列表</h1>
+    <p>國中自然科互動式模擬實驗室：力學、壓力與浮力、光學、熱與電磁</p>
+  </header>
 
-<h1>實體實驗輔助或虛擬實驗程式列表</h1>
+  <div class="toolbar">
+    <input id="q" class="search" type="search" placeholder="搜尋程式名稱、說明或檔名…" aria-label="搜尋程式">
+    <div id="chips" class="chips" role="group" aria-label="分類篩選"></div>
+  </div>
+  <p id="count" class="count"></p>
 
-<ul id="file-list">
-  </ul>
+  <main id="list"></main>
+  <p id="empty" class="empty">找不到符合的程式，換個關鍵字試試。</p>
+
+  <footer>新增程式時，只要在 index.html 內的 PROGRAMS 陣列加一筆資料即可。</footer>
+</div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const fileList = document.getElementById('file-list');
+/*
+  ── 新增程式時，在下方 PROGRAMS 陣列加一筆即可 ──
+  cat   : 分類名稱（要與 CATEGORIES 其中之一相同）
+  title : 顯示名稱
+  desc  : 一句話說明
+  files : 檔名陣列；第一個是主要連結，其餘會顯示成「其他版本」小標籤
+*/
+const CATEGORIES = ["力與運動", "壓力與浮力", "物質與原子", "光與色彩", "熱、電與磁", "工具"];
 
-  // **請在這裡手動列出所有你要顯示的 HTML 檔案名稱**
-  // 根據您的截圖，您的檔案名稱包括：
-  const htmlFiles = [
-    "Rforce18.html",
-    "buoyancy.html",
-    "f-generator.html",
-    "graph1.html",
-    "kinematics.html",
-    "mag.html",
-    "pendulum.html",
-    "picOverlaylayer.html",
-    "pinhole.html",
-    "resistor1.html",
-    "spectrum.html",
-    "timelapse.html",
-    "影像擷取器.html",
-    "熱傳導.html",
-    "熱傳導模擬.html",
-    "生成器V2.html"
-    // 如果您有新的 HTML 檔案，請在這裡手動添加其檔案名稱
-    // 請確保名稱與實際檔案名稱完全一致 (包括大小寫)
-  ];
+const PROGRAMS = [
+  // ── 力與運動 ──
+  { cat: "力與運動", title: "力的合成與分解", desc: "拖曳力的向量，觀察合力與分力的關係。", files: ["Rforce18.html"] },
+  { cat: "力與運動", title: "一維運動與能量", desc: "觀察物體沿直線運動時位置、速度與能量的變化。", files: ["force1d2_1.html", "force1d2.html", "force1d.html"] },
+  { cat: "力與運動", title: "伽利略理想斜面", desc: "斜面實驗與運動學，體驗伽利略的理想實驗。", files: ["galileo-inclined-plane2_1.html", "galileo-inclined-plane2.html", "galileo-inclined-plane.html"] },
+  { cat: "力與運動", title: "直線運動模擬器", desc: "模擬等速與等加速度直線運動。", files: ["kinematics.html"] },
+  { cat: "力與運動", title: "單擺實驗模擬", desc: "改變擺長與角度，觀察單擺的週期。", files: ["pendulum.html"] },
 
-  if (htmlFiles.length === 0) {
-    fileList.innerHTML = '<li>目前沒有其他 HTML 檔案被列出。請在 `index.html` 的 JavaScript 代碼中添加檔案名稱。</li>';
-    return;
-  }
+  // ── 壓力與浮力 ──
+  { cat: "壓力與浮力", title: "氣體壓力虛擬實驗", desc: "觀察氣體體積、溫度與壓力之間的關係。", files: ["airPressure2_1.html", "airPressure2.html", "airPressure.html"] },
+  { cat: "壓力與浮力", title: "液體壓力互動模擬器", desc: "探索液體深度與壓力的關係。", files: ["waterPressure2.html", "waterPressure.html"] },
+  { cat: "壓力與浮力", title: "固體壓力", desc: "比較受力面積不同時所產生的壓力。", files: ["pressure.html"] },
+  { cat: "壓力與浮力", title: "浮力與壓力互動實驗室", desc: "觀察物體在液體中所受的浮力與壓力。", files: ["buoyancy.html", "bandp.html"] },
 
-  htmlFiles.forEach(fileName => {
-    const listItem = document.createElement('li');
-    const anchor = document.createElement('a');
-    anchor.href = fileName; // 連結到檔案本身
-    anchor.textContent = fileName; // 顯示檔案名稱
-    listItem.appendChild(anchor);
-    fileList.appendChild(listItem);
+  // ── 物質與原子 ──
+  { cat: "物質與原子", title: "物質的體積和質量關係圖", desc: "繪製體積與質量的關係圖，認識密度。", files: ["graph1.html"] },
+  { cat: "物質與原子", title: "Alpha 粒子散射實驗模擬", desc: "單原子模式的 α 粒子散射實驗。", files: ["alpha_scatter.html"] },
+
+  // ── 光與色彩 ──
+  { cat: "光與色彩", title: "RGB 三原色光混合模擬器", desc: "調整紅綠藍三色光，觀察混色結果。", files: ["colorMixer.html"] },
+  { cat: "光與色彩", title: "RGB 光源模擬器", desc: "光源與色彩的互動模擬。", files: ["light&color.html", "color&light.html"] },
+  { cat: "光與色彩", title: "針孔成像模擬器", desc: "觀察針孔成像的倒立實像與大小變化。", files: ["pinhole.html"] },
+  { cat: "光與色彩", title: "光譜分析", desc: "認識不同光源的光譜。", files: ["spectrum.html"] },
+  { cat: "光與色彩", title: "光譜分析系統", desc: "光譜分析的進階版本。", files: ["sp2.html"] },
+
+  // ── 熱、電與磁 ──
+  { cat: "熱、電與磁", title: "雙物質熱傳導模擬器", desc: "比較兩種物質的熱傳導情形。", files: ["熱傳導模擬.html", "熱傳導.html"] },
+  { cat: "熱、電與磁", title: "電子流動模擬", desc: "觀察電路中電子流動與電阻的關係。", files: ["resistor1.html"] },
+  { cat: "熱、電與磁", title: "磁力線模擬器", desc: "呈現磁鐵周圍的磁力線分布。", files: ["mag.html"] },
+  { cat: "熱、電與磁", title: "頻率產生器", desc: "產生指定頻率的聲音訊號。", files: ["f-generator.html"] },
+
+  // ── 工具 ──
+  { cat: "工具", title: "連續影像擷取疊圖器", desc: "連續擷取影像並疊圖，可用來分析運動軌跡。", files: ["影像擷取器.html", "picOverlayer.html"] },
+  { cat: "工具", title: "網頁版縮時攝影", desc: "在瀏覽器中直接錄製縮時攝影。", files: ["timelapse.html"] },
+  { cat: "工具", title: "閱讀測驗網頁程式 AI 提示詞生成器", desc: "產生用於 AI 製作閱讀測驗網頁的提示詞。", files: ["生成器V2.html"] }
+];
+
+/* ───────── 以下為顯示邏輯，一般不需修改 ───────── */
+const $ = id => document.getElementById(id);
+const href = f => encodeURIComponent(f);
+let activeCat = "全部";
+
+function renderChips() {
+  const box = $("chips");
+  box.innerHTML = "";
+  ["全部", ...CATEGORIES].forEach(name => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.type = "button";
+    b.textContent = name;
+    b.setAttribute("aria-pressed", String(name === activeCat));
+    b.onclick = () => { activeCat = name; renderChips(); render(); };
+    box.appendChild(b);
   });
-});
-</script>
+}
 
+function render() {
+  const kw = $("q").value.trim().toLowerCase();
+  const list = $("list");
+  list.innerHTML = "";
+  let shown = 0;
+
+  CATEGORIES.forEach(cat => {
+    if (activeCat !== "全部" && activeCat !== cat) return;
+    const items = PROGRAMS.filter(p =>
+      p.cat === cat &&
+      (!kw || (p.title + p.desc + p.files.join(" ")).toLowerCase().includes(kw))
+    );
+    if (!items.length) return;
+    shown += items.length;
+
+    const sec = document.createElement("section");
+    const h = document.createElement("h2");
+    h.textContent = cat;
+    sec.appendChild(h);
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    items.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const a = document.createElement("a");
+      a.className = "title";
+      a.href = href(p.files[0]);
+      a.textContent = p.title;
+      card.appendChild(a);
+
+      const d = document.createElement("p");
+      d.className = "desc";
+      d.textContent = p.desc;
+      card.appendChild(d);
+
+      if (p.files.length > 1) {
+        const v = document.createElement("div");
+        v.className = "versions";
+        p.files.forEach(f => {
+          const va = document.createElement("a");
+          va.href = href(f);
+          va.textContent = f.replace(/\.html$/, "");
+          v.appendChild(va);
+        });
+        card.appendChild(v);
+      }
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+    list.appendChild(sec);
+  });
+
+  $("count").textContent = "共 " + shown + " 個程式";
+  $("empty").style.display = shown ? "none" : "block";
+}
+
+$("q").addEventListener("input", render);
+renderChips();
+render();
+</script>
 </body>
 </html>
