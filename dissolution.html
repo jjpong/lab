@@ -65,8 +65,8 @@
       <button data-sub="agcl">氯化銀</button>
     </div>
     <div class="seg">
-      <button id="vMicro" class="on">微觀（粒子）</button>
-      <button id="vMacro">巨觀（顏色）</button>
+<button id="vMicro">微觀（粒子）</button>
+<button id="vMacro" class="on">巨觀（顏色）</button>
     </div>
     <div class="btns">
       <button id="shake" class="primary">撒一些</button>
@@ -164,7 +164,7 @@ const cv = document.getElementById("sim"), ctx = cv.getContext("2d");
 const ch = document.getElementById("chart"), cctx = ch.getContext("2d");
 
 let sub = SUBS.lactose, P = 1;
-let view = "micro", speed = 1, temp = 25, vol = 200, volTarget = 200, fT = 1, CsatFU = 144, paused = false;
+let view = "macro", speed = 1, temp = 25, vol = 200, volTarget = 200, fT = 1, CsatFU = 144, paused = false;
 let chartTab = "rate", chartRange = "recent", hoverX = null;
 let gD = 0, gS = 0, addedG = 0, addedP = 0;
 let free, clumps, stacks, ripples, dissEv, precEv, history, simT, stirT, pourQ, pourT, histT, field, steam;
