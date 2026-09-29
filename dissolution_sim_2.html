@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>溶解與飽和模擬</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#ffffff; --ink:#1d2433; --muted:#667085; --line:#e3e7ef;
+    --accent:#c62834; --blue:#2f6fde; --orange:#e8742a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;}
+  .app{max-width:1200px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px}
+  @media (max-width:880px){.app{grid-template-columns:1fr}}
+  .stage{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;position:relative;align-self:start}
+  #sim{width:100%;height:auto;display:block;touch-action:none;cursor:pointer}
+  .hint{position:absolute;left:18px;top:14px;font-size:13px;color:var(--muted)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+  h1{font-size:20px;margin:0}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{flex:1;border:0;background:transparent;padding:8px 4px;font-size:14px;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .seg.small button{font-size:12px;padding:5px 4px}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btns button{border:1px solid var(--line);background:#fafbfd;border-radius:10px;padding:9px 6px;font-size:14px;cursor:pointer}
+  .btns button:hover{background:#eef1f7}
+  .btns button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+  label b{color:var(--ink)}
+  input[type=range]{width:100%}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{background:#f7f8fb;border-radius:10px;padding:8px 10px}
+  .stat .k{font-size:12px;color:var(--muted)}
+  .stat .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+  .state{font-weight:600;padding:6px 10px;border-radius:8px;background:#eef1f7;text-align:center}
+  .state.sat{background:#fde8e9;color:var(--accent)}
+  .chartbox{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  #chart{width:100%;height:190px;display:block;cursor:crosshair}
+  .ctools{display:flex;gap:8px;align-items:center}
+  .ctools .seg{flex:1}
+  #pause{border:1px solid var(--line);background:#fafbfd;border-radius:10px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
+  #pause.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px;background:var(--c);border:1px solid var(--e, transparent)}
+  .legend.rings span::before{background:transparent;border:2px solid var(--c)}
+  .note{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+  .foot{font-size:12px;color:#98a2b3;margin:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="sim"></canvas>
+    <div class="hint">點一下罐子（或按空白鍵）撒一些溶質</div>
+  </div>
+
+  <div class="panel">
+    <h1>溶解與飽和</h1>
+    <div class="seg" id="subSeg">
+      <button data-sub="lactose" class="on">食用色素</button>
+      <button data-sub="sucrose">蔗糖</button>
+      <button data-sub="nacl">食鹽</button>
+      <button data-sub="agcl">氯化銀</button>
+    </div>
+    <div class="seg">
+      <button id="vMicro" class="on">微觀（粒子）</button>
+      <button id="vMacro">巨觀（顏色）</button>
+    </div>
+    <div class="btns">
+      <button id="shake" class="primary">撒一些</button>
+      <button id="pour">倒一大匙</button>
+      <button id="stir">攪拌</button>
+      <button id="reset">重來</button>
+      <button id="addW">加水 50 mL</button>
+      <button id="evap">蒸發 50 mL</button>
+    </div>
+    <label><div>水溫：<b id="tempV">25 °C</b></div>
+      <input type="range" id="temp" min="0" max="80" step="5" value="25"></label>
+    <label><div>播放速度：<b id="spdV">1×</b></div>
+      <input type="range" id="spd" min="0.25" max="3" step="0.25" value="1"></label>
+
+    <div class="state" id="state">純水</div>
+    <div class="stats">
+      <div class="stat"><div class="k" id="k1"></div><div class="v" id="v1">0</div></div>
+      <div class="stat"><div class="k" id="k2"></div><div class="v" id="v2">0</div></div>
+      <div class="stat"><div class="k" id="k3"></div><div class="v" id="v3">0</div></div>
+      <div class="stat"><div class="k" id="k4"></div><div class="v" id="v4">0</div></div>
+    </div>
+    <div id="microLegend">
+      <div class="legend" id="partLegend"></div>
+      <div class="legend rings" style="margin-top:6px">
+        <span style="--c:var(--orange)">剛離開固體</span>
+        <span style="--c:var(--blue)">回到固體上</span>
+      </div>
+    </div>
+
+    <div class="chartbox">
+      <div class="seg small">
+        <button id="tabRate" class="on"></button>
+        <button id="tabMass">溶質的量</button>
+      </div>
+      <canvas id="chart"></canvas>
+      <div class="legend" id="legend"></div>
+      <div class="ctools">
+        <div class="seg small">
+          <button id="rRecent" class="on">最近 40 秒</button>
+          <button id="rAll">全部紀錄</button>
+        </div>
+        <button id="pause">暫停</button>
+      </div>
+    </div>
+    <p class="note" id="note"></p>
+    <p class="foot" id="foot">食用色素的溶液本來就有顏色；食鹽和蔗糖的灰色是為了方便觀察而加上的，它們的水溶液實際上是無色透明的。</p>
+  </div>
+</div>
+
+<script>
+(() => {
+// ================== 物質資料 ==================
+// sol：溶解度（g / 100 mL 水）與溫度（°C）的對照
+// gpp：每顆粒子（離子化合物為每一組正負離子）代表的質量（g）
+const SUBS = {
+  lactose: { name: "食用色素", unit: "色素分子", ionic: false,
+    sol: [[0, 11.9], [15, 16.9], [25, 21.6], [39, 31.5], [49, 42.4], [64, 65.8], [80, 112]],
+    gpp: 0.3, kd: 1, solid: "#b3261e", edge: "#6f130d", free: "#ff7d6e",
+    rgb: [196, 18, 40], mac: [150, 25, 35], tint: 1 },
+  sucrose: { name: "蔗糖", unit: "蔗糖分子", ionic: false,
+    sol: [[0, 179], [20, 204], [40, 238], [60, 287], [80, 362]],
+    gpp: 2.0, kd: 1, solid: "#a35c00", edge: "#633600", free: "#f5b041",
+    rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3 },
+  nacl: { name: "食鹽", ionic: true,
+    ions: [{ lab: "Na⁺", name: "鈉離子", r: 3.0, col: "#f2c230", edge: "#9a7300" },
+           { lab: "Cl⁻", name: "氯離子", r: 4.4, col: "#1f9e6e", edge: "#0e5a3e" }],
+    sol: [[0, 35.7], [20, 35.9], [40, 36.4], [60, 37.1], [80, 38.0]],
+    gpp: 0.4, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3 },
+  agcl: { name: "氯化銀", ionic: true,
+    ions: [{ lab: "Ag⁺", name: "銀離子", r: 3.6, col: "#c3c9d2", edge: "#6f7782", outline: true },
+           { lab: "Cl⁻", name: "氯離子", r: 4.4, col: "#1f9e6e", edge: "#0e5a3e" }],
+    sol: [[0, 0.7e-4], [25, 1.9e-4], [50, 5.2e-4], [80, 1.2e-3]],
+    gpp: 0.5, kd: 0.08, vis25: 4, rgb: [0, 0, 0], mac: [236, 238, 242], macEdge: "#aab1bc", tint: 0 }
+};
+function solAt(s, T) {
+  const t = s.sol;
+  if (T <= t[0][0]) return t[0][1];
+  for (let i = 1; i < t.length; i++) if (T <= t[i][0]) {
+    const [a, fa] = t[i - 1], [b, fb] = t[i]; return fa + (fb - fa) * (T - a) / (b - a);
+  }
+  return t[t.length - 1][1];
+}
+
+// ================== 基本設定 ==================
+const W = 720, H = 600;
+const B = { l: 180, r: 540, top: 150, bot: 560, water: 560 - 200 * 1.3 };
+const R = 4, D = 8.6, DY = D * 0.866;
+const COLS = Math.floor((B.r - B.l - D / 2) / D);
+const colX0 = B.l + ((B.r - B.l) - (COLS * D + D / 2)) / 2 + D / 2;
+const MAX_PARTICLES = 1800;
+const KD = 1.3, YOUNG = 2.5, PX_ML = 1.3, VMIN = 100, VMAX = 300;
+const HIST_MAX = 14400;   // 約 1 小時的紀錄
+
+const cv = document.getElementById("sim"), ctx = cv.getContext("2d");
+const ch = document.getElementById("chart"), cctx = ch.getContext("2d");
+
+let sub = SUBS.lactose, P = 1;
+let view = "micro", speed = 1, temp = 25, vol = 200, volTarget = 200, fT = 1, CsatFU = 144, paused = false;
+let chartTab = "rate", chartRange = "recent", hoverX = null;
+let gD = 0, gS = 0, addedG = 0, addedP = 0;
+let free, clumps, stacks, ripples, dissEv, precEv, history, simT, stirT, pourQ, pourT, histT, field, steam;
+const shaker = { x: 360, y: 72, angle: 0, shakeT: 0, next: 0 };
+
+const waterMol = [];
+function syncWaterMol() {
+  const n = Math.round(vol * 0.85);
+  while (waterMol.length > n) waterMol.pop();
+  while (waterMol.length < n) waterMol.push({ x: B.l + Math.random() * (B.r - B.l), y: B.water + Math.random() * (B.bot - B.water), vx: 0, vy: 0 });
+}
+function reset() {
+  free = []; clumps = []; ripples = []; dissEv = []; precEv = []; history = []; steam = [];
+  stacks = Array.from({ length: COLS }, () => []);
+  simT = 0; stirT = 0; pourQ = 0; pourT = 0; histT = 0;
+  field = null; gD = 0; gS = 0; addedG = 0; addedP = 0;
+  vol = volTarget = 200; B.water = B.bot - vol * PX_ML;
+  waterMol.length = 0; syncWaterMol();
+}
+
+// 飽和時水中的粒子組數（離子化合物：一組 = 一個正離子 + 一個負離子）
+function calcCsat(T, V) {
+  if (sub.vis25) return sub.vis25 * solAt(sub, T) / solAt(sub, 25) * V / 200;
+  return solAt(sub, T) * V / 100 / sub.gpp;
+}
+const gppDiss = () => sub.vis25 ? solAt(sub, 25) * 2 / sub.vis25 : sub.gpp;
+
+const siteX = (c, row) => sub.ionic ? colX0 + c * D : colX0 + c * D + (row % 2 ? D / 2 : 0) - D / 4;
+const siteY = row => B.bot - 5 - row * (sub.ionic ? D : DY);
+const slotType = (c, i) => (c + i) & 1;
+const colOf = x => Math.max(0, Math.min(COLS - 1, Math.round((x - colX0) / D)));
+const rOf = t => sub.ionic ? sub.ions[t].r : R;
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const nEvents = l => { let n = Math.floor(l); if (Math.random() < l - n) n++; return n; };
+
+function totalCount() {
+  let n = free.length;
+  for (const s of stacks) n += s.length;
+  for (const c of clumps) n += c.parts.length;
+  return n;
+}
+function solidCount() {
+  let n = 0;
+  for (const s of stacks) for (const p of s) if (p.state === "solid") n++;
+  for (const c of clumps) n += c.parts.length;
+  return n;
+}
+
+// ================== 固體粒子團 ==================
+function spawnClump(x, y, big) {
+  if (totalCount() > MAX_PARTICLES) return;
+  const rad = big ? 2 : (Math.random() < 0.55 ? 1 : 2);
+  const parts = [];
+  if (sub.ionic) {           // 正負離子交錯排列的晶體
+    for (let q = -rad; q <= rad; q++) for (let r = -rad; r <= rad; r++) {
+      if (Math.abs(q) + Math.abs(r) > rad + 1) continue;
+      if (Math.abs(q) + Math.abs(r) === rad + 1 && Math.random() < 0.4) continue;
+      parts.push({ ox: q * D, oy: r * D, t: (q + r) & 1, shade: Math.random() });
+    }
+  } else {
+    for (let q = -rad; q <= rad; q++)
+      for (let r = Math.max(-rad, -q - rad); r <= Math.min(rad, -q + rad); r++) {
+        if (Math.abs(q) + Math.abs(r) + Math.abs(q + r) === 2 * rad && Math.random() < 0.3) continue;
+        parts.push({ ox: D * (q + r / 2), oy: DY * r, t: 0, shade: Math.random() });
+      }
+  }
+  addedP += parts.length;
+  addedG += parts.length / P * sub.gpp;
+  clumps.push({ x, y, vx: (Math.random() - 0.5) * 40, vy: 40 + Math.random() * 40,
+    ang: Math.random() * 6, va: (Math.random() - 0.5) * 3, parts, inWater: false });
+}
+function partPos(c, p) {
+  const cs = Math.cos(c.ang), sn = Math.sin(c.ang);
+  return { x: c.x + p.ox * cs - p.oy * sn, y: c.y + p.ox * sn + p.oy * cs };
+}
+function doShake() { shaker.shakeT = 0.5; shaker.next = 0.04; }
+
+function releaseFree(x, y, t) {
+  const a = Math.random() * Math.PI * 2;
+  free.push({ x, y, t, vx: Math.cos(a) * 50, vy: Math.sin(a) * 50 - 20, flash: 0.8, age: 0 });
+  dissEv.push(simT);
+}
+// 找一顆指定種類、離 (tx,ty) 最近的溶解粒子
+function pickFree(tx, ty, t) {
+  let bi = -1, bd = Infinity;
+  for (let k = 0; k < 40; k++) {
+    const j = Math.floor(Math.random() * free.length), f = free[j];
+    if (sub.ionic && f.t !== t) continue;
+    const d = (f.x - tx) ** 2 + (f.y - ty) ** 2;
+    if (d < bd) { bd = d; bi = j; }
+  }
+  if (bi < 0) for (let j = 0; j < free.length; j++) if (!sub.ionic || free[j].t === t) { bi = j; break; }
+  return bi;
+}
+function sendBack(c, t) {
+  const L = stacks[c].length, j = pickFree(siteX(c, L), siteY(L), t);
+  if (j < 0) return false;
+  const f = free.splice(j, 1)[0];
+  stacks[c].push({ x: f.x, y: f.y, t, state: "back", shade: Math.random() });
+  return true;
+}
+const topSolid = c => { const s = stacks[c]; return s.length && s[s.length - 1].state === "solid"; };
+
+// ================== 更新 ==================
+function step(dt) {
+  simT += dt;
+
+  // 罐子
+  if (shaker.shakeT > 0) {
+    shaker.shakeT -= dt;
+    shaker.angle = Math.sin(shaker.shakeT * 38) * 0.32 * Math.min(1, shaker.shakeT * 4);
+    shaker.next -= dt;
+    if (shaker.next <= 0) { spawnClump(shaker.x + (Math.random() - 0.5) * 30, shaker.y + 66, false); shaker.next = 0.13; }
+  } else shaker.angle *= 0.8;
+  if (pourQ > 0) {
+    pourT -= dt; shaker.angle = 0.25 * Math.sin(simT * 30);
+    if (pourT <= 0) { spawnClump(shaker.x + (Math.random() - 0.5) * 36, shaker.y + 66, true); pourQ--; pourT = 0.06; }
+  }
+  if (stirT > 0) stirT -= dt;
+
+  // 水量與溫度
+  if (vol !== volTarget) {
+    const evaporating = volTarget < vol;
+    vol += Math.sign(volTarget - vol) * Math.min(Math.abs(volTarget - vol), (evaporating ? 25 : 60) * dt);
+    B.water = B.bot - vol * PX_ML;
+    syncWaterMol();
+    if (evaporating && Math.random() < dt * 25) steam.push({ x: B.l + 20 + Math.random() * (B.r - B.l - 40), y: B.water - 4, t: 0 });
+  }
+  for (let i = steam.length - 1; i >= 0; i--) { const w = steam[i]; w.t += dt; w.y -= 30 * dt; if (w.t > 1.6) steam.splice(i, 1); }
+  CsatFU = calcCsat(temp, vol);
+  fT = 0.6 + 0.016 * temp;
+  const K = KD * fT * sub.kd;
+
+  // 粒子團下落
+  for (let i = clumps.length - 1; i >= 0; i--) {
+    const c = clumps[i];
+    if (!c.inWater) c.vy += 900 * dt;
+    else { c.vy += (85 - c.vy) * Math.min(1, dt * 3); c.vx *= (1 - dt * 1.5); c.va *= (1 - dt); }
+    c.x += c.vx * dt; c.y += c.vy * dt; c.ang += c.va * dt;
+    c.x = Math.max(B.l + 22, Math.min(B.r - 22, c.x));
+    if (!c.inWater && c.y > B.water) { c.inWater = true; c.vy *= 0.3; ripples.push({ x: c.x, t: 0 }); }
+    if (!c.parts.length) { clumps.splice(i, 1); continue; }
+    let landed = false;
+    const pos = c.parts.map(p => ({ p, ...partPos(c, p) }));
+    for (const q of pos) if (q.y >= siteY(stacks[colOf(q.x)].length)) { landed = true; break; }
+    if (landed) {
+      pos.sort((a, b) => b.y - a.y);
+      for (const q of pos) stacks[colOf(q.x)].push({ x: q.x, y: q.y, t: q.p.t, state: "solid", shade: q.p.shade });
+      clumps.splice(i, 1);
+    }
+  }
+
+  // 沉澱堆
+  for (let c = 0; c < COLS; c++) {
+    const s = stacks[c];
+    for (let i = 0; i < s.length; i++) {
+      const p = s[i], tx = siteX(c, i), ty = siteY(i);
+      if (p.state === "solid") {
+        const k = Math.min(1, dt * 10); p.x += (tx - p.x) * k; p.y += (ty - p.y) * k;
+      } else {
+        const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
+        const v = 90 + 40 * Math.min(1, d / 100);
+        if (d < v * dt + 0.5) { p.x = tx; p.y = ty; p.state = "solid"; p.flash = 0.8; precEv.push(simT); }
+        else { p.x += dx / d * v * dt + gauss() * 0.6; p.y += dy / d * v * dt + gauss() * 0.6; }
+      }
+      if (p.flash > 0) p.flash -= dt;
+    }
+  }
+  // 堆積崩落
+  const need = sub.ionic ? 4 : 3, move = sub.ionic ? 2 : 1;
+  for (let c = 0; c < COLS; c++) for (const n of [c - 1, c + 1]) {
+    if (n < 0 || n >= COLS) continue;
+    const s = stacks[c];
+    if (s.length - stacks[n].length < need) continue;
+    let ok = true; for (let k = 1; k <= move; k++) if (s[s.length - k].state !== "solid") ok = false;
+    if (ok) for (let k = 0; k < move; k++) stacks[n].push(s.pop());
+  }
+
+  // ===== 溶解與析出 =====
+  // 先用「理論上會不會飽和」決定方向：
+  // 水中（溶解的 + 水裡的固體）的總量還不到飽和量 → 最後一定會全部溶解，析出幾乎不發生；
+  // 接近或超過飽和量 → 析出才正常進行，形成動態平衡。
+  const tops = [];
+  for (let c = 0; c < COLS; c++) if (topSolid(c)) tops.push(c);
+  const dissFUnow = free.length / P;
+  let pileAll = 0; for (const s of stacks) pileAll += s.length;
+  let wetAll = 0; for (const c of clumps) if (c.inWater) wetAll += c.parts.length;
+  const totalFU = (free.length + pileAll + wetAll) / P;
+  const theo = totalFU / CsatFU;                       // 理論上的「飽和程度」
+  const precipFactor = theo < 0.92 ? 0.01 : theo < 1 ? 0.01 + 0.99 * (theo - 0.92) / 0.08 : 1;
+  let clumpS = 0;
+  for (const c of clumps) if (c.inWater && c.parts.length) clumpS += Math.ceil(c.parts.length * 0.3) * Math.max(0, 1 - dissFUnow / CsatFU);
+  const S = tops.length + clumpS;
+  // 離子化合物：放出離子時，補水中比較少的那一種，讓正負離子數保持一樣
+  const lessType = () => { let n0 = 0; for (const f of free) if (f.t === 0) n0++; return n0 <= free.length - n0 ? 0 : 1; };
+
+  // 溶解（每次事件：一個分子，或一組正負離子）
+  let nd = nEvents(K * S * dt);
+  while (nd-- > 0) {
+    if (Math.random() * S < tops.length && tops.length) {
+      const c = tops[Math.floor(Math.random() * tops.length)];
+      if (!topSolid(c)) continue;
+      const s = stacks[c];
+      if (!sub.ionic) { const q = s.pop(); releaseFree(q.x, q.y - 2, 0); continue; }
+      const t1 = slotType(c, s.length - 1);
+      let c2 = -1;
+      if (s.length >= 2 && s[s.length - 2].state === "solid") c2 = c;
+      else for (let d = 1; d < COLS && c2 < 0; d++) for (const cc of [c - d, c + d])
+        if (cc >= 0 && cc < COLS && topSolid(cc)) { c2 = cc; break; }
+      const a = s.pop(); releaseFree(a.x, a.y - 2, c2 < 0 ? lessType() : t1);
+      if (c2 >= 0) { const b = stacks[c2].pop(); releaseFree(b.x, b.y - 2, 1 - t1); }
+    } else {
+      const inw = clumps.filter(c => c.inWater && c.parts.length);
+      if (!inw.length) continue;
+      const cl = inw[Math.floor(Math.random() * inw.length)];
+      const n = Math.min(P, cl.parts.length);
+      for (let k = 0; k < n; k++) {
+        let bi = 0, bd = -1;
+        for (let j = 0; j < cl.parts.length; j++) { const d = cl.parts[j].ox ** 2 + cl.parts[j].oy ** 2 + Math.random() * 30; if (d > bd) { bd = d; bi = j; } }
+        const pp = partPos(cl, cl.parts[bi]); cl.parts.splice(bi, 1);
+        releaseFree(pp.x, pp.y, !sub.ionic ? 0 : n === 2 ? k : lessType());
+      }
+    }
+  }
+  // 過飽和：杯底長出新的小晶體（固體很少時）
+  if (tops.length < 6 && !clumps.length && theo > 1.03 && dissFUnow > CsatFU * 1.03 && Math.random() < dt * 3) {
+    const c = Math.floor(COLS / 2 + (Math.random() - 0.5) * COLS * 0.6);
+    sendBack(c, slotType(c, stacks[c].length));
+    if (sub.ionic) sendBack(c, slotType(c, stacks[c].length));
+  }
+  // 析出：速率 = k × 暴露表面 × (水中的量 / 飽和量) × 方向係數
+  if (tops.length && free.length >= P) {
+    const over = Math.max(0, dissFUnow / CsatFU - 1);           // 過飽和越多，析出越快
+    let np = nEvents(K * tops.length * dt * (free.length / P) / CsatFU * precipFactor * (1 + 2 * over));
+    while (np-- > 0 && free.length >= P) {
+      const c = tops[Math.floor(Math.random() * tops.length)];
+      sendBack(c, slotType(c, stacks[c].length));
+      if (sub.ionic) sendBack(c, slotType(c, stacks[c].length));
+    }
+  }
+
+  // 溶解粒子的運動
+  const cx = (B.l + B.r) / 2, cy = (B.water + B.bot) / 2, stir = Math.max(0, stirT) / 3;
+  const tau = 0.8, sq = Math.sqrt(2 * dt / tau) * 48 * Math.sqrt(fT);
+  for (const p of free) {
+    p.vx += -p.vx * dt / tau + sq * gauss();
+    p.vy += -p.vy * dt / tau + sq * gauss();
+    let fx = 0, fy = 0;
+    if (stir > 0) { const dx = p.x - cx, dy = p.y - cy, d = Math.hypot(dx, dy) + 20; fx = -dy / d * 170 * stir; fy = dx / d * 170 * stir; }
+    p.x += (p.vx + fx) * dt; p.y += (p.vy + fy) * dt;
+    if (p.x < B.l + R) { p.x = B.l + R; p.vx = Math.abs(p.vx); }
+    if (p.x > B.r - R) { p.x = B.r - R; p.vx = -Math.abs(p.vx); }
+    if (p.y < B.water + R) { p.y = B.water + R; p.vy = Math.abs(p.vy); }
+    const fl = siteY(stacks[colOf(p.x)].length) + 2;
+    if (p.y > fl) { p.y = fl; p.vy = -Math.abs(p.vy); }
+    if (p.flash > 0) p.flash -= dt;
+    p.age += dt;
+  }
+  if (view === "micro") for (const m of waterMol) {
+    m.vx += -m.vx * dt / 0.3 + Math.sqrt(2 * dt / 0.3) * 60 * gauss();
+    m.vy += -m.vy * dt / 0.3 + Math.sqrt(2 * dt / 0.3) * 60 * gauss();
+    m.x += m.vx * dt; m.y += m.vy * dt;
+    if (m.x < B.l + 2 || m.x > B.r - 2) { m.vx *= -1; m.x = Math.max(B.l + 2, Math.min(B.r - 2, m.x)); }
+    if (m.y < B.water + 2 || m.y > B.bot - 2) { m.vy *= -1; m.y = Math.max(B.water + 2, Math.min(B.bot - 2, m.y)); }
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].t += dt; if (ripples[i].t > 1) ripples.splice(i, 1); }
+
+  // 巨觀讀數：穩定的質量
+  let backN = 0, pileN = 0;
+  for (const s of stacks) for (const p of s) { pileN++; if (p.state === "back") backN++; }
+  let wetClump = 0; for (const c of clumps) if (c.inWater) wetClump += c.parts.length;
+  const dissFU = free.length / P;   // 正在回到固體上的粒子不算
+  const hasSolid = pileN - backN + wetClump > 0;
+  const band = sub.vis25 ? CsatFU + 50 : Math.max(CsatFU * 0.12, 3);   // 難溶物質：有固體就視為飽和
+  const targetFU = (hasSolid && theo >= 1 && Math.abs(dissFU - CsatFU) < band) ? CsatFU : dissFU;
+  const targetG = Math.min(targetFU * gppDiss(), addedG);
+  gD += (targetG - gD) * Math.min(1, dt / 0.8);
+  if (Math.abs(targetG - gD) < Math.max(targetG, 1e-6) * 0.001) gD = targetG;
+  gS = Math.max(0, addedG - gD);
+
+  // 紀錄
+  while (dissEv.length && dissEv[0] < simT - 3) dissEv.shift();
+  while (precEv.length && precEv[0] < simT - 3) precEv.shift();
+  histT -= dt;
+  if (histT <= 0) {
+    histT = 0.25;
+    const rd = dissEv.filter(t => t > simT - 2).length / 2, rp = precEv.filter(t => t > simT - 2).length / 2;
+    history.push({ t: simT, d: rd, p: rp, pct: pctOf(gD), add: addedG, dis: gD, und: gS,
+      addN: addedP, disN: free.length + backN, undN: solidCount(),
+      dissFU, band, theo, hasPile: pileN - backN > 0 });
+    if (history.length > HIST_MAX) history.shift();
+    updatePanel();
+  }
+}
+
+// ================== 繪圖 ==================
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+const rgb = (a, k = 0) => `rgb(${a[0] + k},${a[1] + k},${a[2] + k})`;
+
+function drawShaker() {
+  ctx.save();
+  ctx.translate(shaker.x, shaker.y); ctx.rotate(shaker.angle);
+  ctx.fillStyle = "rgba(220,232,245,0.9)"; ctx.strokeStyle = "#7c8799"; ctx.lineWidth = 2;
+  roundRect(-26, -52, 52, 92, 12); ctx.fill(); ctx.stroke();
+  if (view === "macro") {
+    ctx.fillStyle = rgb(sub.mac); roundRect(-21, -8, 42, 44, 6); ctx.fill();
+    if (sub.macEdge) { ctx.strokeStyle = sub.macEdge; ctx.lineWidth = 1; ctx.stroke(); }
+  } else {
+    for (let r = 0; r < 5; r++) for (let q = 0; q < 5; q++) {
+      const t = sub.ionic ? (q + r) & 1 : 0;
+      ctx.fillStyle = sub.ionic ? sub.ions[t].col : sub.solid;
+      ctx.beginPath(); ctx.arc(-17 + q * 8.5 + (sub.ionic ? 0 : (r % 2) * 4), 30 - r * 8, sub.ionic ? sub.ions[t].r * 0.9 : 3.3, 0, 7); ctx.fill();
+    }
+  }
+  ctx.fillStyle = "#1d2433"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(sub.name, 0, -26);
+  const g = ctx.createLinearGradient(-28, 0, 28, 0);
+  g.addColorStop(0, "#9aa3b2"); g.addColorStop(0.5, "#e6e9ef"); g.addColorStop(1, "#8a93a3");
+  ctx.fillStyle = g; ctx.strokeStyle = "#7c8799"; ctx.lineWidth = 2;
+  roundRect(-28, 38, 56, 20, 5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#3a4252";
+  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * 9, 58, 1.8, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+
+function drawBeaker(front) {
+  if (!front) {
+    ctx.fillStyle = view === "micro" ? "rgba(120,175,245,0.16)" : "rgba(140,190,250,0.22)";
+    ctx.fillRect(B.l, B.water, B.r - B.l, B.bot - B.water);
+    return;
+  }
+  ctx.strokeStyle = "#8a96aa"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(B.l - 14, B.top - 6); ctx.lineTo(B.l - 2, B.top); ctx.lineTo(B.l - 2, B.bot + 2);
+  ctx.lineTo(B.r + 2, B.bot + 2); ctx.lineTo(B.r + 2, B.top); ctx.lineTo(B.r + 14, B.top - 6);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(60,120,210,0.55)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(B.l, B.water); ctx.lineTo(B.r, B.water); ctx.stroke();
+  for (const r of ripples) {
+    ctx.strokeStyle = `rgba(60,120,210,${0.6 * (1 - r.t)})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(r.x, B.water, 8 + r.t * 50, 2 + r.t * 5, 0, 0, 7); ctx.stroke();
+  }
+  ctx.strokeStyle = "#a9b3c4"; ctx.lineWidth = 1.5; ctx.fillStyle = "#8a96aa"; ctx.font = "11px sans-serif"; ctx.textAlign = "left";
+  for (let i = 1; i <= 6; i++) {
+    const y = B.bot - i * 50 * PX_ML;
+    ctx.beginPath(); ctx.moveTo(B.r - 22, y); ctx.lineTo(B.r - 2, y); ctx.stroke();
+    ctx.fillText(i * 50 + " mL", B.r + 10, y + 4);
+  }
+  for (const w of steam) {
+    ctx.strokeStyle = `rgba(150,160,175,${0.5 * (1 - w.t / 1.6)})`; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let k = 0; k <= 8; k++) { const yy = w.y - k * 2.5, xx = w.x + Math.sin(k * 0.9 + w.t * 4) * 3; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    ctx.stroke();
+  }
+  // 溫度計
+  const tx = 120, t0 = 520, t1 = 250, ty = t0 - (t0 - t1) * temp / 80;
+  const tc = temp >= 50 ? "#d9362b" : temp <= 10 ? "#2f6fde" : "#e0553a";
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = "#8a96aa"; ctx.lineWidth = 2;
+  roundRect(tx - 7, t1 - 16, 14, t0 - t1 + 22, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(tx, t0 + 14, 13, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = tc; ctx.fillRect(tx - 3, ty, 6, t0 + 6 - ty);
+  ctx.beginPath(); ctx.arc(tx, t0 + 14, 9, 0, 7); ctx.fill();
+  ctx.fillStyle = "#1d2433"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(temp + " °C", tx, t1 - 26);
+}
+
+// 巨觀：整杯均勻的顏色，剛溶解的地方短暫較深
+const GW = 36, GH = 26;
+const off = document.createElement("canvas"); off.width = GW; off.height = GH;
+const octx = off.getContext("2d"); const img = octx.createImageData(GW, GH);
+const pctOf = g => g / (g + vol) * 100;
+function drawField() {
+  if (!sub.tint) return;
+  const g = new Float32Array(GW * GH);
+  const unsat = Math.max(0, 1 - free.length / P / CsatFU);
+  const add = (x, y, w0) => {
+    const gx = (x - B.l) / (B.r - B.l) * GW - 0.5, gy = (y - B.water) / (B.bot - B.water) * GH - 0.5;
+    const x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0;
+    for (const [dx, dy, w] of [[0, 0, (1 - fx) * (1 - fy)], [1, 0, fx * (1 - fy)], [0, 1, (1 - fx) * fy], [1, 1, fx * fy]]) {
+      const X = Math.max(0, Math.min(GW - 1, x0 + dx)), Y = Math.max(0, Math.min(GH - 1, y0 + dy));
+      g[Y * GW + X] += w * w0;
+    }
+  };
+  if (unsat > 0) for (const p of free) if (p.age < YOUNG) add(p.x, p.y, 3 * (1 - p.age / YOUNG) * unsat);
+  let a = g;
+  for (let pass = 0; pass < 4; pass++) {
+    const b = new Float32Array(GW * GH);
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      let s = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue; s += a[Y * GW + X]; n++;
+      }
+      b[y * GW + x] = s / n;
+    }
+    a = b;
+  }
+  if (!field) field = a;
+  else for (let i = 0; i < a.length; i++) field[i] = field[i] * 0.8 + a[i] * 0.2;
+  const sat25G = solAt(sub, 25) * vol / 100;
+  const base = gD / sat25G;                                  // 相對濃度
+  const refCell = calcCsat(25, vol) * P / (GW * GH);
+  const [cr, cg, cb] = sub.rgb;
+  for (let i = 0; i < field.length; i++) {
+    const al = 1 - Math.exp(-0.9 * (base + field[i] / refCell));
+    img.data[i * 4] = cr; img.data[i * 4 + 1] = cg; img.data[i * 4 + 2] = cb; img.data[i * 4 + 3] = al * 225 * sub.tint;
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, B.l, B.water, B.r - B.l, B.bot - B.water);
+}
+
+function drawPart(x, y, t, solid, shade) {
+  if (view === "macro") {
+    ctx.fillStyle = rgb(sub.mac, Math.round((shade - 0.5) * 24));
+    ctx.beginPath(); ctx.arc(x, y, R * 1.55, 0, 7); ctx.fill();
+    if (sub.macEdge) { ctx.strokeStyle = sub.macEdge; ctx.lineWidth = 0.8; ctx.stroke(); }
+    return;
+  }
+  ctx.beginPath(); ctx.arc(x, y, rOf(t), 0, 7);
+  if (sub.ionic) {
+    const ion = sub.ions[t];
+    ctx.fillStyle = ion.col; ctx.fill();
+    if (solid || ion.outline) { ctx.strokeStyle = ion.edge; ctx.lineWidth = 1; ctx.stroke(); }
+  } else {
+    ctx.fillStyle = solid ? sub.solid : sub.free; ctx.fill();
+    if (solid) { ctx.strokeStyle = sub.edge; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+}
+function ring(x, y, r, col, a) {
+  ctx.strokeStyle = col.replace("A", a); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawBeaker(false);
+  if (view === "micro") {
+    ctx.fillStyle = "rgba(70,130,220,0.35)";
+    for (const m of waterMol) { ctx.beginPath(); ctx.arc(m.x, m.y, 1.8, 0, 7); ctx.fill(); }
+  } else drawField();
+
+  for (let c = 0; c < COLS; c++) {
+    const s = stacks[c];
+    for (let i = 0; i < s.length; i++) {
+      const p = s[i];
+      if (p.state === "solid") {
+        drawPart(p.x, p.y, sub.ionic ? slotType(c, i) : 0, true, p.shade);
+        if (view === "micro" && p.flash > 0) ring(p.x, p.y, rOf(slotType(c, i)) + 3, "rgba(47,111,222,A)", p.flash);
+      } else if (view === "micro") {
+        drawPart(p.x, p.y, p.t, false, p.shade);
+        ring(p.x, p.y, rOf(p.t) + 2.5, "rgba(47,111,222,A)", 1);
+      }
+    }
+  }
+  for (const c of clumps) for (const p of c.parts) { const q = partPos(c, p); drawPart(q.x, q.y, p.t, true, p.shade); }
+  if (view === "micro") for (const p of free) {
+    drawPart(p.x, p.y, p.t, false, 0);
+    if (p.flash > 0) ring(p.x, p.y, rOf(p.t) + 3, "rgba(232,116,42,A)", p.flash);
+  }
+  drawBeaker(true);
+  drawShaker();
+  ctx.fillStyle = "#8a96aa"; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
+  const label = view === "micro"
+    ? (sub.ionic ? "放大來看：每一顆粒子代表一大群離子" : `放大來看：每一顆粒子代表一大群${sub.unit}`)
+    : `水 ${Math.round(vol)} mL，${temp} °C`;
+  ctx.fillText(label, (B.l + B.r) / 2, B.bot + 30);
+  if (paused) {
+    ctx.fillStyle = "rgba(29,36,51,0.75)"; roundRect(W - 110, 14, 92, 30, 8); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 14px sans-serif"; ctx.fillText("已暫停", W - 64, 34);
+  }
+}
+
+// ================== 數字格式 ==================
+function fmtG(g) {
+  if (g <= 0) return "0 g";
+  if (g >= 0.1) return g.toFixed(1) + " g";
+  return (g * 1000).toFixed(2) + " mg";
+}
+function fmtPct(p) {
+  if (p <= 0) return "0%";
+  if (p >= 0.1) return p.toFixed(1) + "%";
+  return Number(p.toPrecision(2)) + "%";
+}
+function fmtNum(v) {
+  if (v === 0) return "0";
+  if (Math.abs(v) >= 10) return Math.round(v).toString();
+  if (Math.abs(v) >= 1) return (+v.toFixed(1)).toString();
+  return Number(v.toPrecision(2)).toString();
+}
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const e = Math.pow(10, Math.floor(Math.log10(v))), m = v / e;
+  return ([1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(k => m <= k + 1e-9)) * e;
+}
+
+// ================== 圖表 ==================
+function chartDef() {
+  const macro = view === "macro";
+  if (chartTab === "rate") return macro
+    ? { unit: "%", fmt: fmtPct, s: [{ k: "pct", name: "質量百分濃度", col: "#c62834" }] }
+    : { unit: "粒子/秒", fmt: v => v.toFixed(1), s: [{ k: "d", name: "溶解速率", col: "#e8742a" }, { k: "p", name: "析出速率", col: "#2f6fde" }] };
+  return macro
+    ? { unit: "g", fmt: fmtG, s: [{ k: "add", name: "加入的溶質", col: "#475467" }, { k: "dis", name: "溶解的溶質", col: "#e8742a" }, { k: "und", name: "未溶解的溶質", col: "#8b5e34" }] }
+    : { unit: "粒子", fmt: v => Math.round(v).toString(), s: [{ k: "addN", name: "加入的粒子", col: "#475467" }, { k: "disN", name: "溶在水中的粒子", col: "#e8742a" }, { k: "undN", name: "未溶解的粒子", col: "#8b5e34" }] };
+}
+function updateLegend() {
+  const def = chartDef();
+  document.getElementById("legend").innerHTML = def.s.map(s => `<span style="--c:${s.col}">${s.name}</span>`).join("");
+  document.getElementById("tabRate").textContent = view === "macro" ? "濃度" : "溶解與析出速率";
+}
+function drawChart() {
+  const w = ch.clientWidth, h = ch.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (ch.width !== Math.round(w * dpr) || ch.height !== Math.round(h * dpr)) { ch.width = Math.round(w * dpr); ch.height = Math.round(h * dpr); }
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cctx.clearRect(0, 0, w, h);
+  const def = chartDef();
+  const pl = 44, pr = 10, pt = 22, pb = 22, iw = w - pl - pr, ih = h - pt - pb;
+  const tEnd = history.length ? history[history.length - 1].t : 0;
+  let t0, t1;
+  if (chartRange === "recent") { t1 = Math.max(40, tEnd); t0 = t1 - 40; }
+  else { t0 = 0; t1 = Math.max(40, tEnd); }
+  let lo = 0, hi = history.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (history[m].t < t0) lo = m + 1; else hi = m; }
+  const data = history.slice(lo);
+  const stepN = Math.max(1, Math.ceil(data.length / (iw * 1.5)));
+  let mx = 0; for (const e of data) for (const s of def.s) mx = Math.max(mx, e[s.k]);
+  mx = niceMax(mx * 1.1 || 1);
+  if (chartTab === "rate" && view === "micro") mx = Math.max(mx, 10);
+  const X = t => pl + iw * (t - t0) / (t1 - t0), Y = v => pt + ih - v / mx * ih;
+
+  cctx.font = "10px sans-serif"; cctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = mx * i / 4, y = Y(v);
+    cctx.strokeStyle = "#eceff4"; cctx.beginPath(); cctx.moveTo(pl, y); cctx.lineTo(w - pr, y); cctx.stroke();
+    cctx.fillStyle = "#98a2b3"; cctx.textAlign = "right"; cctx.fillText(fmtNum(v), pl - 5, y + 3);
+  }
+  cctx.textAlign = "left"; cctx.fillStyle = "#667085"; cctx.fillText("單位：" + def.unit, pl, 10);
+  const span = t1 - t0, steps = [5, 10, 20, 30, 60, 120, 300, 600, 1200];
+  const ts = steps.find(s => span / s <= 5) || 1200;
+  cctx.textAlign = "center"; cctx.fillStyle = "#98a2b3";
+  for (let t = Math.ceil(t0 / ts) * ts; t <= t1 + 0.01; t += ts) {
+    const x = X(t);
+    cctx.strokeStyle = "#e3e7ef"; cctx.beginPath(); cctx.moveTo(x, pt + ih); cctx.lineTo(x, pt + ih + 4); cctx.stroke();
+    cctx.fillText(t >= 120 && ts >= 60 ? (t / 60) + " 分" : t + " 秒", x, h - 6);
+  }
+  cctx.strokeStyle = "#cfd5df"; cctx.beginPath(); cctx.moveTo(pl, pt + ih); cctx.lineTo(w - pr, pt + ih); cctx.stroke();
+
+  for (const s of def.s) {
+    cctx.strokeStyle = s.col; cctx.lineWidth = 2; cctx.beginPath();
+    let first = true;
+    for (let i = 0; i < data.length; i += stepN) {
+      const e = data[i], x = X(e.t), y = Y(e[s.k]);
+      first ? cctx.moveTo(x, y) : cctx.lineTo(x, y); first = false;
+    }
+    if (data.length) { const e = data[data.length - 1]; cctx.lineTo(X(e.t), Y(e[s.k])); }
+    cctx.stroke();
+  }
+
+  // 游標讀值
+  if (hoverX !== null && data.length && hoverX >= pl && hoverX <= w - pr) {
+    const t = t0 + (hoverX - pl) / iw * (t1 - t0);
+    let best = data[0]; for (const e of data) if (Math.abs(e.t - t) < Math.abs(best.t - t)) best = e;
+    const x = X(best.t);
+    cctx.strokeStyle = "rgba(29,36,51,0.35)"; cctx.lineWidth = 1; cctx.setLineDash([3, 3]);
+    cctx.beginPath(); cctx.moveTo(x, pt); cctx.lineTo(x, pt + ih); cctx.stroke(); cctx.setLineDash([]);
+    for (const s of def.s) { cctx.fillStyle = s.col; cctx.beginPath(); cctx.arc(x, Y(best[s.k]), 3, 0, 7); cctx.fill(); }
+    const lines = [`${best.t.toFixed(1)} 秒`, ...def.s.map(s => `${s.name}：${def.fmt(best[s.k])}`)];
+    cctx.font = "11px sans-serif";
+    const bw = Math.max(...lines.map(l => cctx.measureText(l).width)) + 14, bh = lines.length * 15 + 8;
+    let bx = x + 8; if (bx + bw > w - 2) bx = x - bw - 8;
+    const by = pt + 2;
+    cctx.fillStyle = "rgba(255,255,255,0.95)"; cctx.strokeStyle = "#d0d5dd";
+    cctx.beginPath(); cctx.rect(bx, by, bw, bh); cctx.fill(); cctx.stroke();
+    cctx.textAlign = "left";
+    lines.forEach((l, i) => { cctx.fillStyle = i ? def.s[i - 1].col : "#1d2433"; cctx.fillText(l, bx + 7, by + 15 + i * 15); });
+  }
+}
+
+// ================== 面板 ==================
+const $ = id => document.getElementById(id);
+function updatePartLegend() {
+  $("partLegend").innerHTML = sub.ionic
+    ? sub.ions.map(i => `<span style="--c:${i.col};--e:${i.edge}">${i.lab} ${i.name}</span>`).join("") + `<span style="--c:transparent">（外框：固體中的離子）</span>`
+    : `<span style="--c:${sub.solid};--e:${sub.edge}">固體中的${sub.unit}</span><span style="--c:${sub.free}">溶在水中的${sub.unit}</span>`;
+}
+function updatePanel() {
+  const macro = view === "macro";
+  const last = history.length ? history[history.length - 1] : { d: 0, p: 0, dissFU: 0, hasPile: false, addN: 0, disN: 0, undN: 0 };
+  $("tempV").textContent = temp + " °C";
+  $("microLegend").style.display = macro ? "none" : "";
+  $("foot").style.display = macro ? "" : "none";
+  const set = (i, k, v, col) => { $("k" + i).textContent = k; $("v" + i).textContent = v; $("v" + i).style.color = col || ""; };
+  if (macro) {
+    set(1, "加入的溶質", fmtG(addedG));
+    set(2, "溶解的溶質", fmtG(gD));
+    set(3, "未溶解的溶質", fmtG(gS));
+    set(4, "質量百分濃度", fmtPct(pctOf(gD)));
+  } else {
+    set(1, sub.ionic ? "水中的離子" : "溶在水中的粒子", free.length);
+    set(2, "未溶解的粒子", solidCount());
+    set(3, "溶解速率（粒子/秒）", last.d.toFixed(1), "var(--orange)");
+    set(4, "析出速率（粒子/秒）", last.p.toFixed(1), "var(--blue)");
+  }
+  // 狀態
+  const n = sub.name, bandS = last.band || Math.max(CsatFU * 0.12, 3);
+  const ionTxt = sub.ionic ? `${sub.ions[0].name}（${sub.ions[0].lab}）和${sub.ions[1].name}（${sub.ions[1].lab}）` : "";
+  let st, sat = false, note;
+  if (addedP === 0) { st = "純水"; note = `點一下罐子，把${n}撒進水裡，觀察會發生什麼事。`; }
+  else if (last.dissFU > CsatFU + bandS) { st = "過飽和（正在析出）"; note = `水中溶解的${n}超過了這個溫度下能溶解的量，多出來的${n}會慢慢析出，形成固體。`; }
+  else if (last.hasPile && last.theo >= 1 && last.dissFU > CsatFU - 2 * bandS) {
+    st = macro ? "飽和溶液" : "飽和溶液（動態平衡）"; sat = true;
+    if (sub.vis25) note = macro
+      ? "加進去的氯化銀幾乎全部沉在杯底，溶解的量非常非常少，溶液看起來和純水一樣。試試看：提高水溫或加水，能溶解的量會改變嗎？"
+      : `氯化銀很難溶於水：固體表面偶爾有${ionTxt}離開（橘圈），但很快又回到固體上（藍圈），所以水中的離子一直都很少。`;
+    else note = macro
+      ? "杯底的沉澱不再減少，溶液的濃度也不再改變。溶解真的停止了嗎？切換到微觀看看。試試看：改變水溫、加水或讓水蒸發，沉澱會怎麼變化？"
+      : `杯底有沉澱，但溶解並沒有停止：固體表面的粒子仍不斷離開（橘圈），水中的粒子也不斷回到固體上（藍圈）。兩個速率相等，所以水中的粒子數不再改變，這叫做動態平衡。`;
+  }
+  else if (last.undN > 0) {
+    st = "溶解中";
+    note = macro ? "固體逐漸變少，溶液顏色變深，濃度上升。剛溶解的地方顏色比較深，一會兒就混合均勻了。"
+      : sub.ionic ? `${n}溶解時，會分開成${ionTxt}，在水中各自移動。溶解速率大於析出速率，固體逐漸變少。`
+      : `${sub.unit}一個一個離開固體表面，進入水中。溶解速率大於析出速率，固體逐漸變少。`;
+  }
+  else {
+    st = "未飽和溶液";
+    note = macro ? "固體已全部溶解，溶液顏色均勻。再加一些，看看濃度最多能增加到多少。"
+      : sub.ionic ? `固體已全部溶解，${ionTxt}在水中不停運動，分布得很均勻。再加一些，看看會不會一直溶解下去。`
+      : `固體已全部溶解，${sub.unit}在水中不停運動，分布得很均勻。再加一些，看看會不會一直溶解下去。`;
+  }
+  $("state").textContent = st; $("state").classList.toggle("sat", sat);
+  $("note").textContent = note;
+}
+
+// ================== 互動 ==================
+function resize() {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth || 700;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(w * H / W * dpr);
+  ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+}
+window.addEventListener("resize", resize);
+const toSim = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
+cv.addEventListener("pointerdown", e => {
+  const p = toSim(e);
+  const onShaker = Math.abs(p.x - shaker.x) < 40 && p.y > shaker.y - 60 && p.y < shaker.y + 70;
+  if (onShaker || p.y < B.top) doShake();
+});
+window.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); doShake(); } });
+ch.addEventListener("pointermove", e => { hoverX = e.clientX - ch.getBoundingClientRect().left; });
+ch.addEventListener("pointerleave", () => { hoverX = null; });
+
+function refresh() { updateLegend(); updatePanel(); }
+$("shake").onclick = doShake;
+$("pour").onclick = () => { pourQ += 14; };
+$("stir").onclick = () => { stirT = 3; };
+$("reset").onclick = () => { reset(); refresh(); };
+$("addW").onclick = () => { volTarget = Math.min(VMAX, volTarget + 50); };
+$("evap").onclick = () => { volTarget = Math.max(VMIN, volTarget - 50); };
+$("vMicro").onclick = () => { view = "micro"; $("vMicro").classList.add("on"); $("vMacro").classList.remove("on"); refresh(); };
+$("vMacro").onclick = () => { view = "macro"; field = null; $("vMacro").classList.add("on"); $("vMicro").classList.remove("on"); refresh(); };
+$("temp").oninput = e => { temp = +e.target.value; updatePanel(); };
+$("spd").oninput = e => { speed = +e.target.value; $("spdV").textContent = speed + "×"; };
+$("tabRate").onclick = () => { chartTab = "rate"; $("tabRate").classList.add("on"); $("tabMass").classList.remove("on"); updateLegend(); };
+$("tabMass").onclick = () => { chartTab = "mass"; $("tabMass").classList.add("on"); $("tabRate").classList.remove("on"); updateLegend(); };
+$("rRecent").onclick = () => { chartRange = "recent"; $("rRecent").classList.add("on"); $("rAll").classList.remove("on"); };
+$("rAll").onclick = () => { chartRange = "all"; $("rAll").classList.add("on"); $("rRecent").classList.remove("on"); };
+$("pause").onclick = () => {
+  paused = !paused;
+  $("pause").textContent = paused ? "繼續" : "暫停";
+  $("pause").classList.toggle("on", paused);
+};
+document.querySelectorAll("#subSeg button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#subSeg button").forEach(x => x.classList.toggle("on", x === b));
+  sub = SUBS[b.dataset.sub]; P = sub.ionic ? 2 : 1;
+  reset(); updatePartLegend(); refresh();
+});
+
+let last = performance.now();
+function loop(now) {
+  const real = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused) {
+    let dt = real * speed;
+    while (dt > 0) { const h = Math.min(dt, 1 / 60); step(h); dt -= h; }
+  }
+  draw(); drawChart();
+  requestAnimationFrame(loop);
+}
+reset(); resize(); updatePartLegend(); refresh();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
