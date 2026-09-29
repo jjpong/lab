@@ -37,7 +37,23 @@
   .state{font-weight:600;padding:6px 10px;border-radius:8px;background:#eef1f7;text-align:center}
   .state.sat{background:#fde8e9;color:var(--accent)}
   .chartbox{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
-  #chart{width:100%;height:190px;display:block;cursor:crosshair}
+  .chartWrap{position:relative;height:190px}
+  #chart{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+  .ctop{display:flex;gap:8px;align-items:center}
+  .ctop .seg{flex:1}
+  #popBtn{border:1px solid var(--line);background:#fafbfd;border-radius:10px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
+  #popBtn:hover{background:#eef1f7}
+  .floatwin{position:fixed;z-index:50;background:#fff;border:1px solid #cfd5df;border-radius:12px;
+    box-shadow:0 12px 40px rgba(29,36,51,.22);display:flex;flex-direction:column;min-width:320px;min-height:260px;overflow:hidden}
+  .floatwin[hidden]{display:none}
+  .fw-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:#1d2433;color:#fff;
+    font-size:13px;font-weight:600;cursor:move;user-select:none;touch-action:none}
+  .fw-bar button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
+  .fw-body{flex:1;display:flex;min-height:0;padding:8px}
+  .fw-body .chartbox{flex:1;border:0;padding:4px;min-height:0}
+  .fw-body .chartWrap{flex:1;height:auto;min-height:120px}
+  .fw-resize{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;
+    background:linear-gradient(135deg,transparent 50%,#9aa3b2 50%,#9aa3b2 60%,transparent 60%,transparent 70%,#9aa3b2 70%,#9aa3b2 80%,transparent 80%)}
   .ctools{display:flex;gap:8px;align-items:center}
   .ctools .seg{flex:1}
   #pause{border:1px solid var(--line);background:#fafbfd;border-radius:10px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
@@ -47,13 +63,17 @@
   .legend.rings span::before{background:transparent;border:2px solid var(--c)}
   .note{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
   .foot{font-size:12px;color:#98a2b3;margin:0}
+  #subSeg{display:grid;grid-template-columns:repeat(3,1fr)}
+  #subSeg button{border-top:1px solid var(--line)}
+  #subSeg button:nth-child(-n+3){border-top:0}
+  input[type=range]:disabled{opacity:.4}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="stage">
     <canvas id="sim"></canvas>
-    <div class="hint">點一下罐子（或按空白鍵）撒一些溶質</div>
+    <div class="hint">點罐子（或按空白鍵）撒溶質<br>用杯底的裝置加熱或降溫</div>
   </div>
 
   <div class="panel">
@@ -63,10 +83,12 @@
       <button data-sub="sucrose">蔗糖</button>
       <button data-sub="nacl">食鹽</button>
       <button data-sub="agcl">氯化銀</button>
+      <button data-sub="nh4no3">硝酸銨</button>
+      <button data-sub="naoh">氫氧化鈉</button>
     </div>
     <div class="seg">
-      <button id="vMicro" class="on">微觀（粒子）</button>
-      <button id="vMacro">巨觀（顏色）</button>
+      <button id="vMicro">微觀（粒子）</button>
+      <button id="vMacro" class="on">巨觀（顏色）</button>
     </div>
     <div class="btns">
       <button id="shake" class="primary">撒一些</button>
@@ -76,8 +98,12 @@
       <button id="addW">加水 50 mL</button>
       <button id="evap">蒸發 50 mL</button>
     </div>
-    <label><div>水溫：<b id="tempV">25 °C</b></div>
-      <input type="range" id="temp" min="0" max="80" step="5" value="25"></label>
+    <div class="seg small">
+      <button id="mBath" class="on">恆溫水浴</button>
+      <button id="mInsul">隔熱杯</button>
+    </div>
+    <label><div><span id="tempK">水溫</span>：<b id="tempV">25 °C</b></div>
+      <input type="range" id="temp" min="0" max="80" step="1" value="25"></label>
     <label><div>播放速度：<b id="spdV">1×</b></div>
       <input type="range" id="spd" min="0.25" max="3" step="0.25" value="1"></label>
 
@@ -96,12 +122,17 @@
       </div>
     </div>
 
-    <div class="chartbox">
-      <div class="seg small">
-        <button id="tabRate" class="on"></button>
-        <button id="tabMass">溶質的量</button>
+    <div id="chartSlot"></div>
+    <div class="chartbox" id="chartbox">
+      <div class="ctop">
+        <div class="seg small">
+          <button id="tabRate" class="on"></button>
+          <button id="tabMass">溶質的量</button>
+          <button id="tabTemp">溫度</button>
+        </div>
+        <button id="popBtn" title="把圖表放到獨立視窗">⧉ 獨立視窗</button>
       </div>
-      <canvas id="chart"></canvas>
+      <div class="chartWrap"><canvas id="chart"></canvas></div>
       <div class="legend" id="legend"></div>
       <div class="ctools">
         <div class="seg small">
@@ -112,7 +143,7 @@
       </div>
     </div>
     <p class="note" id="note"></p>
-    <p class="foot" id="foot">食用色素的溶液本來就有顏色；食鹽和蔗糖的灰色是為了方便觀察而加上的，它們的水溶液實際上是無色透明的。</p>
+    <p class="foot" id="foot">食用色素的溶液本來就有顏色；其他物質的灰色是為了方便觀察而加上的，它們的水溶液實際上是無色透明的。</p>
   </div>
 </div>
 
@@ -125,22 +156,35 @@ const SUBS = {
   lactose: { name: "食用色素", unit: "色素分子", ionic: false,
     sol: [[0, 11.9], [15, 16.9], [25, 21.6], [39, 31.5], [49, 42.4], [64, 65.8], [80, 112]],
     gpp: 0.3, kd: 1, solid: "#b3261e", edge: "#6f130d", free: "#ff7d6e",
-    rgb: [196, 18, 40], mac: [150, 25, 35], tint: 1 },
+    rgb: [196, 18, 40], mac: [150, 25, 35], tint: 1, dH: 0.045 },
   sucrose: { name: "蔗糖", unit: "蔗糖分子", ionic: false,
     sol: [[0, 179], [20, 204], [40, 238], [60, 287], [80, 362]],
     gpp: 2.0, kd: 1, solid: "#a35c00", edge: "#633600", free: "#f5b041",
-    rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3 },
+    rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3, dH: 0.016 },
   nacl: { name: "食鹽", ionic: true,
     ions: [{ lab: "Na⁺", name: "鈉離子", r: 3.0, col: "#f2c230", edge: "#9a7300" },
            { lab: "Cl⁻", name: "氯離子", r: 4.4, col: "#1f9e6e", edge: "#0e5a3e" }],
     sol: [[0, 35.7], [20, 35.9], [40, 36.4], [60, 37.1], [80, 38.0]],
-    gpp: 0.4, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3 },
+    gpp: 0.4, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3, dH: 0.066 },
   agcl: { name: "氯化銀", ionic: true,
     ions: [{ lab: "Ag⁺", name: "銀離子", r: 3.6, col: "#c3c9d2", edge: "#6f7782", outline: true },
            { lab: "Cl⁻", name: "氯離子", r: 4.4, col: "#1f9e6e", edge: "#0e5a3e" }],
     sol: [[0, 0.7e-4], [25, 1.9e-4], [50, 5.2e-4], [80, 1.2e-3]],
-    gpp: 0.5, kd: 0.08, vis25: 4, rgb: [0, 0, 0], mac: [236, 238, 242], macEdge: "#aab1bc", tint: 0 }
+    gpp: 0.5, kd: 0.08, vis25: 4, rgb: [0, 0, 0], mac: [236, 238, 242], macEdge: "#aab1bc", tint: 0, dH: 0 },
+  nh4no3: { name: "硝酸銨", ionic: true,
+    ions: [{ lab: "NH₄⁺", name: "銨根離子", r: 4.0, col: "#8e63d2", edge: "#55338f" },
+           { lab: "NO₃⁻", name: "硝酸根離子", r: 4.6, col: "#e05a9c", edge: "#8f2a5d" }],
+    sol: [[0, 118], [20, 192], [40, 297], [60, 421], [80, 580], [100, 871]],
+    gpp: 2.4, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3,
+    dH: 0.321, heat: "吸熱" },
+  naoh: { name: "氫氧化鈉", ionic: true,
+    ions: [{ lab: "Na⁺", name: "鈉離子", r: 3.0, col: "#f2c230", edge: "#9a7300" },
+           { lab: "OH⁻", name: "氫氧根離子", r: 4.2, col: "#e0463c", edge: "#8f1f18" }],
+    sol: [[0, 42], [20, 109], [40, 129], [60, 174], [80, 314], [100, 347]],
+    gpp: 1.25, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3,
+    dH: -1.11, heat: "放熱" }
 };
+// dH：每溶解 1 g 吸收的熱量（kJ）；正值 = 吸熱（變冷），負值 = 放熱（變熱）
 function solAt(s, T) {
   const t = s.sol;
   if (T <= t[0][0]) return t[0][1];
@@ -151,7 +195,7 @@ function solAt(s, T) {
 }
 
 // ================== 基本設定 ==================
-const W = 720, H = 600;
+const W = 720, H = 650;
 const B = { l: 180, r: 540, top: 150, bot: 560, water: 560 - 200 * 1.3 };
 const R = 4, D = 8.6, DY = D * 0.866;
 const COLS = Math.floor((B.r - B.l - D / 2) / D);
@@ -164,7 +208,9 @@ const cv = document.getElementById("sim"), ctx = cv.getContext("2d");
 const ch = document.getElementById("chart"), cctx = ch.getContext("2d");
 
 let sub = SUBS.lactose, P = 1;
-let view = "micro", speed = 1, temp = 25, vol = 200, volTarget = 200, fT = 1, CsatFU = 144, paused = false;
+let device = 0;   // 1 加熱、-1 降溫、0 關閉
+let mode = "bath", tempSet = 25, gDprev = 0, hotWarned = false;
+let view = "macro", speed = 1, temp = 25, vol = 200, volTarget = 200, fT = 1, CsatFU = 144, paused = false;
 let chartTab = "rate", chartRange = "recent", hoverX = null;
 let gD = 0, gS = 0, addedG = 0, addedP = 0;
 let free, clumps, stacks, ripples, dissEv, precEv, history, simT, stirT, pourQ, pourT, histT, field, steam;
@@ -183,6 +229,7 @@ function reset() {
   field = null; gD = 0; gS = 0; addedG = 0; addedP = 0;
   vol = volTarget = 200; B.water = B.bot - vol * PX_ML;
   waterMol.length = 0; syncWaterMol();
+  temp = tempSet; gDprev = 0; hotWarned = false; device = 0;
 }
 
 // 飽和時水中的粒子組數（離子化合物：一組 = 一個正離子 + 一個負離子）
@@ -310,7 +357,7 @@ function step(dt) {
   }
   for (let i = steam.length - 1; i >= 0; i--) { const w = steam[i]; w.t += dt; w.y -= 30 * dt; if (w.t > 1.6) steam.splice(i, 1); }
   CsatFU = calcCsat(temp, vol);
-  fT = 0.6 + 0.016 * temp;
+  fT = Math.max(0.3, 0.6 + 0.016 * temp);
   const K = KD * fT * sub.kd;
 
   // 粒子團下落
@@ -460,6 +507,28 @@ function step(dt) {
   if (Math.abs(targetG - gD) < Math.max(targetG, 1e-6) * 0.001) gD = targetG;
   gS = Math.max(0, addedG - gD);
 
+  // 外部加熱／降溫
+  if (device) {
+    if (mode === "bath") {             // 調整水浴的溫度
+      tempSet += device * 3 * dt;
+      if (tempSet >= 80 || tempSet <= 0) { tempSet = Math.max(0, Math.min(80, tempSet)); device = 0; toast(tempSet >= 80 ? "水浴已經到最高溫度 80 °C" : "水浴已經到最低溫度 0 °C"); }
+      temp = tempSet;
+      const sv = Math.round(tempSet); if (+$("temp").value !== sv) $("temp").value = sv;
+    } else {                           // 直接加熱或冷卻隔熱杯中的溶液
+      temp += device * 1.5 * dt / ((vol + gD) * 0.00418);
+      if (temp >= 100) { temp = 100; device = 0; toast("溶液已經加熱到 100 °C，停止加熱"); }
+      if (temp <= -15) { temp = -15; device = 0; toast("已經降到 −15 °C，停止降溫"); }
+    }
+  }
+  // 溶解熱：隔熱杯中，溶解（或析出）的熱量改變溶液溫度
+  const dG = gD - gDprev; gDprev = gD;
+  if (mode === "insul" && sub.dH && dG) {
+    const C = (vol + gD) * 0.00418;                 // 溶液的熱容量（kJ/°C），以水的比熱估算
+    temp -= sub.dH * dG / C;
+    if (temp > 100) { temp = 100; if (!hotWarned) { toast("溶液的溫度已經接近沸點了！"); hotWarned = true; } }
+    if (temp < -15) temp = -15;
+  }
+
   // 紀錄
   while (dissEv.length && dissEv[0] < simT - 3) dissEv.shift();
   while (precEv.length && precEv[0] < simT - 3) precEv.shift();
@@ -469,7 +538,7 @@ function step(dt) {
     const rd = dissEv.filter(t => t > simT - 2).length / 2, rp = precEv.filter(t => t > simT - 2).length / 2;
     history.push({ t: simT, d: rd, p: rp, pct: pctOf(gD), add: addedG, dis: gD, und: gS,
       addN: addedP, disN: free.length + backN, undN: solidCount(),
-      dissFU, band, theo, hasPile: pileN - backN > 0 });
+      dissFU, band, theo, temp, hasPile: pileN - backN > 0 });
     if (history.length > HIST_MAX) history.shift();
     updatePanel();
   }
@@ -497,7 +566,7 @@ function drawShaker() {
       ctx.beginPath(); ctx.arc(-17 + q * 8.5 + (sub.ionic ? 0 : (r % 2) * 4), 30 - r * 8, sub.ionic ? sub.ions[t].r * 0.9 : 3.3, 0, 7); ctx.fill();
     }
   }
-  ctx.fillStyle = "#1d2433"; ctx.font = "bold 13px sans-serif"; ctx.textAlign = "center";
+  ctx.fillStyle = "#1d2433"; ctx.font = `bold ${sub.name.length >= 4 ? 11 : 13}px sans-serif`; ctx.textAlign = "center";
   ctx.fillText(sub.name, 0, -26);
   const g = ctx.createLinearGradient(-28, 0, 28, 0);
   g.addColorStop(0, "#9aa3b2"); g.addColorStop(0.5, "#e6e9ef"); g.addColorStop(1, "#8a93a3");
@@ -508,8 +577,54 @@ function drawShaker() {
   ctx.restore();
 }
 
+// ================== 加熱／降溫裝置 ==================
+const PLATE = { x0: B.l - 40, x1: B.r + 40, y0: B.bot + 20, h: 30 };
+const plateBtns = {
+  heat: { x: PLATE.x0 + 10, y: PLATE.y0 + 5, w: 78, h: 20, label: "加熱", dev: 1 },
+  cool: { x: PLATE.x1 - 88, y: PLATE.y0 + 5, w: 78, h: 20, label: "降溫", dev: -1 }
+};
+function drawPlate() {
+  const { x0, x1, y0, h } = PLATE;
+  // 熱或冷的光暈
+  if (device) {
+    const g = ctx.createLinearGradient(0, y0 - 14, 0, y0);
+    const c = device > 0 ? "255,110,40" : "80,160,255";
+    g.addColorStop(0, `rgba(${c},0)`); g.addColorStop(1, `rgba(${c},${0.35 + 0.15 * Math.sin(simT * 6)})`);
+    ctx.fillStyle = g; ctx.fillRect(B.l - 20, y0 - 14, B.r - B.l + 40, 14);
+  }
+  const g2 = ctx.createLinearGradient(0, y0, 0, y0 + h);
+  g2.addColorStop(0, "#6b7280"); g2.addColorStop(1, "#3f4652");
+  ctx.fillStyle = g2; roundRect(x0, y0, x1 - x0, h, 7); ctx.fill();
+  ctx.fillStyle = device > 0 ? "#ff7a3d" : device < 0 ? "#5aa9ff" : "#8b93a1";
+  ctx.fillRect(B.l - 16, y0 + 2, B.r - B.l + 32, 3);
+  for (const k of ["heat", "cool"]) {
+    const bt = plateBtns[k], on = device === bt.dev;
+    ctx.fillStyle = on ? (bt.dev > 0 ? "#e8542a" : "#2f7fe0") : "#f4f6fa";
+    roundRect(bt.x, bt.y, bt.w, bt.h, 10); ctx.fill();
+    ctx.fillStyle = on ? "#fff" : (bt.dev > 0 ? "#c2410c" : "#1d5fb3");
+    ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText((bt.dev > 0 ? "▲ " : "▼ ") + bt.label, bt.x + bt.w / 2, bt.y + 14);
+  }
+  ctx.fillStyle = "#e5e7eb"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(device > 0 ? "加熱中…（再按一次停止）" : device < 0 ? "降溫中…（再按一次停止）" : "加熱／降溫裝置：關閉", (x0 + x1) / 2, y0 + 19);
+}
+function hitPlate(p) {
+  for (const k of ["heat", "cool"]) {
+    const bt = plateBtns[k];
+    if (p.x >= bt.x && p.x <= bt.x + bt.w && p.y >= bt.y - 3 && p.y <= bt.y + bt.h + 3) return bt.dev;
+  }
+  return 0;
+}
+
 function drawBeaker(front) {
   if (!front) {
+    const bath = mode === "bath";      // 恆溫水浴（淺藍）／隔熱杯（米色）
+    ctx.fillStyle = bath ? "#d4e8f7" : "#e9e1d0";
+    roundRect(B.l - 20, B.top - 4, B.r - B.l + 40, B.bot - B.top + 18, 12); ctx.fill();
+    ctx.strokeStyle = bath ? "#9cc2e0" : "#cbbd9f"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.fillRect(B.l - 2, B.top - 4, B.r - B.l + 4, B.bot - B.top + 6);
+    ctx.fillStyle = bath ? "#5f86a8" : "#9b8a66"; ctx.font = "12px sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(bath ? "恆溫水浴" : "隔熱杯", B.l - 20, B.top - 12);
     ctx.fillStyle = view === "micro" ? "rgba(120,175,245,0.16)" : "rgba(140,190,250,0.22)";
     ctx.fillRect(B.l, B.water, B.r - B.l, B.bot - B.water);
     return;
@@ -538,15 +653,21 @@ function drawBeaker(front) {
     ctx.stroke();
   }
   // 溫度計
-  const tx = 120, t0 = 520, t1 = 250, ty = t0 - (t0 - t1) * temp / 80;
+  const tx = 120, t0 = 520, t1 = 250, ty = t0 - (t0 - t1) * (Math.max(-15, temp) + 15) / 115;
   const tc = temp >= 50 ? "#d9362b" : temp <= 10 ? "#2f6fde" : "#e0553a";
+  ctx.strokeStyle = "#c3cad6"; ctx.lineWidth = 1;
+  for (const tt of [0, 25, 50, 75, 100]) {
+    const yy = t0 - (t0 - t1) * (tt + 15) / 115;
+    ctx.beginPath(); ctx.moveTo(tx + 9, yy); ctx.lineTo(tx + 15, yy); ctx.stroke();
+    ctx.fillStyle = "#98a2b3"; ctx.font = "10px sans-serif"; ctx.textAlign = "left"; ctx.fillText(tt, tx + 17, yy + 3);
+  }
   ctx.fillStyle = "#fff"; ctx.strokeStyle = "#8a96aa"; ctx.lineWidth = 2;
   roundRect(tx - 7, t1 - 16, 14, t0 - t1 + 22, 7); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.arc(tx, t0 + 14, 13, 0, 7); ctx.fill(); ctx.stroke();
   ctx.fillStyle = tc; ctx.fillRect(tx - 3, ty, 6, t0 + 6 - ty);
   ctx.beginPath(); ctx.arc(tx, t0 + 14, 9, 0, 7); ctx.fill();
   ctx.fillStyle = "#1d2433"; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
-  ctx.fillText(temp + " °C", tx, t1 - 26);
+  ctx.textAlign = "center"; ctx.font = "bold 14px sans-serif"; ctx.fillStyle = "#1d2433"; ctx.fillText(fmtT(temp), tx, t1 - 26);
 }
 
 // 巨觀：整杯均勻的顏色，剛溶解的地方短暫較深
@@ -643,12 +764,13 @@ function draw() {
     if (p.flash > 0) ring(p.x, p.y, rOf(p.t) + 3, "rgba(232,116,42,A)", p.flash);
   }
   drawBeaker(true);
+  drawPlate();
   drawShaker();
   ctx.fillStyle = "#8a96aa"; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
   const label = view === "micro"
     ? (sub.ionic ? "放大來看：每一顆粒子代表一大群離子" : `放大來看：每一顆粒子代表一大群${sub.unit}`)
-    : `水 ${Math.round(vol)} mL，${temp} °C`;
-  ctx.fillText(label, (B.l + B.r) / 2, B.bot + 30);
+    : `水 ${Math.round(vol)} mL，${fmtT(temp)}`;
+  ctx.fillText(label, (B.l + B.r) / 2, H - 8);
   if (msgT > 0) {
     ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
     const tw = ctx.measureText(msg).width + 28, cxm = (B.l + B.r) / 2;
@@ -664,8 +786,9 @@ function draw() {
 }
 
 // ================== 數字格式 ==================
+const fmtT = t => (mode === "bath" ? Math.round(t).toString() : t.toFixed(1)) + " °C";
 function fmtG(g) {
-  if (g <= 0) return "0 g";
+  if (g < 1e-6) return "0 g";
   if (g >= 0.1) return g.toFixed(1) + " g";
   return (g * 1000).toFixed(2) + " mg";
 }
@@ -689,6 +812,7 @@ function niceMax(v) {
 // ================== 圖表 ==================
 function chartDef() {
   const macro = view === "macro";
+  if (chartTab === "temp") return { unit: "°C", fmt: v => v.toFixed(1) + " °C", s: [{ k: "temp", name: "溶液溫度", col: "#d9362b" }] };
   if (chartTab === "rate") return macro
     ? { unit: "%", fmt: fmtPct, s: [{ k: "pct", name: "質量百分濃度", col: "#c62834" }] }
     : { unit: "粒子/秒", fmt: v => v.toFixed(1), s: [{ k: "d", name: "溶解速率", col: "#e8742a" }, { k: "p", name: "析出速率", col: "#2f6fde" }] };
@@ -716,14 +840,23 @@ function drawChart() {
   while (lo < hi) { const m = (lo + hi) >> 1; if (history[m].t < t0) lo = m + 1; else hi = m; }
   const data = history.slice(lo);
   const stepN = Math.max(1, Math.ceil(data.length / (iw * 1.5)));
-  let mx = 0; for (const e of data) for (const s of def.s) mx = Math.max(mx, e[s.k]);
-  mx = niceMax(mx * 1.1 || 1);
+  let mx = 0, mn = 0; for (const e of data) for (const s of def.s) { mx = Math.max(mx, e[s.k]); mn = Math.min(mn, e[s.k]); }
+  { // 讓 4 個刻度間隔都是整齊的數字
+    const raw = (mx * 1.1 || 1) / 4, e = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / e;
+    mx = 4 * [1, 2, 2.5, 5, 10].find(k => m <= k + 1e-9) * e;
+  }
   if (chartTab === "rate" && view === "micro") mx = Math.max(mx, 10);
-  const X = t => pl + iw * (t - t0) / (t1 - t0), Y = v => pt + ih - v / mx * ih;
+  if (chartTab === "temp") {
+    let hiT = 0; for (const e of data) hiT = Math.max(hiT, e.temp);
+    mn = mn < 0 ? -20 : 0;
+    const stepT = Math.max(10, Math.ceil((Math.max(hiT * 1.05, 40) - mn) / 40) * 10);
+    mx = mn + 4 * stepT;
+  }
+  const X = t => pl + iw * (t - t0) / (t1 - t0), Y = v => pt + ih - (v - mn) / (mx - mn) * ih;
 
   cctx.font = "10px sans-serif"; cctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
-    const v = mx * i / 4, y = Y(v);
+    const v = mn + (mx - mn) * i / 4, y = Y(v);
     cctx.strokeStyle = "#eceff4"; cctx.beginPath(); cctx.moveTo(pl, y); cctx.lineTo(w - pr, y); cctx.stroke();
     cctx.fillStyle = "#98a2b3"; cctx.textAlign = "right"; cctx.fillText(fmtNum(v), pl - 5, y + 3);
   }
@@ -779,7 +912,9 @@ function updatePartLegend() {
 function updatePanel() {
   const macro = view === "macro";
   const last = history.length ? history[history.length - 1] : { d: 0, p: 0, dissFU: 0, hasPile: false, addN: 0, disN: 0, undN: 0 };
-  $("tempV").textContent = temp + " °C";
+  $("tempV").textContent = fmtT(temp);
+  $("tempK").textContent = mode === "bath" ? "水浴溫度" : "溶液溫度（由溶解和加熱／降溫決定）";
+  $("temp").disabled = mode === "insul";
   $("microLegend").style.display = macro ? "none" : "";
   $("foot").style.display = macro ? "" : "none";
   const set = (i, k, v, col) => { $("k" + i).textContent = k; $("v" + i).textContent = v; $("v" + i).style.color = col || ""; };
@@ -822,6 +957,16 @@ function updatePanel() {
       : `固體已全部溶解，${sub.unit}在水中不停運動，分布得很均勻。再加一些，看看會不會一直溶解下去。`;
   }
   $("state").textContent = st; $("state").classList.toggle("sat", sat);
+  // 溶解熱的說明
+  if (sub.heat && addedP > 0) {
+    const verb = sub.heat === "吸熱" ? "吸收熱量，溶液會變冷" : "放出熱量，溶液會變熱";
+    note += mode === "insul"
+      ? `　${n}溶解時會${verb}。${sub.heat === "放熱" ? "氫氧化鈉有強烈的腐蝕性，實驗時一定要戴護目鏡和手套。" : ""}`
+      : `　${n}溶解時會${verb}，但在恆溫水浴中，熱量被水浴${sub.heat === "吸熱" ? "補充" : "帶走"}，所以溫度不變。切換成隔熱杯看看！`;
+    if (!macro && mode === "insul") note += sub.heat === "吸熱"
+      ? "粒子離開固體時需要吸收能量，和水分子結合時會放出能量；硝酸銨吸收的比放出的多。"
+      : "粒子離開固體時需要吸收能量，和水分子結合時會放出能量；氫氧化鈉放出的比吸收的多。";
+  }
   $("note").textContent = note;
 }
 
@@ -835,6 +980,8 @@ window.addEventListener("resize", resize);
 const toSim = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; };
 cv.addEventListener("pointerdown", e => {
   const p = toSim(e);
+  const dv = hitPlate(p);
+  if (dv) { device = device === dv ? 0 : dv; return; }
   const onShaker = Math.abs(p.x - shaker.x) < 40 && p.y > shaker.y - 60 && p.y < shaker.y + 70;
   if (onShaker || p.y < B.top) doShake();
 });
@@ -847,7 +994,11 @@ $("shake").onclick = doShake;
 $("pour").onclick = () => { if (tooFull()) toast("杯底的固體已經很多了，先加水或按「重來」吧！"); else pourQ += 14; };
 $("stir").onclick = () => { stirT = 3; };
 $("reset").onclick = () => { reset(); refresh(); };
-$("addW").onclick = () => { volTarget = Math.min(VMAX, volTarget + 50); };
+$("addW").onclick = () => {
+  const next = Math.min(VMAX, volTarget + 50);
+  if (mode === "insul" && next > volTarget) temp = (temp * volTarget + tempSet * (next - volTarget)) / next;   // 加入的水是原本的溫度
+  volTarget = next;
+};
 $("evap").onclick = () => {
   const next = Math.max(VMIN, volTarget - 50);
   if (pileHeight() > next * PX_ML * 0.8) { toast("杯底的固體太多，水不能再少了！"); return; }
@@ -855,10 +1006,18 @@ $("evap").onclick = () => {
 };
 $("vMicro").onclick = () => { view = "micro"; $("vMicro").classList.add("on"); $("vMacro").classList.remove("on"); refresh(); };
 $("vMacro").onclick = () => { view = "macro"; field = null; $("vMacro").classList.add("on"); $("vMicro").classList.remove("on"); refresh(); };
-$("temp").oninput = e => { temp = +e.target.value; updatePanel(); };
+$("temp").oninput = e => { tempSet = +e.target.value; if (mode === "bath") temp = tempSet; updatePanel(); };
+$("mBath").onclick = () => {
+  mode = "bath"; $("mBath").classList.add("on"); $("mInsul").classList.remove("on");
+  temp = tempSet;      // 水浴把溶液帶回設定的溫度
+  updatePanel();
+};
+$("mInsul").onclick = () => { mode = "insul"; $("mInsul").classList.add("on"); $("mBath").classList.remove("on"); hotWarned = false; updatePanel(); };
 $("spd").oninput = e => { speed = +e.target.value; $("spdV").textContent = speed + "×"; };
-$("tabRate").onclick = () => { chartTab = "rate"; $("tabRate").classList.add("on"); $("tabMass").classList.remove("on"); updateLegend(); };
-$("tabMass").onclick = () => { chartTab = "mass"; $("tabMass").classList.add("on"); $("tabRate").classList.remove("on"); updateLegend(); };
+const tabs = { rate: "tabRate", mass: "tabMass", temp: "tabTemp" };
+for (const [k, id] of Object.entries(tabs)) $(id).onclick = () => {
+  chartTab = k; for (const id2 of Object.values(tabs)) $(id2).classList.toggle("on", id2 === id); updateLegend();
+};
 $("rRecent").onclick = () => { chartRange = "recent"; $("rRecent").classList.add("on"); $("rAll").classList.remove("on"); };
 $("rAll").onclick = () => { chartRange = "all"; $("rAll").classList.add("on"); $("rRecent").classList.remove("on"); };
 $("pause").onclick = () => {
@@ -885,6 +1044,48 @@ function loop(now) {
 }
 reset(); resize(); updatePartLegend(); refresh();
 requestAnimationFrame(loop);
+})();
+</script>
+<div class="floatwin" id="floatWin" hidden>
+  <div class="fw-bar" id="fwBar"><span>圖表（拖曳標題列移動，拖曳右下角調整大小）</span><button id="fwClose">放回面板</button></div>
+  <div class="fw-body" id="fwBody"></div>
+  <div class="fw-resize" id="fwResize"></div>
+</div>
+<script>
+// 圖表獨立視窗：可拖曳、可調整大小
+(() => {
+  const win = document.getElementById("floatWin"), body = document.getElementById("fwBody");
+  const box = document.getElementById("chartbox"), slot = document.getElementById("chartSlot");
+  const btn = document.getElementById("popBtn");
+  const clamp = () => {
+    const r = win.getBoundingClientRect();
+    win.style.left = Math.max(0, Math.min(innerWidth - 80, r.left)) + "px";
+    win.style.top = Math.max(0, Math.min(innerHeight - 40, r.top)) + "px";
+  };
+  btn.onclick = () => {
+    if (!win.hidden) return;
+    const w = Math.min(640, innerWidth - 32), h = Math.min(440, innerHeight - 32);
+    win.style.width = w + "px"; win.style.height = h + "px";
+    win.style.left = Math.max(16, (innerWidth - w) / 2) + "px"; win.style.top = Math.max(16, (innerHeight - h) / 3) + "px";
+    body.appendChild(box); win.hidden = false; btn.style.display = "none";
+  };
+  document.getElementById("fwClose").onclick = () => {
+    slot.after(box); win.hidden = true; btn.style.display = "";
+  };
+  const drag = (el, onMove) => el.addEventListener("pointerdown", e => {
+    if (e.target.tagName === "BUTTON") return;
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const r = win.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
+    const mv = ev => onMove(r, ev.clientX - sx, ev.clientY - sy);
+    const up = () => { el.removeEventListener("pointermove", mv); el.removeEventListener("pointerup", up); clamp(); };
+    el.addEventListener("pointermove", mv); el.addEventListener("pointerup", up);
+  });
+  drag(document.getElementById("fwBar"), (r, dx, dy) => { win.style.left = r.left + dx + "px"; win.style.top = r.top + dy + "px"; });
+  drag(document.getElementById("fwResize"), (r, dx, dy) => {
+    win.style.width = Math.max(320, Math.min(innerWidth - r.left, r.width + dx)) + "px";
+    win.style.height = Math.max(260, Math.min(innerHeight - r.top, r.height + dy)) + "px";
+  });
+  addEventListener("resize", () => { if (!win.hidden) clamp(); });
 })();
 </script>
 </body>
