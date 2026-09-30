@@ -38,6 +38,7 @@
   .stat{background:#f7f8fb;border-radius:10px;padding:8px 10px}
   .stat .k{font-size:12px;color:var(--muted)}
   .stat .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+  .state[hidden]{display:none}
   .state{font-weight:600;padding:6px 10px;border-radius:8px;background:#eef1f7;text-align:center}
   .state.sat{background:#fde8e9;color:var(--accent)}
   .chartbox{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
@@ -114,7 +115,7 @@
   </div>
 
   <div class="panel data">
-    <div class="state" id="state">純水</div>
+    <div class="state" id="state" hidden>純水</div>
     <div class="stats">
       <div class="stat"><div class="k" id="k1"></div><div class="v" id="v1">0</div></div>
       <div class="stat"><div class="k" id="k2"></div><div class="v" id="v2">0</div></div>
@@ -312,7 +313,7 @@ let msg = "", msgT = 0;
 function toast(t) { msg = t; msgT = 2.5; }
 function doShake() {
   if (tooFull()) { toast("杯底的固體已經很多了，先加水或按「重來」吧！"); return; }
-  started = true; if (paused) setPaused(false);   // 撒入溶質就繼續計時
+  startClock();   // 撒入溶質就開始（或繼續）計時
   shaker.shakeT = 0.5; shaker.next = 0.04;
 }
 
@@ -507,7 +508,7 @@ function step(dt) {
   }
   for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].t += dt; if (ripples[i].t > 1) ripples.splice(i, 1); }
 
-  // 巨觀讀數：穩定的質量
+  // 巨觀讀數：穩定的重量
   let backN = 0, pileN = 0;
   for (const s of stacks) for (const p of s) { pileN++; if (p.state === "back") backN++; }
   let wetClump = 0; for (const c of clumps) if (c.inWater) wetClump += c.parts.length;
@@ -799,7 +800,7 @@ function draw() {
     ctx.globalAlpha = 1;
   }
   ctx.font = "13px sans-serif"; ctx.textAlign = "right"; ctx.fillStyle = started ? "#475467" : "#98a2b3";
-  ctx.fillText(started ? `時間：${simT.toFixed(1)} 秒` : "撒入溶質後開始計時", W - 18, 64);
+  ctx.fillText(started ? `時間：${simT.toFixed(1)} 秒` : "開始操作後開始計時", W - 18, 64);
   if (paused) {
     ctx.fillStyle = "rgba(29,36,51,0.75)"; roundRect(W - 110, 14, 92, 30, 8); ctx.fill();
     ctx.fillStyle = "#fff"; ctx.font = "bold 14px sans-serif"; ctx.fillText("已暫停", W - 64, 34);
@@ -835,7 +836,7 @@ function chartDef() {
   const macro = view === "macro";
   if (chartTab === "temp") return { unit: "°C", fmt: v => v.toFixed(1) + " °C", s: [{ k: "temp", name: "溶液溫度", col: "#d9362b" }] };
   if (chartTab === "rate") return macro
-    ? { unit: "%", fmt: fmtPct, s: [{ k: "pct", name: "質量百分濃度", col: "#c62834" }] }
+    ? { unit: "%", fmt: fmtPct, s: [{ k: "pct", name: "重量百分濃度", col: "#c62834" }] }
     : { unit: "粒子/秒", fmt: v => v.toFixed(1), s: [{ k: "d", name: "溶解速率", col: "#e8742a" }, { k: "p", name: "析出速率", col: "#2f6fde" }] };
   return macro
     ? { unit: "g", fmt: fmtG, s: [{ k: "add", name: "加入的溶質", col: "#475467" }, { k: "dis", name: "溶解的溶質", col: "#e8742a" }, { k: "und", name: "未溶解的溶質", col: "#8b5e34" }] }
@@ -943,7 +944,7 @@ function updatePanel() {
     set(1, "加入的溶質", fmtG(addedG));
     set(2, "溶解的溶質", fmtG(gD));
     set(3, "未溶解的溶質", fmtG(gS));
-    set(4, "質量百分濃度", fmtPct(pctOf(gD)));
+    set(4, "重量百分濃度", fmtPct(pctOf(gD)));
   } else {
     set(1, sub.ionic ? "水中的離子" : "溶在水中的粒子", free.length);
     set(2, "未溶解的粒子", solidCount());
@@ -1002,7 +1003,7 @@ const toSim = e => { const r = cv.getBoundingClientRect(); return { x: (e.client
 cv.addEventListener("pointerdown", e => {
   const p = toSim(e);
   const dv = hitPlate(p);
-  if (dv) { device = device === dv ? 0 : dv; return; }
+  if (dv) { device = device === dv ? 0 : dv; if (device) startClock(); return; }
   const onShaker = Math.abs(p.x - shaker.x) < 40 && p.y > shaker.y - 60 && p.y < shaker.y + 70;
   if (onShaker || p.y < B.top) doShake();
 });
@@ -1012,10 +1013,11 @@ ch.addEventListener("pointerleave", () => { hoverX = null; });
 
 function refresh() { updateLegend(); updatePanel(); }
 $("shake").onclick = doShake;
-$("pour").onclick = () => { if (tooFull()) toast("杯底的固體已經很多了，先加水或按「重來」吧！"); else { started = true; if (paused) setPaused(false); pourQ += 14; } };
-$("stir").onclick = () => { stirT = 3; };
+$("pour").onclick = () => { if (tooFull()) toast("杯底的固體已經很多了，先加水或按「重來」吧！"); else { startClock(); pourQ += 14; } };
+$("stir").onclick = () => { stirT = 3; startClock(); };
 $("reset").onclick = () => { reset(); refresh(); };
 $("addW").onclick = () => {
+  startClock();
   const next = Math.min(VMAX, volTarget + 50);
   if (mode === "insul" && next > volTarget) temp = (temp * volTarget + tempSet * (next - volTarget)) / next;   // 加入的水是原本的溫度
   volTarget = next;
@@ -1023,11 +1025,12 @@ $("addW").onclick = () => {
 $("evap").onclick = () => {
   const next = Math.max(VMIN, volTarget - 50);
   if (pileHeight() > next * PX_ML * 0.8) { toast("杯底的固體太多，水不能再少了！"); return; }
+  startClock();
   volTarget = next;
 };
 $("vMicro").onclick = () => { view = "micro"; $("vMicro").classList.add("on"); $("vMacro").classList.remove("on"); refresh(); };
 $("vMacro").onclick = () => { view = "macro"; field = null; $("vMacro").classList.add("on"); $("vMicro").classList.remove("on"); refresh(); };
-$("temp").oninput = e => { tempSet = +e.target.value; if (mode === "bath") temp = tempSet; updatePanel(); };
+$("temp").oninput = e => { startClock(); tempSet = +e.target.value; if (mode === "bath") temp = tempSet; updatePanel(); };
 $("mBath").onclick = () => {
   mode = "bath"; $("mBath").classList.add("on"); $("mInsul").classList.remove("on");
   temp = tempSet;      // 水浴把溶液帶回設定的溫度
@@ -1041,6 +1044,8 @@ for (const [k, id] of Object.entries(tabs)) $(id).onclick = () => {
 };
 $("rRecent").onclick = () => { chartRange = "recent"; $("rRecent").classList.add("on"); $("rAll").classList.remove("on"); };
 $("rAll").onclick = () => { chartRange = "all"; $("rAll").classList.add("on"); $("rRecent").classList.remove("on"); };
+// 任何實驗操作（撒入溶質、加熱、降溫、加水、蒸發、攪拌、調水溫）都會開始或繼續計時
+function startClock() { started = true; if (paused) setPaused(false); }
 function setPaused(v) {
   paused = v;
   $("pause").textContent = paused ? "繼續" : "暫停";
