@@ -12,8 +12,12 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;}
-  .app{max-width:1200px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px}
-  @media (max-width:880px){.app{grid-template-columns:1fr}}
+  /* 版面：左＝操作、中＝燒杯、右＝數據與圖表 */
+  .app{max-width:1600px;margin:0 auto;padding:16px;display:grid;gap:16px;align-items:start;
+    grid-template-columns:300px minmax(0,1fr) 340px;grid-template-areas:"ctrl stage data"}
+  .stage{grid-area:stage} .ctrl{grid-area:ctrl} .data{grid-area:data}
+  @media (max-width:1180px){.app{grid-template-columns:300px minmax(0,1fr);grid-template-areas:"ctrl stage" "ctrl data"}}
+  @media (max-width:880px){.app{grid-template-columns:1fr;grid-template-areas:"stage" "ctrl" "data"}}
   .stage{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;position:relative;align-self:start}
   #sim{width:100%;height:auto;display:block;touch-action:none;cursor:pointer}
   .hint{position:absolute;left:18px;top:14px;font-size:13px;color:var(--muted)}
@@ -76,14 +80,14 @@
     <div class="hint">點罐子（或按空白鍵）撒溶質<br>用杯底的裝置加熱或降溫</div>
   </div>
 
-  <div class="panel">
+  <div class="panel ctrl">
     <h1>溶解與飽和</h1>
     <div class="seg" id="subSeg">
       <button data-sub="lactose" class="on">食用色素</button>
       <button data-sub="sucrose">蔗糖</button>
       <button data-sub="nacl">食鹽</button>
       <button data-sub="agcl">氯化銀</button>
-      <button data-sub="nh4no3">硝酸銨</button>
+      <button data-sub="kno3">硝酸鉀</button>
       <button data-sub="naoh">氫氧化鈉</button>
     </div>
     <div class="seg">
@@ -107,6 +111,9 @@
     <label><div>播放速度：<b id="spdV">1×</b></div>
       <input type="range" id="spd" min="0.25" max="3" step="0.25" value="1"></label>
 
+  </div>
+
+  <div class="panel data">
     <div class="state" id="state">純水</div>
     <div class="stats">
       <div class="stat"><div class="k" id="k1"></div><div class="v" id="v1">0</div></div>
@@ -171,12 +178,14 @@ const SUBS = {
            { lab: "Cl⁻", name: "氯離子", r: 4.4, col: "#1f9e6e", edge: "#0e5a3e" }],
     sol: [[0, 0.7e-4], [25, 1.9e-4], [50, 5.2e-4], [80, 1.2e-3]],
     gpp: 0.5, kd: 0.08, vis25: 4, rgb: [0, 0, 0], mac: [236, 238, 242], macEdge: "#aab1bc", tint: 0, dH: 0 },
-  nh4no3: { name: "硝酸銨", ionic: true,
-    ions: [{ lab: "NH₄⁺", name: "銨根離子", r: 4.0, col: "#8e63d2", edge: "#55338f" },
+  // 硝酸鉀：溶解度（g / 100 g 水）每 10 °C 一筆；溶解熱 +34.9 kJ/mol ÷ 101.1 g/mol ≈ +0.345 kJ/g
+  kno3: { name: "硝酸鉀", ionic: true,
+    ions: [{ lab: "K⁺", name: "鉀離子", r: 4.2, col: "#8e63d2", edge: "#55338f" },
            { lab: "NO₃⁻", name: "硝酸根離子", r: 4.6, col: "#e05a9c", edge: "#8f2a5d" }],
-    sol: [[0, 118], [20, 192], [40, 297], [60, 421], [80, 580], [100, 871]],
-    gpp: 2.4, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3,
-    dH: 0.321, heat: "吸熱" },
+    sol: [[0, 13.3], [10, 20.9], [20, 31.6], [30, 45.8], [40, 63.9], [50, 85.5],
+          [60, 110], [70, 138], [80, 169], [90, 202], [100, 246]],
+    gpp: 0.8, kd: 1, rgb: [100, 106, 118], mac: [150, 155, 164], macEdge: "#8a919c", tint: 0.3,
+    dH: 0.345, heat: "吸熱" },
   naoh: { name: "氫氧化鈉", ionic: true,
     ions: [{ lab: "Na⁺", name: "鈉離子", r: 3.0, col: "#f2c230", edge: "#9a7300" },
            { lab: "OH⁻", name: "氫氧根離子", r: 4.2, col: "#e0463c", edge: "#8f1f18" }],
@@ -208,11 +217,12 @@ const cv = document.getElementById("sim"), ctx = cv.getContext("2d");
 const ch = document.getElementById("chart"), cctx = ch.getContext("2d");
 
 let sub = SUBS.lactose, P = 1;
+let started = false;   // 第一次加入溶質後才開始計時
 let device = 0;   // 1 加熱、-1 降溫、0 關閉
 let mode = "bath", tempSet = 25, gDprev = 0, hotWarned = false;
 let view = "macro", speed = 1, temp = 25, vol = 200, volTarget = 200, fT = 1, CsatFU = 144, paused = false;
 let chartTab = "rate", chartRange = "recent", hoverX = null;
-let gD = 0, gS = 0, addedG = 0, addedP = 0;
+let gD = 0, gS = 0, addedG = 0, addedP = 0, satLock = false, unlockT = 0;
 let free, clumps, stacks, ripples, dissEv, precEv, history, simT, stirT, pourQ, pourT, histT, field, steam;
 const shaker = { x: 360, y: 72, angle: 0, shakeT: 0, next: 0 };
 
@@ -229,7 +239,8 @@ function reset() {
   field = null; gD = 0; gS = 0; addedG = 0; addedP = 0;
   vol = volTarget = 200; B.water = B.bot - vol * PX_ML;
   waterMol.length = 0; syncWaterMol();
-  temp = tempSet; gDprev = 0; hotWarned = false; device = 0;
+  satLock = false;
+  temp = tempSet; gDprev = 0; hotWarned = false; device = 0; started = false;
 }
 
 // 飽和時水中的粒子組數（離子化合物：一組 = 一個正離子 + 一個負離子）
@@ -301,6 +312,7 @@ let msg = "", msgT = 0;
 function toast(t) { msg = t; msgT = 2.5; }
 function doShake() {
   if (tooFull()) { toast("杯底的固體已經很多了，先加水或按「重來」吧！"); return; }
+  started = true; if (paused) setPaused(false);   // 撒入溶質就繼續計時
   shaker.shakeT = 0.5; shaker.next = 0.04;
 }
 
@@ -332,7 +344,7 @@ const topSolid = c => { const s = stacks[c]; return s.length && s[s.length - 1].
 
 // ================== 更新 ==================
 function step(dt) {
-  simT += dt;
+  if (started) simT += dt;
 
   // 罐子
   if (shaker.shakeT > 0) {
@@ -388,7 +400,7 @@ function step(dt) {
         const k = Math.min(1, dt * 10); p.x += (tx - p.x) * k; p.y += (ty - p.y) * k;
       } else {
         const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
-        const v = 90 + 40 * Math.min(1, d / 100);
+        const v = 130 + 60 * Math.min(1, d / 100);
         if (d < v * dt + 0.5) { p.x = tx; p.y = ty; p.state = "solid"; p.flash = 0.8; precEv.push(simT); }
         else { p.x += dx / d * v * dt + gauss() * 0.6; p.y += dy / d * v * dt + gauss() * 0.6; }
       }
@@ -411,7 +423,8 @@ function step(dt) {
   // 接近或超過飽和量 → 析出才正常進行，形成動態平衡。
   const tops = [];
   for (let c = 0; c < COLS; c++) if (topSolid(c)) tops.push(c);
-  const dissFUnow = free.length / P;
+  let backNow = 0; for (const s of stacks) for (const p of s) if (p.state === "back") backNow++;
+  const dissFUnow = (free.length + backNow) / P;   // 水中的溶質（包含正在游回固體的粒子）
   let pileAll = 0; for (const s of stacks) pileAll += s.length;
   let wetAll = 0; for (const c of clumps) if (c.inWater) wetAll += c.parts.length;
   const totalFU = (free.length + pileAll + wetAll) / P;
@@ -460,7 +473,7 @@ function step(dt) {
   // 析出：速率 = k × 暴露表面 × (水中的量 / 飽和量) × 方向係數
   if (tops.length && free.length >= P) {
     const over = Math.max(0, dissFUnow / CsatFU - 1);           // 過飽和越多，析出越快
-    let np = nEvents(K * tops.length * dt * (free.length / P) / CsatFU * precipFactor * (1 + 2 * over));
+    let np = nEvents(K * tops.length * dt * dissFUnow / CsatFU * precipFactor * (1 + 2 * over));
     while (np-- > 0 && free.length >= P) {
       const c = tops[Math.floor(Math.random() * tops.length)];
       sendBack(c, slotType(c, stacks[c].length));
@@ -498,10 +511,15 @@ function step(dt) {
   let backN = 0, pileN = 0;
   for (const s of stacks) for (const p of s) { pileN++; if (p.state === "back") backN++; }
   let wetClump = 0; for (const c of clumps) if (c.inWater) wetClump += c.parts.length;
-  const dissFU = free.length / P;   // 正在回到固體上的粒子不算
+  const dissFU = (free.length + backN) / P;
   const hasSolid = pileN - backN + wetClump > 0;
   const band = sub.vis25 ? CsatFU + 50 : Math.max(CsatFU * 0.12, 3);   // 難溶物質：有固體就視為飽和
-  const targetFU = (hasSolid && theo >= 1 && Math.abs(dissFU - CsatFU) < band) ? CsatFU : dissFU;
+  // 鎖定飽和讀數：一旦接近飽和就固定顯示飽和量，直到條件明顯改變（加熱、降溫、加水、固體溶完）
+  if (!hasSolid || theo < 1) satLock = false;
+  else if (Math.abs(dissFU - CsatFU) < band) { satLock = true; unlockT = 0; }
+  else if (Math.abs(dissFU - CsatFU) > 3 * band) { unlockT += dt; if (unlockT > 1.5) satLock = false; }   // 持續偏離才解除
+  else unlockT = 0;
+  const targetFU = satLock ? CsatFU : dissFU;
   const targetG = Math.min(targetFU * gppDiss(), addedG);
   gD += (targetG - gD) * Math.min(1, dt / 0.8);
   if (Math.abs(targetG - gD) < Math.max(targetG, 1e-6) * 0.001) gD = targetG;
@@ -533,12 +551,13 @@ function step(dt) {
   while (dissEv.length && dissEv[0] < simT - 3) dissEv.shift();
   while (precEv.length && precEv[0] < simT - 3) precEv.shift();
   histT -= dt;
+  if (histT <= 0 && !started) { histT = 0.25; updatePanel(); }
   if (histT <= 0) {
     histT = 0.25;
     const rd = dissEv.filter(t => t > simT - 2).length / 2, rp = precEv.filter(t => t > simT - 2).length / 2;
     history.push({ t: simT, d: rd, p: rp, pct: pctOf(gD), add: addedG, dis: gD, und: gS,
       addN: addedP, disN: free.length + backN, undN: solidCount(),
-      dissFU, band, theo, temp, hasPile: pileN - backN > 0 });
+      dissFU, band, theo, temp, satLock, hasPile: pileN - backN > 0 });
     if (history.length > HIST_MAX) history.shift();
     updatePanel();
   }
@@ -589,7 +608,7 @@ function drawPlate() {
   if (device) {
     const g = ctx.createLinearGradient(0, y0 - 14, 0, y0);
     const c = device > 0 ? "255,110,40" : "80,160,255";
-    g.addColorStop(0, `rgba(${c},0)`); g.addColorStop(1, `rgba(${c},${0.35 + 0.15 * Math.sin(simT * 6)})`);
+    g.addColorStop(0, `rgba(${c},0)`); g.addColorStop(1, `rgba(${c},${0.35 + 0.15 * Math.sin(performance.now() / 160)})`);
     ctx.fillStyle = g; ctx.fillRect(B.l - 20, y0 - 14, B.r - B.l + 40, 14);
   }
   const g2 = ctx.createLinearGradient(0, y0, 0, y0 + h);
@@ -779,6 +798,8 @@ function draw() {
     ctx.fillStyle = "#fff"; ctx.fillText(msg, cxm, B.top + 29);
     ctx.globalAlpha = 1;
   }
+  ctx.font = "13px sans-serif"; ctx.textAlign = "right"; ctx.fillStyle = started ? "#475467" : "#98a2b3";
+  ctx.fillText(started ? `時間：${simT.toFixed(1)} 秒` : "撒入溶質後開始計時", W - 18, 64);
   if (paused) {
     ctx.fillStyle = "rgba(29,36,51,0.75)"; roundRect(W - 110, 14, 92, 30, 8); ctx.fill();
     ctx.fillStyle = "#fff"; ctx.font = "bold 14px sans-serif"; ctx.fillText("已暫停", W - 64, 34);
@@ -934,8 +955,8 @@ function updatePanel() {
   const ionTxt = sub.ionic ? `${sub.ions[0].name}（${sub.ions[0].lab}）和${sub.ions[1].name}（${sub.ions[1].lab}）` : "";
   let st, sat = false, note;
   if (addedP === 0) { st = "純水"; note = `點一下罐子，把${n}撒進水裡，觀察會發生什麼事。`; }
-  else if (last.dissFU > CsatFU + bandS) { st = "過飽和（正在析出）"; note = `水中溶解的${n}超過了這個溫度下能溶解的量，多出來的${n}會慢慢析出，形成固體。`; }
-  else if (last.hasPile && last.theo >= 1 && last.dissFU > CsatFU - 2 * bandS) {
+  else if (!last.satLock && last.dissFU > CsatFU + bandS) { st = "過飽和（正在析出）"; note = `水中溶解的${n}超過了這個溫度下能溶解的量，多出來的${n}會慢慢析出，形成固體。`; }
+  else if (last.satLock || (last.hasPile && last.theo >= 1 && last.dissFU > CsatFU - 2 * bandS)) {
     st = macro ? "飽和溶液" : "飽和溶液（動態平衡）"; sat = true;
     if (sub.vis25) note = macro
       ? "加進去的氯化銀幾乎全部沉在杯底，溶解的量非常非常少，溶液看起來和純水一樣。試試看：提高水溫或加水，能溶解的量會改變嗎？"
@@ -964,8 +985,8 @@ function updatePanel() {
       ? `　${n}溶解時會${verb}。${sub.heat === "放熱" ? "氫氧化鈉有強烈的腐蝕性，實驗時一定要戴護目鏡和手套。" : ""}`
       : `　${n}溶解時會${verb}，但在恆溫水浴中，熱量被水浴${sub.heat === "吸熱" ? "補充" : "帶走"}，所以溫度不變。切換成隔熱杯看看！`;
     if (!macro && mode === "insul") note += sub.heat === "吸熱"
-      ? "粒子離開固體時需要吸收能量，和水分子結合時會放出能量；硝酸銨吸收的比放出的多。"
-      : "粒子離開固體時需要吸收能量，和水分子結合時會放出能量；氫氧化鈉放出的比吸收的多。";
+      ? `粒子離開固體時需要吸收能量，和水分子結合時會放出能量；${n}吸收的比放出的多。`
+      : `粒子離開固體時需要吸收能量，和水分子結合時會放出能量；${n}放出的比吸收的多。`;
   }
   $("note").textContent = note;
 }
@@ -991,7 +1012,7 @@ ch.addEventListener("pointerleave", () => { hoverX = null; });
 
 function refresh() { updateLegend(); updatePanel(); }
 $("shake").onclick = doShake;
-$("pour").onclick = () => { if (tooFull()) toast("杯底的固體已經很多了，先加水或按「重來」吧！"); else pourQ += 14; };
+$("pour").onclick = () => { if (tooFull()) toast("杯底的固體已經很多了，先加水或按「重來」吧！"); else { started = true; if (paused) setPaused(false); pourQ += 14; } };
 $("stir").onclick = () => { stirT = 3; };
 $("reset").onclick = () => { reset(); refresh(); };
 $("addW").onclick = () => {
@@ -1020,11 +1041,12 @@ for (const [k, id] of Object.entries(tabs)) $(id).onclick = () => {
 };
 $("rRecent").onclick = () => { chartRange = "recent"; $("rRecent").classList.add("on"); $("rAll").classList.remove("on"); };
 $("rAll").onclick = () => { chartRange = "all"; $("rAll").classList.add("on"); $("rRecent").classList.remove("on"); };
-$("pause").onclick = () => {
-  paused = !paused;
+function setPaused(v) {
+  paused = v;
   $("pause").textContent = paused ? "繼續" : "暫停";
   $("pause").classList.toggle("on", paused);
-};
+}
+$("pause").onclick = () => setPaused(!paused);
 document.querySelectorAll("#subSeg button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#subSeg button").forEach(x => x.classList.toggle("on", x === b));
   sub = SUBS[b.dataset.sub]; P = sub.ionic ? 2 : 1;
