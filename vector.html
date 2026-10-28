@@ -83,6 +83,11 @@ select{font:inherit; color:var(--ink); background:var(--field); border:1px solid
 .opts{display:flex; flex-direction:column; gap:6px; font-size:13.5px}
 .opts label{display:flex; align-items:center; gap:8px}
 .opts input[type=checkbox]{width:16px; height:16px; accent-color:var(--result)}
+.from-xy{margin:2px 0 0 0; max-width:260px}
+.from-xy label{align-items:stretch; gap:2px}
+.from-xy[hidden]{display:none}
+svg .rhit{cursor:move}
+svg .rring{fill:none; stroke:var(--result); stroke-width:2; stroke-dasharray:3 3}
 
 .zoom{position:absolute; right:12px; bottom:12px; display:flex; gap:6px}
 .zoom button{background:var(--panel); border:1px solid var(--line); border-radius:8px; min-width:36px; height:36px; padding:0 10px; color:var(--ink)}
@@ -156,8 +161,13 @@ svg .comptext{fill:var(--result); font-size:13px; font-family:"Noto Sans TC",sys
           <select id="optFrom">
             <option value="first">第一個參與向量的起點</option>
             <option value="origin">原點</option>
+            <option value="custom">自訂位置（拖曳紅點或輸入座標）</option>
           </select>
         </label>
+        <div class="fields from-xy" id="fromXY" hidden>
+          <label>起點 x<input type="number" step="any" id="fromX"></label>
+          <label>起點 y<input type="number" step="any" id="fromY"></label>
+        </div>
       </div>
     </section>
   </aside>
@@ -167,7 +177,7 @@ svg .comptext{fill:var(--result); font-size:13px; font-family:"Noto Sans TC",sys
 (function(){
 const COLORS=['#2F7FD0','#2E9E62','#E39400','#8C5CD1','#0F9E9E','#C2671E','#4A6FA5','#B0479A'];
 const NAMES='ABCDEFGHJKLMNPQSTUVW'.split('');
-const state={vectors:[], view:{cx:2,cy:2,s:40}, snap:1, chain:true, comps:false, from:'first', active:null};
+const state={vectors:[], view:{cx:2,cy:2,s:40}, snap:1, chain:true, comps:false, from:'first', custom:{x:0,y:0}, active:null};
 let nextId=1, W=600, H=400;
 
 const svg=document.getElementById('board');
@@ -198,7 +208,9 @@ function addVector(dx,dy,x0=0,y0=0,op='+'){
 function computeResult(){
   const inc=state.vectors.filter(v=>v.op!=='0');
   if(!inc.length) return null;
-  const start=state.from==='origin'?{x:0,y:0}:{x:inc[0].x0,y:inc[0].y0};
+  const start=state.from==='origin'?{x:0,y:0}
+             :state.from==='custom'?{x:state.custom.x,y:state.custom.y}
+             :{x:inc[0].x0,y:inc[0].y0};
   let p={...start}, Rx=0, Ry=0; const segs=[];
   inc.forEach(v=>{
     const sg=v.op==='-'?-1:1, ex=sg*v.dx, ey=sg*v.dy;
@@ -268,7 +280,8 @@ function draw(){
   // head-to-tail construction (under real vectors)
   if(res&&state.chain){
     res.segs.forEach((g,i)=>{
-      const same=state.from==='first'&&i===0&&g.sg===1;
+      // 第一段若和實際向量完全重疊（起點相同、方向相同），就不再畫虛線複本
+      const same=i===0&&g.sg===1&&Math.abs(g.x1-g.v.x0)<1e-9&&Math.abs(g.y1-g.v.y0)<1e-9;
       if(same) return;
       out+=arrowSvg(X(g.x1),Y(g.y1),X(g.x2),Y(g.y2),g.v.color,{w:2.2,dash:true,op:.85});
       out+=labelSvg(g.v.name,X(g.x1),Y(g.y1),X(g.x2),Y(g.y2),g.v.color,g.sg<0?'−':'');
@@ -298,6 +311,11 @@ function draw(){
     }
     out+=`<g pointer-events="none">`+arrowSvg(sx,sy,ex,ey,rc,{w:4.5})+
          `<circle cx="${sx}" cy="${sy}" r="5" fill="${rc}"/>`+labelSvg('R',sx,sy,ex,ey,rc)+`</g>`;
+    // 自訂起點時，紅點可以拖曳
+    if(state.from==='custom'){
+      out+=`<circle class="rring" cx="${sx}" cy="${sy}" r="11" pointer-events="none"/>`;
+      out+=`<circle class="rhit" data-role="rstart" cx="${sx}" cy="${sy}" r="16" fill="transparent"><title>拖曳以移動合向量起點</title></circle>`;
+    }
   }
   svg.innerHTML=out;
 }
@@ -415,7 +433,23 @@ document.getElementById('clear').addEventListener('click',()=>{
 document.getElementById('snap').addEventListener('change',e=>{ state.snap=parseFloat(e.target.value); });
 document.getElementById('optChain').addEventListener('change',e=>{ state.chain=e.target.checked; draw(); });
 document.getElementById('optComp').addEventListener('change',e=>{ state.comps=e.target.checked; draw(); });
-document.getElementById('optFrom').addEventListener('change',e=>{ state.from=e.target.value; draw(); });
+/* 合向量起點：自訂位置 */
+const fromXY=document.getElementById('fromXY'), fromX=document.getElementById('fromX'), fromY=document.getElementById('fromY');
+function showCustomXY(){ fromX.value=fmtIn(state.custom.x); fromY.value=fmtIn(state.custom.y); }
+document.getElementById('optFrom').addEventListener('change',e=>{
+  if(e.target.value==='custom'){
+    // 從目前的起點開始，切換時合向量不會跳走
+    const res=computeResult(); if(res) state.custom={x:res.start.x, y:res.start.y};
+  }
+  state.from=e.target.value;
+  fromXY.hidden=state.from!=='custom';
+  if(state.from==='custom') showCustomXY();
+  draw();
+});
+[fromX,fromY].forEach(inp=>inp.addEventListener('input',()=>{
+  const n=parseFloat(inp.value); if(!isFinite(n)) return;
+  state.custom[inp===fromX?'x':'y']=n; draw();
+}));
 
 /* ---------- board interaction ---------- */
 let drag=null;
@@ -455,7 +489,9 @@ svg.addEventListener('pointerdown',e=>{
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y), s:state.view.s}; drag=null; return;
   }
   const t=e.target.closest('[data-role]'); const p=toWorld(e.clientX,e.clientY);
-  if(t){
+  if(t&&t.dataset.role==='rstart'){
+    drag={type:'rstart', ox:p.x-state.custom.x, oy:p.y-state.custom.y};
+  } else if(t){
     const v=findV(+t.dataset.id);
     drag={type:t.dataset.role, v, ox:p.x-v.x0, oy:p.y-v.y0};
     setActive(v.id); draw();
@@ -480,6 +516,10 @@ svg.addEventListener('pointermove',e=>{
     state.view.cx=drag.cx-(e.clientX-drag.sx)/state.view.s;
     state.view.cy=drag.cy+(e.clientY-drag.sy)/state.view.s;
     draw(); return;
+  }
+  if(drag.type==='rstart'){
+    state.custom={x:snapv(p.x-drag.ox), y:snapv(p.y-drag.oy)};
+    showCustomXY(); draw(); return;
   }
   const v=drag.v;
   if(drag.type==='head'){
@@ -506,7 +546,7 @@ document.getElementById('zfit').addEventListener('click',fit);
 function fit(){
   const pts=[[0,0]];
   state.vectors.forEach(v=>{pts.push([v.x0,v.y0],[v.x0+v.dx,v.y0+v.dy]);});
-  const res=computeResult(); if(res) res.segs.forEach(g=>pts.push([g.x2,g.y2]));
+  const res=computeResult(); if(res){ pts.push([res.start.x,res.start.y]); res.segs.forEach(g=>pts.push([g.x2,g.y2])); }
   const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
   const x0=Math.min(...xs)-1.5, x1=Math.max(...xs)+1.5, y0=Math.min(...ys)-1.5, y1=Math.max(...ys)+1.5;
   const r=svg.getBoundingClientRect(); W=r.width||W; H=r.height||H;
