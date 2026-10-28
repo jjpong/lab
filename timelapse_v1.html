@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網頁版縮時攝影</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #videoElement {
+            width: 100%;
+            max-width: 640px;
+            margin: 20px 0;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .settings {
+            margin: 20px 0;
+        }
+        .settings input {
+            margin: 5px;
+            padding: 5px;
+        }
+        .settings select {
+            margin: 5px;
+            padding: 5px;
+        }
+        #status {
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        #timer {
+            font-size: 1.2em;
+            margin: 10px 0;
+            color: #666;
+        }
+        #downloadAllButton {
+            display: none;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #capturedFrames {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .frame {
+            width: 160px;
+            position: relative;
+        }
+        .frame img {
+            width: 100%;
+            height: auto;
+        }
+        .frame .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            padding: 0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>網頁版縮時攝影</h1>
+    
+    <div class="settings">
+        <div>
+            <label for="recordingMode">錄製模式：</label>
+            <select id="recordingMode">
+                <option value="manual">手動停止</option>
+                <option value="timed">定時停止</option>
+            </select>
+        </div>
+        <div>
+            <label for="duration">總錄製時間(秒)：</label>
+            <input type="number" id="duration" value="60" min="1">
+        </div>
+        <div>
+            <label for="interval">擷取間隔(秒)：</label>
+            <input type="number" id="interval" value="1" min="1">
+        </div>
+    </div>
+
+    <video id="videoElement" autoplay></video>
+    
+    <div id="timer"></div>
+
+    <div class="controls">
+        <button id="startButton">開始錄製</button>
+        <button id="stopButton" disabled>停止錄製</button>
+        <button id="downloadAllButton">下載所有圖片</button>
+    </div>
+
+    <div id="status"></div>
+    <div id="capturedFrames"></div>
+
+    <script>
+        let stream;
+        let frames = [];
+        let isRecording = false;
+        let recordingInterval;
+        let startTime;
+        let timerInterval;
+        let originalWidth, originalHeight;
+
+        const video = document.getElementById('videoElement');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const downloadAllButton = document.getElementById('downloadAllButton');
+        const status = document.getElementById('status');
+        const capturedFrames = document.getElementById('capturedFrames');
+        const timer = document.getElementById('timer');
+        const recordingMode = document.getElementById('recordingMode');
+        const durationInput = document.getElementById('duration');
+
+        recordingMode.addEventListener('change', function() {
+            durationInput.parentElement.style.display = 
+                this.value === 'timed' ? 'block' : 'none';
+        });
+
+        function updateTimer(elapsed, total) {
+            if (recordingMode.value === 'timed') {
+                timer.textContent = `錄製中: ${elapsed}/${total} 秒`;
+            } else {
+                timer.textContent = `錄製中: ${elapsed} 秒`;
+            }
+        }
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    originalWidth = video.videoWidth;
+                    originalHeight = video.videoHeight;
+                    console.log(`Video dimensions: ${originalWidth}x${originalHeight}`);
+                };
+            } catch (err) {
+                console.error("攝影機存取錯誤:", err);
+                status.textContent = "無法存取攝影機";
+            }
+        }
+
+        function captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = originalWidth;
+            canvas.height = originalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, originalWidth, originalHeight);
+            
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            frames.push(imageData);
+            
+            const frameDiv = document.createElement('div');
+            frameDiv.className = 'frame';
+            frameDiv.innerHTML = `
+                <img src="${imageData}">
+                <button class="delete-btn" onclick="deleteFrame(${frames.length - 1})">×</button>
+            `;
+            capturedFrames.appendChild(frameDiv);
+            
+            status.textContent = `已擷取 ${frames.length} 張畫面`;
+
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const total = parseInt(durationInput.value);
+            updateTimer(elapsed, total);
+
+            if (recordingMode.value === 'timed' && elapsed >= total) {
+                stopRecording();
+            }
+        }
+
+        function deleteFrame(index) {
+            frames.splice(index, 1);
+            refreshFrameDisplay();
+        }
+
+        function refreshFrameDisplay() {
+            capturedFrames.innerHTML = '';
+            frames.forEach((imageData, index) => {
+                const frameDiv = document.createElement('div');
+                frameDiv.className = 'frame';
+                frameDiv.innerHTML = `
+                    <img src="${imageData}">
+                    <button class="delete-btn" onclick="deleteFrame(${index})">×</button>
+                `;
+                capturedFrames.appendChild(frameDiv);
+            });
+            status.textContent = `已擷取 ${frames.length} 張畫面`;
+        }
+
+        function startRecording() {
+            if (!originalWidth || !originalHeight) {
+                status.textContent = "等待攝影機初始化...";
+                setTimeout(startRecording, 500);
+                return;
+            }
+
+            frames = [];
+            isRecording = true;
+            startTime = Date.now();
+            capturedFrames.innerHTML = '';
+            
+            const interval = document.getElementById('interval').value * 1000;
+            
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            downloadAllButton.style.display = 'none';
+            
+            recordingInterval = setInterval(captureFrame, interval);
+
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const total = parseInt(durationInput.value);
+                updateTimer(elapsed, total);
+            }, 1000);
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            clearInterval(recordingInterval);
+            clearInterval(timerInterval);
+            timer.textContent = '';
+            
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            downloadAllButton.style.display = 'inline-block';
+            status.textContent = `錄製完成，共 ${frames.length} 張畫面`;
+        }
+
+        function downloadAllImages() {
+            if (frames.length === 0) {
+                status.textContent = "沒有可用的畫面";
+                return;
+            }
+
+            const zip = new JSZip();
+            const folder = zip.folder("timelapse_images");
+
+            frames.forEach((dataUrl, index) => {
+                const base64Data = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
+                folder.file(`frame_${String(index).padStart(3, '0')}.jpg`, base64Data, {base64: true});
+            });
+
+            zip.generateAsync({type: "blob"}).then(function(content) {
+                const url = URL.createObjectURL(content);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'timelapse_images.zip';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        startButton.addEventListener('click', startRecording);
+        stopButton.addEventListener('click', stopRecording);
+        downloadAllButton.addEventListener('click', downloadAllImages);
+
+        durationInput.parentElement.style.display = 'none';
+        startCamera();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+</body>
+</html>
