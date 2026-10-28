@@ -94,6 +94,18 @@
     text-decoration: none;
   }
   .versions a:hover { text-decoration: underline; }
+  .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 7px;
+    border-radius: 6px;
+    font-size: .72rem;
+    font-weight: 600;
+    vertical-align: 2px;
+    background: #f59e0b;
+    color: #fff;
+  }
+  .card .file { color: var(--muted); font-size: .76rem; margin: 0; word-break: break-all; }
   .empty { display: none; text-align: center; color: var(--muted); padding: 40px 0; }
   footer { margin-top: 40px; color: var(--muted); font-size: .85rem; text-align: center; }
 </style>
@@ -114,18 +126,40 @@
   <main id="list"></main>
   <p id="empty" class="empty">找不到符合的程式，換個關鍵字試試。</p>
 
-  <footer>新增程式時，只要在 index.html 內的 PROGRAMS 陣列加一筆資料即可。</footer>
+  <footer>新上傳的程式會自動出現在「新加入」區；想整理分類或說明時，再到 index.html 的 PROGRAMS 陣列加一筆即可。</footer>
 </div>
 
 <script>
 /*
-  ── 新增程式時，在下方 PROGRAMS 陣列加一筆即可 ──
+  ── 自動偵測新程式 ──
+  只要把新的 .html 上傳到 repo 根目錄，打開本頁時就會自動出現一張卡片：
+    • 卡片標題 = 該檔案的 <title>
+    • 說明     = 該檔案的 <meta name="description" content="…">（沒有就不顯示）
+    • 分類     = 該檔案的 <meta name="category" content="光與色彩">（沒有或對不上就放「新加入」）
+  想要正式整理時，再把它寫進下方 PROGRAMS 陣列（可合併多個版本、改標題說明）。
+  不想顯示的舊版檔案，加進 HIDDEN 陣列即可。
+
+  ── PROGRAMS 欄位 ──
   cat   : 分類名稱（要與 CATEGORIES 其中之一相同）
   title : 顯示名稱
   desc  : 一句話說明
   files : 檔名陣列；第一個是主要連結，其餘會顯示成「其他版本」小標籤
 */
+// 放在 GitHub Pages 上時會自動判斷「哪個帳號/儲存庫/資料夾」，下面兩行只是判斷不出來時的預設值
+const DEFAULT_REPO = "jjpong/lab";
+const BRANCH = "main";
+
 const CATEGORIES = ["力與運動", "壓力與浮力", "物質與原子", "光與色彩", "熱、電與磁", "工具"];
+const NEW_CAT = "新加入";
+
+// 不要自動顯示的檔案（舊版本、測試檔等）
+const HIDDEN = [
+  "index.html",
+  "force1d.html", "force1d2.html",
+  "galileo-inclined-plane.html", "galileo-inclined-plane2.html",
+  "airPressure.html", "airPressure2.html",
+  "waterPressure.html"
+];
 
 const PROGRAMS = [
   // ── 力與運動 ──
@@ -168,11 +202,16 @@ const PROGRAMS = [
 const $ = id => document.getElementById(id);
 const href = f => encodeURIComponent(f);
 let activeCat = "全部";
+const AUTO = [];   // 自動偵測到的新程式
+
+function allCats() {
+  return AUTO.some(p => p.cat === NEW_CAT) ? [...CATEGORIES, NEW_CAT] : CATEGORIES;
+}
 
 function renderChips() {
   const box = $("chips");
   box.innerHTML = "";
-  ["全部", ...CATEGORIES].forEach(name => {
+  ["全部", ...allCats()].forEach(name => {
     const b = document.createElement("button");
     b.className = "chip";
     b.type = "button";
@@ -189,9 +228,9 @@ function render() {
   list.innerHTML = "";
   let shown = 0;
 
-  CATEGORIES.forEach(cat => {
+  allCats().forEach(cat => {
     if (activeCat !== "全部" && activeCat !== cat) return;
-    const items = PROGRAMS.filter(p =>
+    const items = [...PROGRAMS, ...AUTO].filter(p =>
       p.cat === cat &&
       (!kw || (p.title + p.desc + p.files.join(" ")).toLowerCase().includes(kw))
     );
@@ -213,12 +252,25 @@ function render() {
       a.className = "title";
       a.href = href(p.files[0]);
       a.textContent = p.title;
+      if (p.auto) {
+        const b = document.createElement("span");
+        b.className = "badge";
+        b.textContent = "新";
+        a.appendChild(b);
+      }
       card.appendChild(a);
 
       const d = document.createElement("p");
       d.className = "desc";
       d.textContent = p.desc;
       card.appendChild(d);
+
+      if (p.auto) {
+        const fn = document.createElement("p");
+        fn.className = "file";
+        fn.textContent = p.files[0];
+        card.appendChild(fn);
+      }
 
       if (p.files.length > 1) {
         const v = document.createElement("div");
@@ -241,9 +293,133 @@ function render() {
   $("empty").style.display = shown ? "none" : "block";
 }
 
+/* ───────── 自動偵測新程式 ───────── */
+// 從網址判斷位置：https://帳號.github.io/儲存庫/資料夾/index.html
+function whereAmI() {
+  const host = location.hostname;
+  if (host.endsWith(".github.io")) {
+    const owner = host.slice(0, -".github.io".length);
+    const segs = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    if (segs.length && /\.html?$/i.test(segs[segs.length - 1])) segs.pop();
+    if (segs.length) return { repo: owner + "/" + segs[0], folder: segs.slice(1).join("/") };
+    return { repo: owner + "/" + host, folder: "" };   // 個人主站 帳號.github.io
+  }
+  return { repo: DEFAULT_REPO, folder: "" };
+}
+const HERE = whereAmI();
+const LIST_CACHE_KEY = "lab-file-list:" + HERE.repo + "/" + HERE.folder;
+const LIST_CACHE_MS = 30 * 60 * 1000;   // 同一台電腦 30 分鐘內不重複查詢
+let EXISTING = null;   // 資料夾裡實際存在的檔案（查不到時為 null）
+
+function cacheGet(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+}
+function cacheSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+
+// 取得 repo 根目錄所有 .html 檔名：先問 GitHub API（最即時），失敗再問 jsDelivr（不限次數）
+async function listRepoHtml() {
+  const c = cacheGet(LIST_CACHE_KEY);
+  if (c && Date.now() - c.t < LIST_CACHE_MS && Array.isArray(c.files)) return c.files;
+
+  let files = null;
+  try {
+    const dir = HERE.folder.split("/").filter(Boolean).map(encodeURIComponent).join("/");
+    const r = await fetch(`https://api.github.com/repos/${HERE.repo}/contents/${dir}`);
+    if (r.ok) {
+      const data = await r.json();
+      files = data.filter(x => x.type === "file").map(x => x.name);
+    }
+  } catch (e) {}
+
+  if (!files) {
+    try {
+      const r = await fetch(`https://data.jsdelivr.com/v1/packages/gh/${HERE.repo}@${BRANCH}?structure=flat`);
+      if (r.ok) {
+        const data = await r.json();
+        const prefix = HERE.folder ? "/" + HERE.folder + "/" : "/";
+        files = data.files.map(x => x.name)
+          .filter(n => n.startsWith(prefix))
+          .map(n => n.slice(prefix.length))
+          .filter(n => !n.includes("/"));
+      }
+    } catch (e) {}
+  }
+
+  if (!files) return null;
+  files = files.filter(n => /\.html?$/i.test(n));
+  cacheSet(LIST_CACHE_KEY, { t: Date.now(), files });
+  return files;
+}
+
+// 只讀新檔案的 <head>（大檔案也不會整個下載），取出標題、說明、分類
+async function readHead(file) {
+  const key = "lab-head:" + file;
+  const c = cacheGet(key);
+  if (c && Date.now() - c.t < LIST_CACHE_MS) return c.info;
+
+  let info = {};
+  try {
+    const r = await fetch(href(file));
+    if (r.ok) {
+      const reader = r.body.getReader();
+      const dec = new TextDecoder("utf-8");
+      let text = "";
+      while (text.length < 200000) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += dec.decode(value, { stream: true });
+        if (/<\/head>/i.test(text)) break;
+      }
+      reader.cancel().catch(() => {});
+      const doc = new DOMParser().parseFromString(text, "text/html");
+      const meta = n => (doc.querySelector(`meta[name="${n}"]`) || {}).content || "";
+      info = {
+        title: (doc.title || "").replace(/[‪-‮]/g, "").trim(),
+        desc: meta("description").trim(),
+        cat: meta("category").trim()
+      };
+    }
+  } catch (e) {}
+  cacheSet(key, { t: Date.now(), info });
+  return info;
+}
+
+async function detectNewPrograms() {
+  const files = await listRepoHtml();
+  if (!files) return;   // 查不到清單（離線或被限流）就只顯示手動清單
+
+  // 手動清單裡、但這個資料夾沒有的檔案就不顯示（把 index 複製到別的資料夾也不會出現壞連結）
+  EXISTING = new Set(files);
+  for (let i = PROGRAMS.length - 1; i >= 0; i--) {
+    PROGRAMS[i].files = PROGRAMS[i].files.filter(f => EXISTING.has(f));
+    if (!PROGRAMS[i].files.length) PROGRAMS.splice(i, 1);
+  }
+
+  const known = new Set([...HIDDEN, ...PROGRAMS.flatMap(p => p.files)]);
+  const fresh = files.filter(f => !known.has(f));
+  if (!fresh.length) { renderChips(); render(); return; }
+
+  const infos = await Promise.all(fresh.map(readHead));
+  fresh.forEach((f, i) => {
+    const info = infos[i];
+    AUTO.push({
+      auto: true,
+      cat: CATEGORIES.includes(info.cat) ? info.cat : NEW_CAT,
+      title: info.title || f.replace(/\.html?$/i, ""),
+      desc: info.desc || "",
+      files: [f]
+    });
+  });
+  renderChips();
+  render();
+}
+
 $("q").addEventListener("input", render);
 renderChips();
 render();
+detectNewPrograms();
 </script>
 </body>
 </html>
