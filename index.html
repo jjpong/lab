@@ -126,7 +126,7 @@
   <main id="list"></main>
   <p id="empty" class="empty">找不到符合的程式，換個關鍵字試試。</p>
 
-  <footer>新上傳的程式會自動出現在「新加入」區；想整理分類或說明時，再到 index.html 的 PROGRAMS 陣列加一筆即可。</footer>
+  <footer>新上傳的程式會自動出現在「新加入」區；想整理分類或說明時，再到 index.html 的 PROGRAMS 陣列加一筆即可。<br><a href="old/" style="color:inherit">舊版本存放區</a></footer>
 </div>
 
 <script>
@@ -154,11 +154,7 @@ const NEW_CAT = "新加入";
 
 // 不要自動顯示的檔案（舊版本、測試檔等）
 const HIDDEN = [
-  "index.html",
-  "force1d.html", "force1d2.html",
-  "galileo-inclined-plane.html", "galileo-inclined-plane2.html",
-  "airPressure.html", "airPressure2.html",
-  "waterPressure.html"
+  "index.html"
 ];
 
 const PROGRAMS = [
@@ -174,28 +170,27 @@ const PROGRAMS = [
   { cat: "壓力與浮力", title: "氣體壓力虛擬實驗", desc: "觀察氣體體積、溫度與壓力之間的關係。", files: ["airPressure2_1.html"] },
   { cat: "壓力與浮力", title: "液體壓力互動模擬器", desc: "探索液體深度與壓力的關係。", files: ["waterPressure2.html"] },
   { cat: "壓力與浮力", title: "固體壓力", desc: "比較受力面積不同時所產生的壓力。", files: ["pressure.html"] },
-  { cat: "壓力與浮力", title: "浮力與壓力互動實驗室", desc: "觀察物體在液體中所受的浮力與壓力。", files: ["buoyancy.html", "bandp.html"] },
+  { cat: "壓力與浮力", title: "浮力與壓力互動實驗室", desc: "觀察物體在液體中所受的浮力與壓力。", files: ["buoyancy.html"] },
 
   // ── 物質與原子 ──
-  { cat: "物質與原子", title: "溶解與飽和模擬", desc: "觀察溶解、飽和，以及溫度與溶解度的關係。", files: ["dissolution2.html", "dissolution.html"] },
+  { cat: "物質與原子", title: "溶解與飽和模擬", desc: "觀察溶解、飽和，以及溫度與溶解度的關係。", files: ["dissolution2.html"] },
   { cat: "物質與原子", title: "Alpha 粒子散射實驗模擬", desc: "單原子模式的 α 粒子散射實驗。", files: ["alpha_scatter.html"] },
 
   // ── 光與色彩 ──
   { cat: "光與色彩", title: "RGB 三原色光混合模擬器", desc: "調整紅綠藍三色光，觀察混色結果。", files: ["colorMixer.html"] },
-  { cat: "光與色彩", title: "RGB 光源模擬器", desc: "光源與色彩的互動模擬。", files: ["light&color.html", "color&light.html"] },
+  { cat: "光與色彩", title: "RGB 光源模擬器", desc: "光源與色彩的互動模擬。", files: ["light&color.html"] },
   { cat: "光與色彩", title: "針孔成像模擬器", desc: "觀察針孔成像的倒立實像與大小變化。", files: ["pinhole.html"] },
 
   // ── 熱、電與磁 ──
-  { cat: "熱、電與磁", title: "雙物質熱傳導模擬器", desc: "比較兩種物質的熱傳導情形。", files: ["熱傳導模擬.html", "熱傳導.html"] },
+  { cat: "熱、電與磁", title: "雙物質熱傳導模擬器", desc: "比較兩種物質的熱傳導情形。", files: ["熱傳導模擬.html"] },
   { cat: "熱、電與磁", title: "電子流動模擬", desc: "觀察電路中電子流動與電阻的關係。", files: ["resistor1.html"] },
   { cat: "熱、電與磁", title: "磁力線模擬器", desc: "呈現磁鐵周圍的磁力線分布。", files: ["mag.html"] },
 
   // ── 實驗工具（實體實驗輔助、數據處理） ──
-  { cat: "實驗工具", title: "光譜分析", desc: "認識不同光源的光譜。", files: ["spectrum.html"] },
-  { cat: "實驗工具", title: "光譜分析系統", desc: "光譜分析的進階版本。", files: ["sp2.html"] },
+  { cat: "實驗工具", title: "光譜分析系統", desc: "用攝影機拍攝光譜，以雷射光校正波長，即時分析並匯出光譜數據。", files: ["sp2.html"] },
   { cat: "實驗工具", title: "頻率產生器", desc: "產生指定頻率的聲音訊號。", files: ["f-generator.html"] },
-  { cat: "實驗工具", title: "縮時攝影製作器", desc: "用攝影機即時拍攝或上傳圖片，製作縮時影片。", files: ["timelapse.html", "timelapseX.html", "timelapse2.html", "timelapse_v1.html"] },
-  { cat: "實驗工具", title: "連續影像擷取疊圖器", desc: "連續擷取影像並疊圖，可用來分析運動軌跡。", files: ["影像擷取器.html", "picOverlayer.html"] },
+  { cat: "實驗工具", title: "縮時攝影製作器", desc: "用攝影機即時拍攝或上傳圖片，製作縮時影片。", files: ["timelapse.html"] },
+  { cat: "實驗工具", title: "連續影像擷取疊圖器", desc: "連續擷取影像並疊圖，可用來分析運動軌跡。", files: ["picOverlayer.html"] },
   { cat: "實驗工具", title: "實驗數據圖表工具", desc: "輸入多組實驗數據，畫出線性或對數圖並顯示迴歸直線與公式。", files: ["experiment_chart.html"] },
   { cat: "實驗工具", title: "實驗結果分析與發現學習工具", desc: "設定變因畫出圖表，寫下實驗結果，再請 AI 老師給回饋。", files: ["graphy.html"] },
   { cat: "實驗工具", title: "AI 互動實驗室", desc: "選擇實驗單元並登入，和 AI 夥伴一起進行實驗。", files: ["AiLabAssist.html"] }
