@@ -35,6 +35,7 @@ body{margin:0; height:100%; background:var(--paper); color:var(--ink);
 .stage{position:relative; overflow:hidden; background:var(--paper)}
 #board{display:block; width:100%; height:100%; touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab}
 #board.panning{cursor:grabbing}
+#board.locked{cursor:default}
 .panel{background:var(--panel); border-left:1px solid var(--line); overflow-y:auto; display:flex; flex-direction:column}
 .panel-head{padding:18px 20px 12px}
 h1{font-size:22px; font-weight:700; margin:0 0 2px; letter-spacing:.02em}
@@ -85,7 +86,8 @@ select{font:inherit; color:var(--ink); background:var(--field); border:1px solid
 
 .zoom{position:absolute; right:12px; bottom:12px; display:flex; gap:6px}
 .zoom button{background:var(--panel); border:1px solid var(--line); border-radius:8px; min-width:36px; height:36px; padding:0 10px; color:var(--ink)}
-.hint{position:absolute; left:12px; bottom:12px; max-width:min(440px, calc(100% - 200px)); font-size:12.5px; color:var(--muted); background:color-mix(in srgb, var(--paper) 85%, transparent); padding:6px 10px; border-radius:8px; pointer-events:none}
+.zoom button[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:var(--panel)}
+.hint{position:absolute; left:12px; bottom:12px; max-width:min(440px, calc(100% - 320px)); font-size:12.5px; color:var(--muted); background:color-mix(in srgb, var(--paper) 85%, transparent); padding:6px 10px; border-radius:8px; pointer-events:none}
 
 svg .gminor{stroke:var(--grid-minor); stroke-width:1}
 svg .gmajor{stroke:var(--grid-major); stroke-width:1}
@@ -115,8 +117,9 @@ svg .comptext{fill:var(--result); font-size:13px; font-family:"Noto Sans TC",sys
 <div class="app">
   <div class="stage" id="stage">
     <svg id="board" role="img" aria-label="座標平面上的向量圖"></svg>
-    <div class="hint">拖曳箭頭尖端改變長度與方向，拖曳箭身移動位置。拖曳空白處平移，滾輪縮放。</div>
+    <div class="hint" id="hint">拖曳箭頭尖端改變長度與方向，拖曳箭身移動位置。拖曳空白處平移，滾輪縮放。</div>
     <div class="zoom">
+      <button id="zlock" aria-pressed="false" title="鎖定後，拖曳空白處、滾輪與雙指都不會移動或縮放底圖">🔓 鎖定底圖</button>
       <button id="zin" aria-label="放大">＋</button>
       <button id="zout" aria-label="縮小">－</button>
       <button id="zfit">全部顯示</button>
@@ -417,6 +420,20 @@ document.getElementById('optFrom').addEventListener('change',e=>{ state.from=e.t
 /* ---------- board interaction ---------- */
 let drag=null;
 const pointers=new Map(); let pinch=null;
+
+/* 鎖定底圖：鎖定時拖曳空白處、滾輪、雙指都不會平移或縮放（向量仍可拖曳） */
+let locked=false;
+const lockBtn=document.getElementById('zlock'), hintEl=document.getElementById('hint');
+const HINT_FREE=hintEl.textContent;
+function setLocked(on){
+  locked=on;
+  lockBtn.setAttribute('aria-pressed',String(on));
+  lockBtn.textContent=on?'🔒 底圖已鎖定':'🔓 鎖定底圖';
+  svg.classList.toggle('locked',on);
+  hintEl.textContent=on?'底圖已鎖定：拖曳箭頭尖端改變長度與方向，拖曳箭身移動位置。要平移或縮放請先解除鎖定，或用右下角按鈕。':HINT_FREE;
+  if(on){ pinch=null; if(drag&&drag.type==='pan'){ drag=null; svg.classList.remove('panning'); } }
+}
+lockBtn.addEventListener('click',()=>setLocked(!locked));
 function toWorld(cx,cy){
   const r=svg.getBoundingClientRect();
   return {x:state.view.cx+(cx-r.left-W/2)/state.view.s, y:state.view.cy-(cy-r.top-H/2)/state.view.s};
@@ -433,6 +450,7 @@ svg.addEventListener('pointerdown',e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   svg.setPointerCapture(e.pointerId);
   if(pointers.size===2){
+    if(locked) return;   // 鎖定時不做雙指縮放，第一指正在拖的向量照常
     const [a,b]=[...pointers.values()];
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y), s:state.view.s}; drag=null; return;
   }
@@ -441,6 +459,8 @@ svg.addEventListener('pointerdown',e=>{
     const v=findV(+t.dataset.id);
     drag={type:t.dataset.role, v, ox:p.x-v.x0, oy:p.y-v.y0};
     setActive(v.id); draw();
+  } else if(locked){
+    drag=null;   // 鎖定時點空白處不平移
   } else {
     drag={type:'pan', sx:e.clientX, sy:e.clientY, cx:state.view.cx, cy:state.view.cy};
     svg.classList.add('panning');
@@ -476,7 +496,7 @@ function endPointer(e){
 }
 svg.addEventListener('pointerup',endPointer);
 svg.addEventListener('pointercancel',endPointer);
-svg.addEventListener('wheel',e=>{ e.preventDefault(); zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY); },{passive:false});
+svg.addEventListener('wheel',e=>{ if(locked) return; e.preventDefault(); zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY); },{passive:false});
 
 function centerZoom(f){ const r=svg.getBoundingClientRect(); zoomAt(f,r.left+W/2,r.top+H/2); }
 document.getElementById('zin').addEventListener('click',()=>centerZoom(1.25));
