@@ -144,6 +144,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
       <div class="seg" id="dir" data-for="spring" role="group" aria-label="抖動方向">
         <button type="button" data-v="trans">上下抖動</button>
         <button type="button" data-v="long">前後推拉</button>
+        <button type="button" data-v="free" id="dirFree">自由振動</button>
       </div>
     </div>
 
@@ -316,9 +317,9 @@ const ROPES = [
   { mu: 8, color: "#c3ccd3", chain: true }
 ];
 const SPRINGS = [
-  { mu: 1, k: 1, color: "#94ccf5", w: 2.2 },
-  { mu: 2, k: 4, color: "#dfe4e8", w: 1.6 },
-  { mu: 3.5, k: 10, color: "#b9c3cb", w: 3 }
+  { mu: 1, k: 1, r0: 0.12, color: "#94ccf5", w: 2.2 },
+  { mu: 2, k: 4, r0: 0.3, color: "#dfe4e8", w: 1.6 },
+  { mu: 3.5, k: 10, r0: 0.45, color: "#b9c3cb", w: 3 }
 ];
 const MEDIA = {
   air: { name: "空氣", v: 0.2, real: 340, state: "gas", strain: 0.65 },
@@ -331,10 +332,10 @@ const TANK_CM = 60;
 
 const noRefl = () => ({ from: Infinity, to: -Infinity });
 const mk1D = o => Object.assign({ wL: new Wave(), wR: new Wave(), phase: 0, endL: "src", endR: "none", invR: false,
-  reflL: noRefl(), reflR: noRefl(), env: new Float32Array(241), warm: false }, o);
+  reflL: noRefl(), reflR: noRefl(), xL: new Wave(), xR: new Wave(), xreflL: noRefl(), xreflR: noRefl(), env: new Float32Array(241), warm: false }, o);
 const S = {
   rope: mk1D({ mode: "cont", amp: 0.55, freq: 0.8, type: 0, tension: 6 }),
-  spring: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, type: 0, tension: 6, dir: "long", graph: false }),
+  spring: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, type: 0, tension: 6, dir: "long", lastDir: "long", graph: false }),
   sound: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, view: "macro", medium: "air", thermal: 0.15,
                 shade: false, graph: false, trail: false, audio: false }),
   water: { wA: new Wave(), wB: new Wave(), phase: 0, D: 0, drops: [], mode: "cont", amp: 0.7, freq: 1.0,
@@ -346,14 +347,19 @@ let cur = "rope", playing = true, slow = false;
 function speed(n) {
   const s = S[n];
   if (n === "rope") return 0.16 * Math.sqrt(s.tension / ROPES[s.type].mu);
-  if (n === "spring") {
-    const sp = SPRINGS[s.type];
-    return s.dir === "trans" ? 0.16 * Math.sqrt(s.tension / sp.mu)
-                             : 0.2 * Math.sqrt(sp.k / sp.mu) * (0.75 + 0.025 * s.tension);
-  }
+  if (n === "spring") { const v = springSpeeds(); return s.dir === "long" ? v.l : v.t; }
   if (n === "water") return s.depth === "deep" ? 0.08 : 0.05;
   return MEDIA[s.medium].v;
 }
+/* a stretched spring: longitudinal waves are always at least as fast as transverse ones;
+   the gap grows with the spring's unstretched length (nearly equal for a slinky) */
+function springSpeeds() {
+  const s = S.spring, sp = SPRINGS[s.type];
+  const l = 0.3 * Math.sqrt(sp.k / sp.mu) * (0.75 + 0.025 * s.tension);
+  const r = Math.min(0.85, sp.r0 * 12 / (s.tension + 6));
+  return { l, t: l * Math.sqrt(1 - r) };
+}
+const isFree = () => S.spring.dir === "free";
 const isLong = n => n === "sound" || (n === "spring" && S.spring.dir === "long");
 /* liquids and solids barely compress: same loudness, far smaller particle displacement */
 const strainAmp = () => S.sound.amp * MEDIA[S.sound.medium].strain;
@@ -375,40 +381,42 @@ const activeSides = s => cur === "sound" ? ["L"] : ["L", "R"].filter(sd => s["en
 const standing = s => s.mode === "cont" && s.endL !== "none" && s.endR !== "none" && (s.endL === "src" || s.endR === "src");
 
 /* ---------- dragging the hands ---------- */
-const dragT = { L: { active: false, target: 0, startPx: 0, startVal: 0 }, R: { active: false, target: 0, startPx: 0, startVal: 0 } };
+const dragT = { L: { active: false, target: 0, tx: 0, startPx: 0, startVal: 0, startX: 0 }, R: { active: false, target: 0, tx: 0, startPx: 0, startVal: 0, startX: 0 } };
 const pointers = new Map();
 let floatDrag = null;
 
 /* ---------- time stepping ---------- */
 function stepTab(n, dt) {
   if (n === "water") return stepWater(dt);
-  const s = S[n], v = speed(n), h = 1 / 240;
-  const ws = n === "sound" ? [["L", s.wL]] : [["L", s.wL], ["R", s.wR]];
+  const s = S[n], v = speed(n), h = 1 / 240, free = n === "spring" && isFree();
+  const ws = n === "sound" ? [["L", s.wL, v, "target"]] : [["L", s.wL, v, "target"], ["R", s.wR, v, "target"]];
+  if (free) { const vl = springSpeeds().l; ws.push(["L", s.xL, vl, "tx"], ["R", s.xR, vl, "tx"]); }
   let left = dt;
   while (left > 1e-7) {
     const d = Math.min(h, left); left -= d;
     s.phase += TAU * s.freq * d;
-    for (const [side, w] of ws) {
+    for (const [side, w, vw, key] of ws) {
       w.t += d;
       const active = n === "sound" || s["end" + side] === "src";
       const sign = side === "R" && s.invR ? -1 : 1;
       let src = 0;
       if (active) {
-        if (s.mode === "cont") {
+        if (key === "tx" && s.mode !== "manual") { src = 0; }
+        else if (s.mode === "cont") {
           w.amp += (contAmp(n) - w.amp) * Math.min(1, d * 5);
           src = sign * w.amp * Math.sin(s.phase);
         } else if (s.mode === "pulse") {
           w.pulses = w.pulses.filter(p => w.t - p.t0 <= p.dur);
           for (const p of w.pulses) { const tau = w.t - p.t0; if (tau >= 0) src += p.a * Math.sin(Math.PI * tau / p.dur); }
         } else {
-          const dr = dragT[side], target = dr.active ? dr.target : 0;
+          const dr = dragT[side], target = dr.active ? dr[key] : 0;
           w.manual += (target - w.manual) * Math.min(1, d * (dr.active ? 30 : 4));
           src = w.manual;
         }
       } else { w.amp = 0; w.pulses.length = 0; w.manual = 0; }
       w.out += (src - w.out) * Math.min(1, d * 25);
       w.src = w.out;
-      w.push(d, v, (n === "sound" && s.medium === "vacuum") ? 0 : w.out);
+      w.push(d, vw, (n === "sound" && s.medium === "vacuum") ? 0 : w.out);
     }
   }
 }
@@ -445,9 +453,9 @@ function resetTab(n, prewarm) {
   const s = S[n];
   if (n === "water") { s.wA.reset(); s.wB.reset(); s.D = 0; s.drops = []; s.phase = 0; }
   else {
-    s.wL.reset(); s.wR.reset(); s.phase = 0; s.env.fill(0);
-    for (const sd of ["L", "R"]) {
-      const rf = s["refl" + sd];
+    s.wL.reset(); s.wR.reset(); s.xL.reset(); s.xR.reset(); s.phase = 0; s.env.fill(0);
+    for (const sd of ["L", "R"]) for (const pre of ["refl", "xrefl"]) {
+      const rf = s[pre + sd];
       if (s["end" + sd] === "held") { rf.from = 0; rf.to = Infinity; } else { rf.from = Infinity; rf.to = -Infinity; }
     }
   }
@@ -456,10 +464,12 @@ function resetTab(n, prewarm) {
   if (prewarm) warm(n);
 }
 function setEnd(n, side, val) {
-  const s = S[n], prev = s["end" + side], rf = s["refl" + side], D = s.wL.D;
+  const s = S[n], prev = s["end" + side];
   if (prev === val) return;
-  if (prev === "held") rf.to = D;
-  if (val === "held") { rf.from = D; rf.to = Infinity; }
+  for (const [rf, D] of [[s["refl" + side], s.wL.D], [s["xrefl" + side], s.xL.D]]) {
+    if (prev === "held") rf.to = D;
+    if (val === "held") { rf.from = D; rf.to = Infinity; }
+  }
   s["end" + side] = val; s.env.fill(0);
 }
 
@@ -467,7 +477,12 @@ function setEnd(n, side, val) {
 function makeU(n) {
   const s = S[n];
   if (n === "sound") { const w = s.wL; return x => w.at(x); }
-  const wL = s.wL, wR = s.wR, D = wL.D, rR = s.reflR, rL = s.reflL;
+  return makeU1(s.wL, s.wR, s.reflL, s.reflR);
+}
+/* the push-pull part of a freely shaken spring */
+const makeUx = () => { const s = S.spring; return makeU1(s.xL, s.xR, s.xreflL, s.xreflR); };
+function makeU1(wL, wR, rL, rR) {
+  const D = wL.D;
   return x => {
     let u = wL.at(x) + wR.at(1 - x);
     const hr = D - (1 - x); if (hr >= rR.from && hr <= rR.to) u -= wL.at(2 - x);
@@ -505,7 +520,7 @@ function geo() {
   let mL = 0, mR = 0;
   if (cur === "sound") mL = narrow ? 66 : 104;
   else if (cur !== "water") { const m = narrow ? 54 : 86; mL = s.endL === "none" ? 0 : m; mR = s.endR === "none" ? 0 : m; }
-  const graphOn = (cur === "sound" && s.graph && s.medium !== "vacuum") || (cur === "spring" && s.graph && s.dir === "long");
+  const graphOn = (cur === "sound" && s.graph && s.medium !== "vacuum") || (cur === "spring" && s.graph && s.dir !== "trans");
   const gh = graphOn ? Math.min(96, H * 0.25) : 0;
   const bottom = H - gh;
   return { x0: mL, L: W - mL - mR, mR, bottom, midY: bottom / 2, ampPx: Math.min(bottom * 0.28, 130), gh, graphOn };
@@ -561,11 +576,14 @@ function fadeEdge(side) {
   gr.addColorStop(0, side === "R" ? a : b); gr.addColorStop(1, side === "R" ? b : a);
   ctx.fillStyle = gr; ctx.fillRect(x, 0, 56, H);
 }
-function handle(g, x, y, { side = "L", manual = false, active = true, horiz = false, restX = x } = {}) {
+function handle(g, x, y, { side = "L", manual = false, active = true, horiz = false, free = false, restX = x } = {}) {
   ctx.save();
   if (active) {
     ctx.strokeStyle = "rgba(243,214,107,.4)"; ctx.setLineDash([3, 5]); ctx.lineWidth = 1.5; ctx.beginPath();
-    if (horiz) { const r = Math.max(18, g.L * 0.06); ctx.moveTo(restX - r, g.midY + 28); ctx.lineTo(restX + r, g.midY + 28); }
+    if (free) {
+      const rx = Math.max(18, g.L * 0.06), ry = g.ampPx * 1.15;
+      ctx.moveTo(restX - rx, g.midY); ctx.lineTo(restX + rx, g.midY); ctx.moveTo(restX, g.midY - ry); ctx.lineTo(restX, g.midY + ry);
+    } else if (horiz) { const r = Math.max(18, g.L * 0.06); ctx.moveTo(restX - r, g.midY + 28); ctx.lineTo(restX + r, g.midY + 28); }
     else { const r = g.ampPx * 1.15; ctx.moveTo(x, g.midY - r); ctx.lineTo(x, g.midY + r); }
     ctx.stroke(); ctx.setLineDash([]);
   }
@@ -790,16 +808,18 @@ function drawRope(g) {
 
 /* ---------- spring ---------- */
 function drawSpring(g) {
-  const s = S.spring, sp = SPRINGS[s.type], long = s.dir === "long", N = 56, U = makeU("spring");
+  const s = S.spring, sp = SPRINGS[s.type], free = isFree(), long = s.dir === "long", N = 56, U = makeU("spring");
+  const Ux = free ? makeUx() : null;
   const R = clamp(g.bottom * 0.07, 12, 20);
   const nMax = s.endR === "none" ? N + 4 : N;
-  if (DISP.labels && !long) { if (standing(s)) standingLabels(g, s); else transLabels(g, x => U(x) * g.ampPx, s.endR === "none" ? 1.06 : 1); }
-  if (DISP.rails && !long) rails(g, N / 2, railA(s) * g.ampPx, s.endR === "none" ? 1.06 : 1);
+  if (DISP.labels && !long && !free) { if (standing(s)) standingLabels(g, s); else transLabels(g, x => U(x) * g.ampPx, s.endR === "none" ? 1.06 : 1); }
+  if (DISP.rails && !long && !free) rails(g, N / 2, railA(s) * g.ampPx, s.endR === "none" ? 1.06 : 1);
   const pts = []; let lastX = -1e9;
   for (let i = 0; i <= nMax; i++) {
     const x = i / N, u = U(x);
     let px, py;
     if (long) { px = X(g, x + u); py = g.midY; if (px < lastX + 1.2) px = lastX + 1.2; lastX = px; }
+    else if (free) { px = X(g, x + Ux(x)); py = g.midY - u * g.ampPx; if (px < lastX + 1.2) px = lastX + 1.2; lastX = px; }
     else { px = X(g, x); py = g.midY - u * g.ampPx; }
     pts.push([px, py]);
   }
@@ -821,7 +841,14 @@ function drawSpring(g) {
   for (let i = 4; i < pts.length; i += 4) {
     if (s.endR !== "none" && i === N) continue;
     const [mx, my] = pts[i];
-    if (long && DISP.rails) {
+    if (free) {
+      if (DISP.rails) {   /* faint home position of each marked coil */
+        const ex = X(g, i / N);
+        ctx.strokeStyle = "rgba(238,241,232,.3)"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(ex - 4, g.midY); ctx.lineTo(ex + 4, g.midY); ctx.moveTo(ex, g.midY - 4); ctx.lineTo(ex, g.midY + 4); ctx.stroke();
+      }
+      dot(mx, my, 3.4, "rgba(238,241,232,.95)");
+    } else if (long && DISP.rails) {
       const ex = X(g, i / N);
       ctx.strokeStyle = "rgba(238,241,232,.35)"; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(ex, g.midY - R - 10); ctx.lineTo(ex, g.midY - R - 3); ctx.stroke();
@@ -832,19 +859,31 @@ function drawSpring(g) {
   if (s.endL === "none") fadeEdge("L");
   const man = s.mode === "manual";
   if (s.endL !== "none") {
-    if (long) handle(g, pts[0][0] - 14, g.midY, { side: "L", manual: man, active: s.endL === "src", horiz: true, restX: g.x0 - 14 });
+    if (free) handle(g, pts[0][0] - 14, pts[0][1], { side: "L", manual: man, active: s.endL === "src", free: true, restX: g.x0 - 14 });
+    else if (long) handle(g, pts[0][0] - 14, g.midY, { side: "L", manual: man, active: s.endL === "src", horiz: true, restX: g.x0 - 14 });
     else handle(g, g.x0 - 14, pts[0][1], { side: "L", manual: man, active: s.endL === "src" });
   }
   if (s.endR !== "none") {
     const [ex, ey] = pts[N];
-    if (long) handle(g, ex + 14, g.midY, { side: "R", manual: man, active: s.endR === "src", horiz: true, restX: X(g, 1) + 14 });
+    if (free) handle(g, ex + 14, ey, { side: "R", manual: man, active: s.endR === "src", free: true, restX: X(g, 1) + 14 });
+    else if (long) handle(g, ex + 14, g.midY, { side: "R", manual: man, active: s.endR === "src", horiz: true, restX: X(g, 1) + 14 });
     else handle(g, X(g, 1) + 14, ey, { side: "R", manual: man, active: s.endR === "src" });
   }
   const ir = Math.round(0.4 * N), [rx, ry] = pts[ir];
   if (DISP.track) dot(rx, ry, 7, CH.red, "rgba(36,55,46,.9)");
+  if (DISP.labels && free) {
+    text("上下的動作 → 橫波（彈簧上下彎曲）", 14, 22, { color: CH.white, size: 15, align: "left", bold: true });
+    text("前後的動作 → 縱波（線圈一疏一密）", 14, 46, { color: CH.white, size: 15, align: "left", bold: true });
+    text(s.type === 0 ? "這種彈簧的兩種波速度差不多" : "縱波傳得比橫波快", 14, 70, { color: CH.orange, size: 14, align: "left" });
+  }
   if (DISP.labels && long) longLabels(g, gradOf(U), g.midY - R - 22, g.midY + R + 58, s.endR === "none" ? 0.97 : 0.98);
   if (DISP.arrows) {
-    if (long) {
+    if (free) {
+      const ax = Math.max(16, 0.055 * g.L), ay = Math.max(22, 0.8 * g.ampPx);
+      arrow(rx - ax, ry, rx + ax, ry, { color: CH.red, both: true, width: 2, head: 7 });
+      arrow(rx, ry - ay, rx, ry + ay, { color: CH.red, both: true, width: 2, head: 7 });
+      text("粒子可以上下、也可以前後振動", rx + 10, ry - ay - 12, { color: CH.red, size: 14, align: "left" });
+    } else if (long) {
       const A = Math.max(14, (s.mode === "cont" ? Math.max(s.wL.amp, s.wR.amp) : s.amp * 0.055) * g.L);
       const cx = X(g, 0.4), ya = g.midY + R + 16;
       arrow(cx - A, ya, cx + A, ya, { color: CH.red, both: true, width: 2.2, head: 8 });
@@ -858,7 +897,7 @@ function drawSpring(g) {
     propArrows(g, g.bottom - (DISP.info ? 44 : 20), s);
   }
   if (DISP.info) ruler(g, 5);
-  if (g.graphOn) graphStrip(g, gradOf(U));
+  if (g.graphOn) graphStrip(g, gradOf(free ? Ux : U));
   return U;
 }
 
@@ -1161,8 +1200,12 @@ function updateInfo() {
     let factor;
     if (n === "rope") factor = "繩子拉得越緊、越輕，波速越快：v ∝ √(張力 ÷ 每公尺繩子的質量)。振幅和頻率都不會改變波速。";
     else if (s.dir === "trans") factor = "橫波：彈簧拉得越緊、越輕，波速越快。振幅和頻率都不會改變波速。";
+    else if (s.dir === "free") factor = "上下的動作形成橫波，前後的動作形成縱波，兩者同時在彈簧上傳播。彈簧的縱波一定不比橫波慢；越接近「完全放鬆時長度幾乎是零」的軟彈簧，兩者越接近。";
     else factor = "縱波：彈簧越硬、越輕，波速越快；拉長一些也會稍微變快。振幅和頻率都不會改變波速。";
-    html = `<div class="vals"><span><i>波速</i><b>${fmt(vr, 1)} 公尺/秒</b></span><span><i>頻率</i><b>${fmt(f)} 赫茲（每秒 ${fmt(f)} 次）</b></span><span><i>週期</i><b>${fmt(1 / f)} 秒</b></span><span><i>波長</i><b>${lam}</b></span></div>
+    const vtxt = n === "spring" && s.dir === "free"
+      ? `<span><i>橫波波速</i><b>${fmt(springSpeeds().t * len, 1)} 公尺/秒</b></span><span><i>縱波波速</i><b>${fmt(springSpeeds().l * len, 1)} 公尺/秒</b></span>`
+      : `<span><i>波速</i><b>${fmt(vr, 1)} 公尺/秒</b></span>`;
+    html = `<div class="vals">${vtxt}<span><i>頻率</i><b>${fmt(f)} 赫茲（每秒 ${fmt(f)} 次）</b></span><span><i>週期</i><b>${fmt(1 / f)} 秒</b></span><span><i>波長</i><b>${lam}</b></span></div>
       <div class="law">波速 = 頻率 × 波長（v = f × λ）</div><div class="note">${factor}</div>
       ${standing(s) ? '<div class="note">兩列頻率相同、方向相反的波重疊，會形成駐波：有些點幾乎不動（波節），有些點振動最大（波腹）。相鄰兩個波節相距半個波長。</div>' : ""}`;
   }
@@ -1203,7 +1246,7 @@ function setSeg(id, val) { $$(`#${id} button`).forEach(b => b.setAttribute("aria
 function setPlaying(p) { playing = p; $("#play").textContent = p ? "暫停" : "播放"; }
 function endNote(s) {
   const L = s.endL, R = s.endR, thing = cur === "rope" ? "繩子" : "彈簧";
-  const flip = cur === "spring" && s.dir === "long" ? "推拉的方向變相反" : "而且上下顛倒";
+  const flip = cur === "spring" && s.dir === "long" ? "推拉的方向變相反" : cur === "spring" && s.dir === "free" ? "上下顛倒，推拉方向也相反" : "而且上下顛倒";
   if (L !== "src" && R !== "src") return "兩端都沒有在振動，請把其中一端設為「波源」。";
   const parts = [];
   if (R === "held") parts.push(`右端固定：波傳到右端會反射回來，${flip}。`);
@@ -1229,7 +1272,7 @@ function hintText() {
     if (cur === "sound") return "在黑板上按住，左右拖曳，推動喇叭。";
     const n = activeSides(s).length, long = cur === "spring" && s.dir === "long";
     if (n === 0) return "請先在「兩端」把一端設為波源。";
-    const how = long ? "左右拖曳，推拉彈簧" : "上下拖曳";
+    const how = long ? "左右拖曳，推拉彈簧" : cur === "spring" && s.dir === "free" ? "往任何方向拖曳（上下、前後或斜斜地）" : "上下拖曳";
     return n === 2 ? `在黑板左半邊或右半邊按住並${how}，分別控制兩隻手（可以兩指同時）。` : `在黑板上按住並${how}，帶動波源。`;
   }
   if (cur === "sound") return "喇叭持續振動，推擠旁邊的粒子。";
@@ -1248,7 +1291,7 @@ function syncUI() {
   $("#freqLo").textContent = cur === "sound" ? "低音" : "慢";
   $("#freqHi").textContent = cur === "sound" ? "高音" : "快";
   if (cur === "rope") { setSeg("ropeType", s.type); $("#ropeT").value = s.tension; }
-  if (cur === "spring") { setSeg("springType", s.type); $("#springT").value = s.tension; setSeg("dir", s.dir); }
+  if (cur === "spring") { setSeg("springType", s.type); $("#springT").value = s.tension; setSeg("dir", s.dir); $("#dirFree").hidden = s.mode !== "manual"; }
   if (cur === "rope" || cur === "spring") {
     setSeg("endL", s.endL); setSeg("endR", s.endR);
     $("#invR").hidden = s.endR !== "src" || s.mode === "manual";
@@ -1264,7 +1307,7 @@ function syncUI() {
   $$("[data-opt]").forEach(b => {
     const key = b.dataset.opt;
     if (key in s) b.setAttribute("aria-pressed", String(s[key]));
-    if (key === "graph" && cur === "spring") b.hidden = s.dir !== "long";
+    if (key === "graph" && cur === "spring") b.hidden = s.dir === "trans";
     if ((key === "shade" || key === "trail") && cur === "sound") b.hidden = s.view !== "micro";
   });
   $$("[data-disp]").forEach(b => b.setAttribute("aria-pressed", String(DISP[b.dataset.disp])));
@@ -1296,8 +1339,15 @@ segHandler("mode", v => {
   const ws = cur === "water" ? [s.wA, s.wB] : [s.wL, s.wR];
   ws.forEach(w => { w.manual = w.out; w.pulses = []; if (v === "cont") w.amp = 0; });
   if (s.env) s.env.fill(0);
+  /* free shaking only exists with the hand; fall back to the last fixed direction */
+  if (cur === "spring" && v !== "manual" && s.dir === "free") { s.dir = s.lastDir; resetTab("spring", v === "cont"); }
 });
-segHandler("dir", v => { if (S.spring.dir !== v) { S.spring.dir = v; resetTab("spring", true); } });
+segHandler("dir", v => {
+  const s = S.spring;
+  if (s.dir === v) return;
+  if (v !== "free") s.lastDir = v;
+  s.dir = v; resetTab("spring", v !== "free" && s.mode === "cont");
+});
 segHandler("endL", v => setEnd(cur, "L", v));
 segHandler("endR", v => setEnd(cur, "R", v));
 segHandler("ropeType", v => { S.rope.type = +v; S.rope.env.fill(0); });
@@ -1353,6 +1403,11 @@ document.addEventListener("fullscreenchange", () => { $("#fs").textContent = doc
 const boardXY = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 function dragTarget(side, px, py) {
   const g = geo(), lim = manualLimit(cur), dr = dragT[side];
+  if (cur === "spring" && isFree()) {
+    dr.target = clamp((g.midY - py) / g.ampPx, -1.15, 1.15);
+    dr.tx = clamp(dr.startX + (px - dr.startPx) / g.L, -0.055, 0.055);
+    return;
+  }
   if (isLong(cur)) dr.target = clamp(dr.startVal + (px - dr.startPx) / g.L * (cur === "sound" ? MEDIA[S.sound.medium].strain / 0.65 : 1), -lim, lim);
   else dr.target = clamp((g.midY - py) / g.ampPx, -lim, lim);
 }
@@ -1382,6 +1437,7 @@ canvas.addEventListener("pointerdown", e => {
   const w = side === "L" ? s.wL : s.wR, dr = dragT[side];
   pointers.set(e.pointerId, side);
   dr.active = true; dr.startPx = px; dr.startVal = w.manual; dr.target = w.manual;
+  if (cur === "spring") { const xw = side === "L" ? s.xL : s.xR; dr.startX = xw.manual; dr.tx = xw.manual; }
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   dragTarget(side, px, py); if (!playing) setPlaying(true); e.preventDefault();
 });
