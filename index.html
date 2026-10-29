@@ -114,7 +114,7 @@
 <div class="wrap">
   <header>
     <h1>實體實驗輔助或虛擬實驗程式列表</h1>
-    <p>國中自然科虛擬實驗與實體實驗輔助工具：力學、壓力與浮力、光學、熱與電磁</p>
+    <p>國中自然科虛擬實驗與實體實驗輔助工具：力學、壓力與浮力、波動與聲音、光學、熱與電磁</p>
   </header>
 
   <div class="toolbar">
@@ -149,7 +149,7 @@
 const DEFAULT_REPO = "jjpong/lab";
 const BRANCH = "main";
 
-const CATEGORIES = ["力與運動", "壓力與浮力", "物質與原子", "光與色彩", "熱、電與磁", "實驗工具"];
+const CATEGORIES = ["力與運動", "壓力與浮力", "物質與原子", "波動與聲音", "光與色彩", "熱、電與磁", "實驗工具"];
 const NEW_CAT = "新加入";
 
 // 不要自動顯示的檔案（舊版本、測試檔等）
@@ -175,6 +175,9 @@ const PROGRAMS = [
   // ── 物質與原子 ──
   { cat: "物質與原子", title: "溶解與飽和模擬", desc: "觀察溶解、飽和，以及溫度與溶解度的關係。", files: ["dissolution2.html"] },
   { cat: "物質與原子", title: "Alpha 粒子散射實驗模擬", desc: "單原子模式的 α 粒子散射實驗。", files: ["alpha_scatter.html"] },
+
+  // ── 波動與聲音 ──
+  { cat: "波動與聲音", title: "波動實驗台", desc: "用繩子、彈簧、喇叭和水波槽觀察橫波、縱波、聲波、反射、駐波與水波干涉。", files: ["wave-lab.html"] },
 
   // ── 光與色彩 ──
   { cat: "光與色彩", title: "RGB 三原色光混合模擬器", desc: "調整紅綠藍三色光，觀察混色結果。", files: ["colorMixer.html"] },
