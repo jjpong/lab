@@ -11,35 +11,36 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
 /* Layout: one instrument column — readout + play on top, coarse slider, fine steps, presets, then the scope.
-   Palette: Pantone 2025 Mocha Mousse (#A37762) with cream, cocoa and a cool teal trace. */
+   Palette: Pantone 2005 Blue Turquoise (#53B0AE) with mist white, deep teal ink and a coral trace. */
 :root{
-  --bg:#efe8e0;
-  --panel:#f7f1ea;
-  --raised:#fffaf4;
-  --fg:#3d2a21;
-  --muted:#7c6455;
-  --line:#dccbbe;
-  --mocha:#a37762;
-  --mocha-deep:#8a5f4c;
+  --bg:#e4efee;
+  --panel:#f1f8f7;
+  --raised:#fbfefd;
+  --fg:#173a3c;
+  --muted:#4f6f70;
+  --line:#c4dbd9;
+  --mocha:#53b0ae;        /* Pantone 2005 Blue Turquoise 15-5217 */
+  --mocha-deep:#1f6f6d;
   --on-mocha:#ffffff;
-  --trace:#2f6f73;
-  --grid:rgba(61,42,33,.09);
-  --axis:rgba(61,42,33,.28);
-  --live:#c2543c;
+  --on-soft:#0f3433;
+  --trace:#cf5f3a;
+  --grid:rgba(23,58,60,.09);
+  --axis:rgba(23,58,60,.28);
+  --live:#c0392b;
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",system-ui,sans-serif;
   --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#16110e; --panel:#1f1915; --raised:#2a221d; --fg:#f1e6dc; --muted:#b39c8d; --line:#3a2e27;
-    --mocha:#c99a82; --mocha-deep:#c99a82; --on-mocha:#1f1915; --trace:#7fc1c0;
-    --grid:rgba(241,230,220,.08); --axis:rgba(241,230,220,.3); --live:#ef8a72; color-scheme:dark;
+    --bg:#0e1a1b; --panel:#142425; --raised:#1b2f30; --fg:#e2f2f1; --muted:#94b6b5; --line:#284142;
+    --mocha:#6cc6c3; --mocha-deep:#6cc6c3; --on-mocha:#0e1a1b; --on-soft:#0e1a1b; --trace:#f0936f;
+    --grid:rgba(226,242,241,.08); --axis:rgba(226,242,241,.3); --live:#ff8a70; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#16110e; --panel:#1f1915; --raised:#2a221d; --fg:#f1e6dc; --muted:#b39c8d; --line:#3a2e27;
-  --mocha:#c99a82; --mocha-deep:#c99a82; --on-mocha:#1f1915; --trace:#7fc1c0;
-  --grid:rgba(241,230,220,.08); --axis:rgba(241,230,220,.3); --live:#ef8a72; color-scheme:dark;
+  --bg:#0e1a1b; --panel:#142425; --raised:#1b2f30; --fg:#e2f2f1; --muted:#94b6b5; --line:#284142;
+    --mocha:#6cc6c3; --mocha-deep:#6cc6c3; --on-mocha:#0e1a1b; --on-soft:#0e1a1b; --trace:#f0936f;
+    --grid:rgba(226,242,241,.08); --axis:rgba(226,242,241,.3); --live:#ff8a70; color-scheme:dark;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -105,7 +106,7 @@ input[type=range]:focus-visible{outline:2px solid var(--mocha);outline-offset:4p
 .chips button{font-family:var(--f-num);font-size:.88rem;border:1px solid var(--line);background:var(--raised);color:var(--fg);
   border-radius:9px;padding:6px 11px;min-height:38px;cursor:pointer}
 .chips button:hover{border-color:var(--mocha)}
-.chips button[aria-pressed="true"]{background:var(--mocha);border-color:var(--mocha);color:var(--on-mocha);font-weight:600}
+.chips button[aria-pressed="true"]{background:var(--mocha);border-color:var(--mocha);color:var(--on-soft);font-weight:600}
 
 /* sound settings */
 .two{display:grid;grid-template-columns:1.3fr 1fr;gap:16px 24px;align-items:end}
@@ -113,7 +114,7 @@ input[type=range]:focus-visible{outline:2px solid var(--mocha);outline-offset:4p
 .vol output{font-family:var(--f-num);color:var(--mocha-deep);font-weight:600}
 .seg{display:flex;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:3px;margin-top:8px}
 .seg button{flex:1;white-space:nowrap;font:inherit;font-size:.9rem;border:0;background:transparent;color:var(--muted);border-radius:8px;min-height:38px;cursor:pointer;padding:4px 6px}
-.seg button[aria-pressed="true"]{background:var(--mocha);color:var(--on-mocha);font-weight:700}
+.seg button[aria-pressed="true"]{background:var(--mocha);color:var(--on-soft);font-weight:700}
 
 /* scope */
 .scopehead{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:10px}
