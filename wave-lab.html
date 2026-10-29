@@ -254,13 +254,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
     <div class="card">
       <h2>顯示</h2>
       <div class="togs">
-        <button type="button" class="tog" data-disp="track" aria-pressed="true" id="trackBtn">紅點追蹤</button>
-        <button type="button" class="tog" data-disp="rails" data-for="rope spring" aria-pressed="true">振動軌道</button>
-        <button type="button" class="tog" data-disp="arrows" aria-pressed="true">方向箭頭</button>
+        <button type="button" class="tog" data-disp="track" aria-pressed="false" id="trackBtn">紅點追蹤</button>
+        <button type="button" class="tog" data-disp="rails" data-for="rope spring" aria-pressed="false">振動軌道</button>
+        <button type="button" class="tog" data-disp="arrows" aria-pressed="false">方向箭頭</button>
         <button type="button" class="tog" data-disp="labels" aria-pressed="false">名稱標示</button>
         <button type="button" class="tog" data-disp="info" aria-pressed="false">數值與公式</button>
         <button type="button" class="tog" data-opt="graph" data-for="spring sound" aria-pressed="false">疏密曲線</button>
-        <button type="button" class="tog" data-opt="shade" data-for="sound" aria-pressed="true">疏密著色</button>
+        <button type="button" class="tog" data-opt="shade" data-for="sound" aria-pressed="false">疏密著色</button>
         <button type="button" class="tog" data-opt="trail" data-for="sound" aria-pressed="false">紅點軌跡</button>
       </div>
     </div>
@@ -336,11 +336,11 @@ const S = {
   rope: mk1D({ mode: "cont", amp: 0.55, freq: 0.8, type: 0, tension: 6 }),
   spring: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, type: 0, tension: 6, dir: "long", graph: false }),
   sound: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, view: "macro", medium: "air", thermal: 0.15,
-                shade: true, graph: false, trail: false, audio: false }),
+                shade: false, graph: false, trail: false, audio: false }),
   water: { wA: new Wave(), wB: new Wave(), phase: 0, D: 0, drops: [], mode: "cont", amp: 0.7, freq: 1.0,
            n: 2, sep: 0.2, depth: "deep", fx: 0.66, fy: 0.5, warm: false }
 };
-const DISP = { track: true, rails: true, arrows: true, labels: false, info: false };
+const DISP = { track: false, rails: false, arrows: false, labels: false, info: false };
 let cur = "rope", playing = true, slow = false;
 
 function speed(n) {
