@@ -230,6 +230,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
         <button type="button" class="tog" id="audio" aria-pressed="false">播放真實聲音</button>
       </div>
       <p class="small">畫面的振動已大幅放慢，聲音則是實際音高。</p>
+      <a class="small" id="toGen" href="f-generator.html" style="color:var(--accent);font-weight:700">用頻率產生器發出這個頻率 →</a>
     </div>
 
     <div class="card" data-for="water">
@@ -1166,6 +1167,7 @@ function updateInfo() {
       ${standing(s) ? '<div class="note">兩列頻率相同、方向相反的波重疊，會形成駐波：有些點幾乎不動（波節），有些點振動最大（波腹）。相鄰兩個波節相距半個波長。</div>' : ""}`;
   }
   if (html !== infoEl._last) { infoEl.innerHTML = html; infoEl._last = html; }
+  $("#toGen").href = "f-generator.html?f=" + Math.round(S.sound.freq * AUDIO_SCALE);
   $("#freqNum").textContent = n === "sound" ? `${Math.round(s.freq * AUDIO_SCALE)} Hz` : `${fmt(s.freq)} Hz`;
 }
 
@@ -1282,6 +1284,7 @@ function syncUI() {
 function switchTab(n) {
   cur = n; pointers.clear(); dragT.L.active = dragT.R.active = false; earHist.length = 0; earEnv = 0;
   warm(n); syncUI();
+  $("#toGen").href = "f-generator.html?f=" + Math.round(S.sound.freq * AUDIO_SCALE);
   try { localStorage.setItem("wavelab-tab", n); } catch (e) {}
   if (location.hash.slice(1) !== n) history.replaceState(null, "", "#" + n);
 }
@@ -1305,7 +1308,7 @@ segHandler("wn", v => { if (S.water.n !== +v) { S.water.n = +v; resetTab("water"
 segHandler("depth", v => { S.water.depth = v; });
 
 $("#amp").addEventListener("input", e => { S[cur].amp = +e.target.value; });
-$("#freq").addEventListener("input", e => { S[cur].freq = +e.target.value; if (S[cur].env) S[cur].env.fill(0); updateInfo(); });
+$("#freq").addEventListener("input", e => { S[cur].freq = +e.target.value; $("#toGen").href = "f-generator.html?f=" + Math.round(S.sound.freq * AUDIO_SCALE); if (S[cur].env) S[cur].env.fill(0); updateInfo(); });
 $("#ropeT").addEventListener("input", e => { S.rope.tension = +e.target.value; S.rope.env.fill(0); });
 $("#springT").addEventListener("input", e => { S.spring.tension = +e.target.value; S.spring.env.fill(0); });
 $("#thermal").addEventListener("input", e => { S.sound.thermal = +e.target.value; });
