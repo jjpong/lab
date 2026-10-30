@@ -54,7 +54,7 @@
                     <option value="flatLaw">1. 平面鏡反射定律 (Single Ray Law)</option>
                     <option value="concaveFocus">2. 凹面鏡平行光聚焦 (Concave Focus)</option>
                     <option value="convexDivergence">3. 凸面鏡平行光發散 (Convex Scatter)</option>
-                    <option value="multiReflection">4. 雙鏡多次反射 (Periscope / Corner Reflector)</option>
+                    <option value="multiReflection">4. 潛望鏡：雙鏡多次反射 (Periscope)</option>
                 </select>
             </div>
             
@@ -63,9 +63,6 @@
             </button>
             <button onclick="resetAll()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs transition flex items-center gap-1.5" title="重置">
                 <i class="fa-solid fa-rotate-right"></i> 重置實驗
-            </button>
-            <button onclick="toggleDataTable()" class="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold rounded-lg text-xs transition shadow-lg shadow-cyan-950 flex items-center gap-1.5">
-                <i class="fa-solid fa-table"></i> 數據紀錄表
             </button>
         </div>
     </header>
@@ -258,6 +255,8 @@
                 <p>• <b>移動物件</b>：直接在畫面上拖曳光源、鏡面中心或量角器。</p>
                 <p>• <b>旋轉光源</b>：拖曳光源發射口前端的<b>藍色控制環</b>。</p>
                 <p>• <b>調整鏡面</b>：拖曳鏡面兩端手把可同時改變角度與長度。</p>
+                <p>• <b>鏡子背面</b>：畫斜線的一側是背面，光照到會被擋住；把鏡子轉 180° 就能換面。</p>
+                <p>• <b>觸控螢幕</b>：單指拖曳物件，兩指縮放、移動畫面。</p>
             </div>
         </aside>
 
@@ -301,10 +300,6 @@
                         重置視角
                     </button>
                 </div>
-
-                <button onclick="toggleDataTable()" class="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-medium transition flex items-center gap-1.5 backdrop-blur">
-                    <i class="fa-solid fa-pen-to-square"></i> 開啟 / 填寫數據紀錄表
-                </button>
             </div>
 
             <!-- Bottom Left Info Bar -->
@@ -314,91 +309,6 @@
                 <span id="mouseCoordsText" class="font-mono">X: 0, Y: 0</span>
             </div>
         </main>
-    </div>
-
-    <!-- Data Table Modal -->
-    <div id="dataTableModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            
-            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-table-list text-cyan-400 text-lg"></i>
-                    <h3 class="font-bold text-slate-100">實驗數據紀錄表 (Experimental Data Log)</h3>
-                </div>
-                <button onclick="toggleDataTable()" class="text-slate-400 hover:text-white p-1 rounded-lg transition">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div>
-
-            <div class="p-6 overflow-y-auto flex-1">
-                <!-- Manual Data Entry Bar -->
-                <div class="mb-5 p-4 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
-                    <div class="font-semibold text-cyan-400 mb-2 flex items-center gap-1.5">
-                        <i class="fa-solid fa-plus-circle"></i> 手動輸入角度量測數據
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                        <div>
-                            <label class="block text-slate-400 mb-1">對應標示 / 鏡面</label>
-                            <select id="manualTargetSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
-                                <option value="平面鏡 (θi, θr)">平面鏡 (θi, θr)</option>
-                                <option value="凹面鏡 (θi, θr)">凹面鏡 (θi, θr)</option>
-                                <option value="凸面鏡 (θi, θr)">凸面鏡 (θi, θr)</option>
-                                <option value="多次反射 (θi1, θr1)">多次反射 (θi1, θr1)</option>
-                                <option value="多次反射 (θi2, θr2)">多次反射 (θi2, θr2)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-slate-400 mb-1">量測入射角 θi (°)</label>
-                            <input type="number" id="manualIncInput" placeholder="請用量角器量測" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-amber-300 focus:outline-none focus:border-cyan-500 font-mono">
-                        </div>
-                        <div>
-                            <label class="block text-slate-400 mb-1">量測反射角 θr (°)</label>
-                            <input type="number" id="manualRefInput" placeholder="請用量角器量測" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-emerald-300 focus:outline-none focus:border-cyan-500 font-mono">
-                        </div>
-                        <div>
-                            <button onclick="addManualLogRecord()" class="w-full py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-lg transition shadow-md flex items-center justify-center gap-1">
-                                <i class="fa-solid fa-check"></i> 新增此筆紀錄
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <table class="w-full text-left text-xs text-slate-300 border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider bg-slate-950/50">
-                            <th class="p-3">編號 #</th>
-                            <th class="p-3">鏡面 / 標記位置</th>
-                            <th class="p-3">量測入射角 θi</th>
-                            <th class="p-3">量測反射角 θr</th>
-                            <th class="p-3">角度差 |θi - θr|</th>
-                            <th class="p-3">量測結果判定</th>
-                            <th class="p-3 text-right">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dataTableBody" class="divide-y divide-slate-800/60 font-mono">
-                    </tbody>
-                </table>
-
-                <div id="emptyTableTip" class="text-center py-10 text-slate-500 text-sm">
-                    <i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-600"></i>
-                    尚無數據紀錄。請使用畫面上的<b>量角器</b>量測光線角度，並在上方填寫紀錄。
-                </div>
-            </div>
-
-            <div class="px-6 py-4 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between">
-                <button onclick="clearDataLogs()" class="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 rounded border border-rose-900/40 transition">
-                    <i class="fa-solid fa-trash me-1"></i> 清空紀錄
-                </button>
-                <div class="flex items-center gap-2">
-                    <button onclick="exportCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold rounded-lg text-xs transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-file-csv"></i> 匯出 CSV 檔
-                    </button>
-                    <button onclick="toggleDataTable()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs transition">
-                        關閉
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -429,7 +339,6 @@
                 radius: 110
             },
             selectedMirrorIndex: -1,
-            dataLogs: [],
             
             // Grid Snap & Annotation Drawing State
             snapToGrid: true,
@@ -576,6 +485,11 @@
 
         function resetAll() {
             state.light = { type: 'single', x: 180, y: 180, angle: 35, density: 5 };
+            state.protractor = { x: 450, y: 300, angle: 0, radius: 110 };
+            state.drawings = [];
+            state.currentDrawing = null;
+            setTool('select');
+            resetZoomPan();
             state.mirrors = [];
             state.selectedMirrorIndex = -1;
             document.getElementById('chkShowProtractor').checked = true;
@@ -608,48 +522,105 @@
             return null;
         }
 
+        // 曲面鏡的幾何：曲率中心 C、鏡面中點方向 center、半張角 half（鏡面長度 = 弦長）
+        function curveGeom(m) {
+            const rad = degToRad(m.angle);
+            const cSign = m.type === 'concave' ? 1 : -1;
+            const R = m.focalLength * 2;
+            const ux = Math.cos(rad + Math.PI / 2) * cSign;   // 由鏡面頂點指向曲率中心
+            const uy = Math.sin(rad + Math.PI / 2) * cSign;
+            const Cx = m.x + ux * R, Cy = m.y + uy * R;
+            const center = Math.atan2(m.y - Cy, m.x - Cx);
+            const half = Math.asin(Math.min(0.99, (m.length / 2) / R));
+            return { R, Cx, Cy, center, half, ux, uy, cSign };
+        }
+
+        // 鏡面兩端（手把位置）。平面鏡是線段兩端；曲面鏡是圓弧兩端
+        function mirrorEnds(m) {
+            const rad = degToRad(m.angle);
+            const cosA = Math.cos(rad), sinA = Math.sin(rad);
+            if (m.type === 'flat') {
+                const halfL = m.length / 2;
+                return [{ x: m.x - cosA * halfL, y: m.y - sinA * halfL }, { x: m.x + cosA * halfL, y: m.y + sinA * halfL }];
+            }
+            const g = curveGeom(m);
+            let a = { x: g.Cx + g.R * Math.cos(g.center - g.half), y: g.Cy + g.R * Math.sin(g.center - g.half) };
+            let b = { x: g.Cx + g.R * Math.cos(g.center + g.half), y: g.Cy + g.R * Math.sin(g.center + g.half) };
+            if ((b.x - a.x) * cosA + (b.y - a.y) * sinA < 0) [a, b] = [b, a];
+            return [a, b];
+        }
+
+        // 由兩端點反推鏡面的位置、角度與長度（拖曳手把時用）
+        function setMirrorFromEnds(m, p1, p2) {
+            const dx = p2.x - p1.x, dy = p2.y - p1.y;
+            const dist = Math.max(20, Math.hypot(dx, dy));
+            m.angle = normalizeAngle(radToDeg(Math.atan2(dy, dx)));
+            const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+            if (m.type === 'flat') {
+                m.length = Math.round(dist);
+                m.x = midX; m.y = midY;
+                return;
+            }
+            const R = m.focalLength * 2;
+            const halfL = Math.min(dist / 2, R * 0.99);
+            m.length = Math.round(halfL * 2);
+            const g = curveGeom(m);
+            const sag = R - Math.sqrt(R * R - halfL * halfL);   // 弦的中點到鏡面頂點的距離
+            m.x = midX - g.ux * sag;
+            m.y = midY - g.uy * sag;
+        }
+
         function intersectRayArc(ray, mirror) {
-            const R = mirror.focalLength * 2;
-            const mirrorRad = degToRad(mirror.angle);
-            const normalOrientRad = mirrorRad + Math.PI / 2;
-            const cSign = mirror.type === 'concave' ? 1 : -1;
-
-            const Cx = mirror.x + Math.cos(normalOrientRad) * R * cSign;
-            const Cy = mirror.y + Math.sin(normalOrientRad) * R * cSign;
-
-            const ox = ray.x - Cx;
-            const oy = ray.y - Cy;
-
+            const g = curveGeom(mirror);
+            const ox = ray.x - g.Cx, oy = ray.y - g.Cy;
             const a = ray.dx * ray.dx + ray.dy * ray.dy;
             const b = 2 * (ox * ray.dx + oy * ray.dy);
-            const c = ox * ox + oy * oy - R * R;
-
+            const c = ox * ox + oy * oy - g.R * g.R;
             const disc = b * b - 4 * a * c;
             if (disc < 0) return null;
-
             const sqrtD = Math.sqrt(disc);
-            const t1 = (-b - sqrtD) / (2 * a);
-            const t2 = (-b + sqrtD) / (2 * a);
-
-            const validTs = [t1, t2].filter(t => t > 0.001).sort((a, b) => a - b);
-
-            const centerAngle = Math.atan2(mirror.y - Cy, mirror.x - Cx);
-            const halfAngle = Math.asin(Math.min(1, (mirror.length / 2) / R));
-
-            for (let t of validTs) {
-                const hitX = ray.x + ray.dx * t;
-                const hitY = ray.y + ray.dy * t;
-                const hitAngle = Math.atan2(hitY - Cy, hitX - Cx);
-
-                let diff = hitAngle - centerAngle;
+            const ts = [(-b - sqrtD) / (2 * a), (-b + sqrtD) / (2 * a)].filter(t => t > 0.001).sort((p, q) => p - q);
+            for (const t of ts) {
+                const hitX = ray.x + ray.dx * t, hitY = ray.y + ray.dy * t;
+                let diff = Math.atan2(hitY - g.Cy, hitX - g.Cx) - g.center;
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
-
-                if (Math.abs(diff) <= halfAngle) {
-                    return { t, hitX, hitY, Cx, Cy, R };
-                }
+                if (Math.abs(diff) <= g.half) return { t, hitX, hitY, Cx: g.Cx, Cy: g.Cy, R: g.R };
             }
             return null;
+        }
+
+        function makeHit(ray, t, x, y, nx, ny, mirror) {
+            const dot = ray.dx * nx + ray.dy * ny;   // 法線朝向入射光那一側，所以 dot < 0
+            return {
+                t, x, y,
+                normal: { x: nx, y: ny },
+                reflectDir: { x: ray.dx - 2 * dot * nx, y: ray.dy - 2 * dot * ny },
+                incidentAngle: radToDeg(Math.acos(Math.max(-1, Math.min(1, -dot)))),
+                mirror,
+                incomingDir: { dx: ray.dx, dy: ray.dy }
+            };
+        }
+
+        // 光線打到鏡子：正面反射，背面（畫斜線的那一面）被擋住
+        function hitMirror(ray, mirror) {
+            if (mirror.type === 'flat') {
+                const [p1, p2] = mirrorEnds(mirror);
+                const res = intersectRaySegment(ray, p1, p2);
+                if (!res) return null;
+                const rad = degToRad(mirror.angle);
+                const nx = -Math.sin(rad), ny = Math.cos(rad);   // 正面的法線方向
+                if (ray.dx * nx + ray.dy * ny >= 0) return { t: res.t, x: res.hitX, y: res.hitY, absorbed: true };
+                return makeHit(ray, res.t, res.hitX, res.hitY, nx, ny, mirror);
+            }
+            const res = intersectRayArc(ray, mirror);
+            if (!res) return null;
+            const rx = (res.hitX - res.Cx) / res.R, ry = (res.hitY - res.Cy) / res.R;   // 由曲率中心向外
+            const fromInside = ray.dx * rx + ray.dy * ry > 0;
+            const front = mirror.type === 'concave' ? fromInside : !fromInside;
+            if (!front) return { t: res.t, x: res.hitX, y: res.hitY, absorbed: true };
+            const s = mirror.type === 'concave' ? -1 : 1;   // 凹面鏡法線朝內、凸面鏡法線朝外
+            return makeHit(ray, res.t, res.hitX, res.hitY, rx * s, ry * s, mirror);
         }
 
         function calculateRays() {
@@ -666,146 +637,51 @@
                 const perpX = -dirY;
                 const perpY = dirX;
                 const startOffset = -((count - 1) * spacing) / 2;
-
                 for (let i = 0; i < count; i++) {
                     const offset = startOffset + i * spacing;
-                    originRays.push({
-                        x: state.light.x + perpX * offset,
-                        y: state.light.y + perpY * offset,
-                        dx: dirX,
-                        dy: dirY
-                    });
+                    originRays.push({ x: state.light.x + perpX * offset, y: state.light.y + perpY * offset, dx: dirX, dy: dirY });
                 }
             } else if (state.light.type === 'point') {
                 const count = state.light.density * 2;
                 const spreadAngle = 100;
                 const startAngle = state.light.angle - spreadAngle / 2;
                 const step = spreadAngle / (count - 1);
-
                 for (let i = 0; i < count; i++) {
                     const a = degToRad(startAngle + i * step);
-                    originRays.push({
-                        x: state.light.x,
-                        y: state.light.y,
-                        dx: Math.cos(a),
-                        dy: Math.sin(a)
-                    });
+                    originRays.push({ x: state.light.x, y: state.light.y, dx: Math.cos(a), dy: Math.sin(a) });
                 }
             }
 
             const maxBounces = 6;
             const rayPaths = [];
             const intersectionData = [];
+            // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°
+            const trackedRay = originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0;
 
-            originRays.forEach(ray => {
-                let currentRay = ray;
-                const path = [{ x: currentRay.x, y: currentRay.y }];
-
+            originRays.forEach((ray, rayIdx) => {
+                let cur = ray;
+                const path = [{ x: cur.x, y: cur.y }];
                 for (let bounce = 0; bounce < maxBounces; bounce++) {
-                    let closestHit = null;
-                    let closestT = Infinity;
-
+                    let hit = null;
                     state.mirrors.forEach(mirror => {
-                        const mRad = degToRad(mirror.angle);
-                        const cosA = Math.cos(mRad);
-                        const sinA = Math.sin(mRad);
-                        const halfL = mirror.length / 2;
-
-                        if (mirror.type === 'flat') {
-                            const p1 = { x: mirror.x - cosA * halfL, y: mirror.y - sinA * halfL };
-                            const p2 = { x: mirror.x + cosA * halfL, y: mirror.y + sinA * halfL };
-                            const res = intersectRaySegment(currentRay, p1, p2);
-
-                            if (res && res.t < closestT) {
-                                closestT = res.t;
-
-                                let nx = -sinA;
-                                let ny = cosA;
-                                if (currentRay.dx * nx + currentRay.dy * ny > 0) {
-                                    nx = -nx;
-                                    ny = -ny;
-                                }
-
-                                const dot = currentRay.dx * nx + currentRay.dy * ny;
-                                const rx = currentRay.dx - 2 * dot * nx;
-                                const ry = currentRay.dy - 2 * dot * ny;
-
-                                const incAngle = radToDeg(Math.acos(Math.max(-1, Math.min(1, -dot))));
-
-                                closestHit = {
-                                    t: res.t,
-                                    x: res.hitX,
-                                    y: res.hitY,
-                                    normal: { x: nx, y: ny },
-                                    reflectDir: { x: rx, y: ry },
-                                    incidentAngle: incAngle,
-                                    reflectedAngle: incAngle,
-                                    mirror: mirror,
-                                    incomingDir: { dx: currentRay.dx, dy: currentRay.dy }
-                                };
-                            }
-                        } else {
-                            const res = intersectRayArc(currentRay, mirror);
-                            if (res && res.t < closestT) {
-                                closestT = res.t;
-
-                                let nx = (res.hitX - res.Cx) / res.R;
-                                let ny = (res.hitY - res.Cy) / res.R;
-
-                                if (mirror.type === 'concave') {
-                                    nx = -nx;
-                                    ny = -ny;
-                                }
-
-                                if (currentRay.dx * nx + currentRay.dy * ny > 0) {
-                                    nx = -nx;
-                                    ny = -ny;
-                                }
-
-                                const dot = currentRay.dx * nx + currentRay.dy * ny;
-                                const rx = currentRay.dx - 2 * dot * nx;
-                                const ry = currentRay.dy - 2 * dot * ny;
-
-                                const incAngle = radToDeg(Math.acos(Math.max(-1, Math.min(1, -dot))));
-
-                                closestHit = {
-                                    t: res.t,
-                                    x: res.hitX,
-                                    y: res.hitY,
-                                    normal: { x: nx, y: ny },
-                                    reflectDir: { x: rx, y: ry },
-                                    incidentAngle: incAngle,
-                                    reflectedAngle: incAngle,
-                                    mirror: mirror,
-                                    incomingDir: { dx: currentRay.dx, dy: currentRay.dy }
-                                };
-                            }
-                        }
+                        const h = hitMirror(cur, mirror);
+                        if (h && (!hit || h.t < hit.t)) hit = h;
                     });
-
-                    if (closestHit) {
-                        path.push({ x: closestHit.x, y: closestHit.y });
-                        intersectionData.push(closestHit);
-
-                        currentRay = {
-                            x: closestHit.x,
-                            y: closestHit.y,
-                            dx: closestHit.reflectDir.x,
-                            dy: closestHit.reflectDir.y
-                        };
-                    } else {
-                        const farDist = 2000;
-                        path.push({
-                            x: currentRay.x + currentRay.dx * farDist,
-                            y: currentRay.y + currentRay.dy * farDist
-                        });
+                    if (!hit) {
+                        const farDist = 4000;
+                        path.push({ x: cur.x + cur.dx * farDist, y: cur.y + cur.dy * farDist });
                         break;
                     }
+                    path.push({ x: hit.x, y: hit.y });
+                    if (hit.absorbed) break;
+                    hit.tracked = rayIdx === trackedRay;
+                    intersectionData.push(hit);
+                    cur = { x: hit.x, y: hit.y, dx: hit.reflectDir.x, dy: hit.reflectDir.y };
                 }
-                rayPaths.push(path);
+                rayPaths.push({ points: path, tracked: rayIdx === trackedRay });
             });
 
-            return { rayPaths, intersectionData };
+            return { rayPaths, intersectionData, multi: originRays.length > 1 };
         }
 
         function draw() {
@@ -825,8 +701,8 @@
             drawAnnotations();
 
             // 3. Rays
-            const { rayPaths, intersectionData } = calculateRays();
-            drawRays(rayPaths);
+            const { rayPaths, intersectionData, multi } = calculateRays();
+            drawRays(rayPaths, multi);
 
             // 3.5 Virtual Ray Extensions (Backward dashed lines)
             if (document.getElementById('chkShowExtensions')?.checked) {
@@ -882,26 +758,23 @@
             ctx.restore();
         }
 
-        function drawRays(rayPaths) {
+        function drawRays(rayPaths, multi) {
             ctx.save();
             ctx.strokeStyle = '#00f0ff';
-            ctx.lineWidth = 2.5;
             ctx.shadowColor = '#00f0ff';
             ctx.shadowBlur = 8;
 
-            rayPaths.forEach(path => {
+            rayPaths.forEach(rp => {
+                const path = rp.points;
                 if (path.length < 2) return;
+                // 多條光線時，標示角度的那一條畫粗一點
+                ctx.lineWidth = multi ? (rp.tracked ? 3.5 : 1.8) : 2.5;
                 ctx.beginPath();
                 ctx.moveTo(path[0].x, path[0].y);
-                for (let i = 1; i < path.length; i++) {
-                    ctx.lineTo(path[i].x, path[i].y);
-                }
+                for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
                 ctx.stroke();
-
                 for (let i = 0; i < path.length - 1; i++) {
-                    const p1 = path[i];
-                    const p2 = path[i + 1];
-                    drawRayArrow(p1.x, p1.y, p2.x, p2.y, '#00f0ff');
+                    drawRayArrow(path[i].x, path[i].y, path[i + 1].x, path[i + 1].y, '#00f0ff');
                 }
             });
             ctx.restore();
@@ -979,78 +852,73 @@
 
         function drawMirror(mirror, isSelected) {
             ctx.save();
-            const rad = degToRad(mirror.angle);
-            const cosA = Math.cos(rad);
-            const sinA = Math.sin(rad);
-            const halfL = mirror.length / 2;
+            const [e1, e2] = mirrorEnds(mirror);
+            const back = '#475569';
 
             if (mirror.type === 'flat') {
-                const x1 = mirror.x - cosA * halfL;
-                const y1 = mirror.y - sinA * halfL;
-                const x2 = mirror.x + cosA * halfL;
-                const y2 = mirror.y + sinA * halfL;
-
-                ctx.strokeStyle = '#475569';
+                const rad = degToRad(mirror.angle);
+                const cosA = Math.cos(rad), sinA = Math.sin(rad);
+                const halfL = mirror.length / 2;
+                // 斜線畫在背面（正面法線的反方向）
+                ctx.strokeStyle = back;
                 ctx.lineWidth = 1.5;
-                const nx = -sinA * 8;
-                const ny = cosA * 8;
+                const bx = Math.sin(rad) * 8, by = -Math.cos(rad) * 8;
                 for (let i = -halfL; i <= halfL; i += 12) {
-                    const px = mirror.x + cosA * i;
-                    const py = mirror.y + sinA * i;
+                    const px = mirror.x + cosA * i, py = mirror.y + sinA * i;
                     ctx.beginPath();
                     ctx.moveTo(px, py);
-                    ctx.lineTo(px + nx, py + ny);
+                    ctx.lineTo(px + bx - cosA * 5, py + by - sinA * 5);
                     ctx.stroke();
                 }
-
                 ctx.strokeStyle = isSelected ? '#38bdf8' : '#cbd5e1';
                 ctx.lineWidth = isSelected ? 6 : 4;
                 ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
+                ctx.moveTo(e1.x, e1.y);
+                ctx.lineTo(e2.x, e2.y);
                 ctx.stroke();
-
-                drawHandle(x1, y1, isSelected);
-                drawHandle(x2, y2, isSelected);
-            } else if (mirror.type === 'concave' || mirror.type === 'convex') {
-                const R = mirror.focalLength * 2;
-                const normalOrientRad = rad + Math.PI / 2;
-                const cSign = mirror.type === 'concave' ? 1 : -1;
-
-                const Cx = mirror.x + Math.cos(normalOrientRad) * R * cSign;
-                const Cy = mirror.y + Math.sin(normalOrientRad) * R * cSign;
-
-                const startAngle = Math.atan2(mirror.y - sinA * halfL - Cy, mirror.x - cosA * halfL - Cx);
-                const endAngle = Math.atan2(mirror.y + sinA * halfL - Cy, mirror.x + cosA * halfL - Cx);
-
+            } else {
+                const g = curveGeom(mirror);
+                const a0 = g.center - g.half, a1 = g.center + g.half;
+                // 背面斜線：凹面鏡在外側，凸面鏡在內側
+                const out = mirror.type === 'concave' ? 1 : -1;
+                ctx.strokeStyle = back;
+                ctx.lineWidth = 1.5;
+                const step = 12 / g.R;
+                for (let a = a0; a <= a1 + 1e-9; a += step) {
+                    const px = g.Cx + g.R * Math.cos(a), py = g.Cy + g.R * Math.sin(a);
+                    const tx = -Math.sin(a), ty = Math.cos(a);
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(px + Math.cos(a) * 8 * out - tx * 5, py + Math.sin(a) * 8 * out - ty * 5);
+                    ctx.stroke();
+                }
                 ctx.strokeStyle = isSelected ? '#38bdf8' : (mirror.type === 'concave' ? '#f59e0b' : '#c084fc');
                 ctx.lineWidth = isSelected ? 6 : 4;
                 ctx.beginPath();
-                ctx.arc(Cx, Cy, R, startAngle, endAngle, false);
+                ctx.arc(g.Cx, g.Cy, g.R, a0, a1, false);   // 永遠畫短弧
                 ctx.stroke();
 
                 if (document.getElementById('chkShowFocal').checked) {
-                    const Fx = mirror.x + Math.cos(normalOrientRad) * mirror.focalLength * cSign;
-                    const Fy = mirror.y + Math.sin(normalOrientRad) * mirror.focalLength * cSign;
+                    const Fx = mirror.x + g.ux * mirror.focalLength;
+                    const Fy = mirror.y + g.uy * mirror.focalLength;
+                    ctx.strokeStyle = '#334155';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.moveTo(g.Cx, g.Cy); ctx.lineTo(mirror.x, mirror.y); ctx.stroke();
+                    ctx.setLineDash([]);
 
+                    ctx.font = 'bold 11px monospace';
                     ctx.fillStyle = '#f59e0b';
                     ctx.beginPath(); ctx.arc(Fx, Fy, 5, 0, Math.PI * 2); ctx.fill();
-                    ctx.font = 'bold 11px monospace';
                     ctx.fillText('F', Fx + 8, Fy + 4);
-
                     ctx.fillStyle = '#a855f7';
-                    ctx.beginPath(); ctx.arc(Cx, Cy, 5, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillText('C', Cx + 8, Cy + 4);
-
-                    ctx.strokeStyle = '#334155';
-                    ctx.setLineDash([4, 4]);
-                    ctx.beginPath(); ctx.moveTo(Cx, Cy); ctx.lineTo(mirror.x, mirror.y); ctx.stroke();
-                    ctx.setLineDash([]);
+                    ctx.beginPath(); ctx.arc(g.Cx, g.Cy, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillText('C', g.Cx + 8, g.Cy + 4);
                 }
-
-                drawHandle(mirror.x - cosA * halfL, mirror.y - sinA * halfL, isSelected);
-                drawHandle(mirror.x + cosA * halfL, mirror.y + sinA * halfL, isSelected);
             }
+
+            drawHandle(e1.x, e1.y, isSelected);
+            drawHandle(e2.x, e2.y, isSelected);
 
             ctx.fillStyle = isSelected ? '#38bdf8' : '#00f0ff';
             ctx.beginPath(); ctx.arc(mirror.x, mirror.y, 6, 0, Math.PI * 2); ctx.fill();
@@ -1066,68 +934,66 @@
             ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         }
 
+        // 兩個方向之間的有號夾角（-π ~ π），讓角度弧線永遠畫小於 180° 的那一邊
+        function angleBetween(from, to) {
+            let d = to - from;
+            while (d > Math.PI) d -= Math.PI * 2;
+            while (d < -Math.PI) d += Math.PI * 2;
+            return d;
+        }
+
         function drawIntersectionHelpers(data) {
             if (!data || data.length === 0) return;
 
             const showNormals = document.getElementById('chkShowNormals').checked;
             const showAngles = document.getElementById('chkShowAngles').checked;
+            const shown = data.filter(h => h.tracked);
+            const numbered = shown.length > 1;
 
-            data.forEach((hit, idx) => {
-                if (idx > 5) return;
-
+            shown.forEach((hit, k) => {
                 const { x, y, normal, incomingDir, reflectDir } = hit;
-
+                const nA = Math.atan2(normal.y, normal.x);
+                const dI = angleBetween(nA, Math.atan2(-incomingDir.dy, -incomingDir.dx));
+                const dR = angleBetween(nA, Math.atan2(reflectDir.y, reflectDir.x));
+                // 角度越小，兩個標籤越靠近，所以把標籤推遠一點以免重疊
+                const labelDist = Math.min(150, Math.max(58, 26 / Math.max(Math.abs(dI), 0.01)));
                 ctx.save();
 
                 if (showNormals) {
                     ctx.strokeStyle = '#c084fc';
                     ctx.lineWidth = 1.5;
                     ctx.setLineDash([4, 4]);
-
-                    const normalLen = 65;
+                    const normalLen = Math.max(65, labelDist + 28);
                     ctx.beginPath();
                     ctx.moveTo(x - normal.x * 20, y - normal.y * 20);
                     ctx.lineTo(x + normal.x * normalLen, y + normal.y * normalLen);
                     ctx.stroke();
                     ctx.setLineDash([]);
-
                     ctx.fillStyle = '#c084fc';
                     ctx.font = 'bold 11px sans-serif';
-                    ctx.fillText('N (法線)', x + normal.x * (normalLen + 8), y + normal.y * (normalLen + 8));
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('N (法線)', x + normal.x * (normalLen + 16), y + normal.y * (normalLen + 16));
                 }
 
                 if (showAngles) {
-                    const normalAng = Math.atan2(normal.y, normal.x);
-                    const incAng = Math.atan2(-incomingDir.dy, -incomingDir.dx);
-                    const refAng = Math.atan2(reflectDir.dy, reflectDir.x);
-
                     const arcRadius = 35;
                     ctx.lineWidth = 1.5;
 
                     ctx.strokeStyle = '#fbbf24';
                     ctx.beginPath();
-                    ctx.arc(x, y, arcRadius, Math.min(normalAng, incAng), Math.max(normalAng, incAng));
+                    ctx.arc(x, y, arcRadius, nA, nA + dI, dI < 0);
                     ctx.stroke();
 
                     ctx.strokeStyle = '#34d399';
                     ctx.beginPath();
-                    ctx.arc(x, y, arcRadius, Math.min(normalAng, refAng), Math.max(normalAng, refAng));
+                    ctx.arc(x, y, arcRadius, nA, nA + dR, dR < 0);
                     ctx.stroke();
 
-                    const incBisector = (normalAng + incAng) / 2;
-                    const refBisector = (normalAng + refAng) / 2;
-
-                    const labelDist = 55;
-                    const incLabelX = x + Math.cos(incBisector) * labelDist;
-                    const incLabelY = y + Math.sin(incBisector) * labelDist;
-
-                    const refLabelX = x + Math.cos(refBisector) * labelDist;
-                    const refLabelY = y + Math.sin(refBisector) * labelDist;
-
-                    // Display symbol code ONLY (no numeric values, so students measure using protractor)
-                    const labelSuffix = data.length > 1 ? `_${idx + 1}` : '';
-                    drawPillBadge(`θi${labelSuffix}`, incLabelX, incLabelY, '#fbbf24');
-                    drawPillBadge(`θr${labelSuffix}`, refLabelX, refLabelY, '#34d399');
+                    // 只顯示代號，不顯示數值，讓學生自己用量角器量
+                    const suffix = numbered ? `_${k + 1}` : '';
+                    drawPillBadge(`θi${suffix}`, x + Math.cos(nA + dI / 2) * labelDist, y + Math.sin(nA + dI / 2) * labelDist, '#fbbf24');
+                    drawPillBadge(`θr${suffix}`, x + Math.cos(nA + dR / 2) * labelDist, y + Math.sin(nA + dR / 2) * labelDist, '#34d399');
                 }
 
                 ctx.restore();
@@ -1274,8 +1140,31 @@
             setZoom(state.zoom * zoomFactor, pos.screenX, pos.screenY);
         }, { passive: false });
 
-        canvas.addEventListener('mousedown', e => {
+        // 觸控：兩指縮放與移動畫面
+        const activeTouches = new Map();
+        let pinch = null;
+        function startPinch() {
+            const [a, b] = [...activeTouches.values()];
+            pinch = {
+                dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+                mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+                zoom: state.zoom,
+                pan: { x: state.pan.x, y: state.pan.y }
+            };
+            state.draggedObject = null;
+            state.dragMirrorIdx = -1;
+            state.currentDrawing = null;
+            state.isPanning = false;
+        }
+
+        canvas.addEventListener('pointerdown', e => {
             const pos = getMousePos(e);
+            try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+            if (e.pointerType === 'touch') {
+                activeTouches.set(e.pointerId, { x: pos.screenX, y: pos.screenY });
+                if (activeTouches.size >= 2) { startPinch(); draw(); return; }
+            }
+            const hr = (e.pointerType === 'touch' ? 28 : 16) / state.zoom;   // 觸控時手把的判定範圍放大
 
             // Middle Click or Space + Left Click triggers Canvas Panning
             if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
@@ -1316,13 +1205,13 @@
             const lightRad = degToRad(state.light.angle);
             const tipX = state.light.x + Math.cos(lightRad) * 28;
             const tipY = state.light.y + Math.sin(lightRad) * 28;
-            if (Math.hypot(pos.x - tipX, pos.y - tipY) < 16 / state.zoom) {
+            if (Math.hypot(pos.x - tipX, pos.y - tipY) < hr) {
                 state.draggedObject = 'light-rot';
                 return;
             }
 
             // 2. Light Emitter Body Check
-            if (Math.hypot(pos.x - state.light.x, pos.y - state.light.y) < 22 / state.zoom) {
+            if (Math.hypot(pos.x - state.light.x, pos.y - state.light.y) < Math.max(22 / state.zoom, hr)) {
                 state.draggedObject = 'light-body';
                 state.dragOffset = { x: pos.x - state.light.x, y: pos.y - state.light.y };
                 return;
@@ -1333,7 +1222,7 @@
                 const p = state.protractor;
                 const protRotX = p.x + Math.sin(degToRad(p.angle)) * (p.radius + 12);
                 const protRotY = p.y - Math.cos(degToRad(p.angle)) * (p.radius + 12);
-                if (Math.hypot(pos.x - protRotX, pos.y - protRotY) < 16 / state.zoom) {
+                if (Math.hypot(pos.x - protRotX, pos.y - protRotY) < hr) {
                     state.draggedObject = 'protractor-rot';
                     return;
                 }
@@ -1347,13 +1236,9 @@
             // 4. Mirrors Drag / Rotate / Resize Handles
             for (let i = state.mirrors.length - 1; i >= 0; i--) {
                 const m = state.mirrors[i];
-                const rad = degToRad(m.angle);
-                const halfL = m.length / 2;
+                const [h1, h2] = mirrorEnds(m);
 
-                const h1 = { x: m.x - Math.cos(rad) * halfL, y: m.y - Math.sin(rad) * halfL };
-                const h2 = { x: m.x + Math.cos(rad) * halfL, y: m.y + Math.sin(rad) * halfL };
-
-                if (Math.hypot(pos.x - h1.x, pos.y - h1.y) < 16 / state.zoom) {
+                if (Math.hypot(pos.x - h1.x, pos.y - h1.y) < hr) {
                     state.draggedObject = 'mirror-h1';
                     state.dragMirrorIdx = i;
                     state.dragAnchor = { x: h2.x, y: h2.y };
@@ -1361,7 +1246,7 @@
                     updateInspectorUI();
                     return;
                 }
-                if (Math.hypot(pos.x - h2.x, pos.y - h2.y) < 16 / state.zoom) {
+                if (Math.hypot(pos.x - h2.x, pos.y - h2.y) < hr) {
                     state.draggedObject = 'mirror-h2';
                     state.dragMirrorIdx = i;
                     state.dragAnchor = { x: h1.x, y: h1.y };
@@ -1369,7 +1254,7 @@
                     updateInspectorUI();
                     return;
                 }
-                if (Math.hypot(pos.x - m.x, pos.y - m.y) < 24 / state.zoom) {
+                if (Math.hypot(pos.x - m.x, pos.y - m.y) < Math.max(24 / state.zoom, hr)) {
                     state.draggedObject = 'mirror-center';
                     state.dragMirrorIdx = i;
                     state.selectedMirrorIndex = i;
@@ -1384,8 +1269,27 @@
             draw();
         });
 
-        canvas.addEventListener('mousemove', e => {
+        canvas.addEventListener('pointermove', e => {
             const pos = getMousePos(e);
+            if (e.pointerType === 'touch' && activeTouches.has(e.pointerId)) {
+                activeTouches.set(e.pointerId, { x: pos.screenX, y: pos.screenY });
+                if (pinch) {
+                    if (activeTouches.size >= 2) {
+                        const [a, b] = [...activeTouches.values()];
+                        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+                        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+                        const z = Math.min(Math.max(0.3, pinch.zoom * dist / pinch.dist), 3.0);
+                        const wx = (pinch.mid.x - pinch.pan.x) / pinch.zoom;
+                        const wy = (pinch.mid.y - pinch.pan.y) / pinch.zoom;
+                        state.zoom = z;
+                        state.pan.x = mid.x - wx * z;
+                        state.pan.y = mid.y - wy * z;
+                        updateZoomUI();
+                        draw();
+                    }
+                    return;
+                }
+            }
             document.getElementById('mouseCoordsText').innerText = `X: ${Math.round(pos.x)}, Y: ${Math.round(pos.y)}`;
 
             // Handle View Panning
@@ -1441,28 +1345,22 @@
                 const m = state.mirrors[state.dragMirrorIdx];
                 const currentPos = state.snapToGrid ? getSnapPos(pos.x, pos.y) : pos;
                 const anchor = state.dragAnchor;
-
-                let dx, dy;
-                if (state.draggedObject === 'mirror-h1') {
-                    dx = anchor.x - currentPos.x;
-                    dy = anchor.y - currentPos.y;
-                } else {
-                    dx = currentPos.x - anchor.x;
-                    dy = currentPos.y - anchor.y;
-                }
-
-                const dist = Math.max(20, Math.hypot(dx, dy));
-                m.length = Math.round(dist);
-                m.x = (anchor.x + currentPos.x) / 2;
-                m.y = (anchor.y + currentPos.y) / 2;
-                m.angle = normalizeAngle(radToDeg(Math.atan2(dy, dx)));
+                if (state.draggedObject === 'mirror-h1') setMirrorFromEnds(m, currentPos, anchor);
+                else setMirrorFromEnds(m, anchor, currentPos);
                 updateInspectorUI();
             }
 
             draw();
         });
 
-        window.addEventListener('mouseup', () => {
+        function endPointer(e) {
+            if (e && e.pointerType === 'touch') {
+                activeTouches.delete(e.pointerId);
+                if (pinch) {
+                    if (activeTouches.size < 2) pinch = null;
+                    return;
+                }
+            }
             if (state.isPanning) {
                 state.isPanning = false;
                 canvas.classList.remove('cursor-grabbing');
@@ -1474,7 +1372,9 @@
             }
             state.draggedObject = null;
             state.dragMirrorIdx = -1;
-        });
+        }
+        window.addEventListener('pointerup', endPointer);
+        window.addEventListener('pointercancel', endPointer);
 
         function setLightType(type) {
             state.light.type = type;
@@ -1521,6 +1421,8 @@
             document.getElementById('lightAngleSlider').value = state.light.angle;
             document.getElementById('lightAngleInput').value = state.light.angle;
             document.getElementById('lightAngleVal').innerText = `${state.light.angle}°`;
+            document.getElementById('lightDensitySlider').value = state.light.density;
+            document.getElementById('lightDensityVal').innerText = state.light.density;
         }
 
         function updateInspectorUI() {
@@ -1590,6 +1492,8 @@
                 state.light.y = 180;
                 state.light.angle = 35;
                 addMirror('flat', { x: 450, y: 300, angle: 90, length: 240 });
+                state.protractor.x = 450;
+                state.protractor.y = 300;
             } else if (presetKey === 'concaveFocus') {
                 setLightType('parallel');
                 state.light.x = 150;
@@ -1597,6 +1501,8 @@
                 state.light.angle = 0;
                 state.light.density = 7;
                 addMirror('concave', { x: 550, y: 300, angle: 90, length: 280, focalLength: 160 });
+                state.protractor.x = 780;
+                state.protractor.y = 560;
             } else if (presetKey === 'convexDivergence') {
                 setLightType('parallel');
                 state.light.x = 150;
@@ -1604,133 +1510,21 @@
                 state.light.angle = 0;
                 state.light.density = 7;
                 addMirror('convex', { x: 500, y: 300, angle: 90, length: 280, focalLength: 160 });
+                state.protractor.x = 780;
+                state.protractor.y = 560;
             } else if (presetKey === 'multiReflection') {
+                // 潛望鏡：兩面平行的平面鏡，反射面互相面對
                 setLightType('single');
                 state.light.x = 150;
-                state.light.y = 180;
-                state.light.angle = 30;
-                addMirror('flat', { x: 450, y: 220, angle: 45, length: 220 });
-                addMirror('flat', { x: 450, y: 420, angle: 135, length: 220 });
+                state.light.y = 160;
+                state.light.angle = 0;
+                addMirror('flat', { x: 460, y: 160, angle: 45, length: 160 });
+                addMirror('flat', { x: 460, y: 440, angle: 225, length: 160 });
+                state.protractor.x = 720;
+                state.protractor.y = 300;
             }
-        }
-
-        function addManualLogRecord() {
-            const target = document.getElementById('manualTargetSelect').value;
-            const incVal = parseFloat(document.getElementById('manualIncInput').value);
-            const refVal = parseFloat(document.getElementById('manualRefInput').value);
-
-            if (isNaN(incVal) || isNaN(refVal)) {
-                alertToast('請輸入有效的量測角度數字！');
-                return;
-            }
-
-            const diff = Math.abs(incVal - refVal);
-            let evaluation = '完美符合';
-            if (diff > 0 && diff <= 2) {
-                evaluation = '極小誤差 (符合)';
-            } else if (diff > 2 && diff <= 5) {
-                evaluation = '輕微誤差';
-            } else if (diff > 5) {
-                evaluation = '誤差較大 (請重新量測)';
-            }
-
-            state.dataLogs.push({
-                id: state.dataLogs.length + 1,
-                mirrorType: target,
-                incidentAngle: incVal.toFixed(1),
-                reflectedAngle: refVal.toFixed(1),
-                diff: diff.toFixed(1),
-                isValid: evaluation
-            });
-
-            // Clear inputs
-            document.getElementById('manualIncInput').value = '';
-            document.getElementById('manualRefInput').value = '';
-
-            renderDataTable();
-            alertToast('已手動新增量測數據！');
-        }
-
-        function toggleDataTable() {
-            const modal = document.getElementById('dataTableModal');
-            modal.classList.toggle('hidden');
-        }
-
-        function renderDataTable() {
-            const tbody = document.getElementById('dataTableBody');
-            const emptyTip = document.getElementById('emptyTableTip');
-            tbody.innerHTML = '';
-
-            if (state.dataLogs.length === 0) {
-                emptyTip.classList.remove('hidden');
-                return;
-            }
-
-            emptyTip.classList.add('hidden');
-            state.dataLogs.forEach((log, index) => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-800/40 transition';
-                
-                let badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-                if (log.diff > 2 && log.diff <= 5) {
-                    badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-                } else if (log.diff > 5) {
-                    badgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-                }
-
-                tr.innerHTML = `
-                    <td class="p-3 font-semibold text-slate-400">#${log.id}</td>
-                    <td class="p-3 text-cyan-300">${log.mirrorType}</td>
-                    <td class="p-3 text-amber-400 font-bold">${log.incidentAngle}°</td>
-                    <td class="p-3 text-emerald-400 font-bold">${log.reflectedAngle}°</td>
-                    <td class="p-3 text-slate-300">${log.diff}°</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] border ${badgeClass}">${log.isValid}</span></td>
-                    <td class="p-3 text-right">
-                        <button onclick="deleteLogEntry(${index})" class="text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function deleteLogEntry(idx) {
-            state.dataLogs.splice(idx, 1);
-            renderDataTable();
-        }
-
-        function clearDataLogs() {
-            state.dataLogs = [];
-            renderDataTable();
-        }
-
-        function exportCSV() {
-            if (state.dataLogs.length === 0) {
-                alertToast('無資料可供匯出！');
-                return;
-            }
-
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-            csvContent += "編號,鏡面類型,入射角(度),反射角(度),角度差,驗證結果\n";
-
-            state.dataLogs.forEach(row => {
-                csvContent += `${row.id},${row.mirrorType},${row.incidentAngle},${row.reflectedAngle},${row.diff},${row.isValid}\n`;
-            });
-
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `光的反射實驗數據紀錄_${Date.now()}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function alertToast(msg) {
-            const toast = document.createElement('div');
-            toast.className = 'fixed bottom-12 right-6 bg-cyan-500 text-slate-950 px-4 py-2 rounded-xl font-semibold text-xs shadow-2xl z-50 transition transform duration-300 flex items-center gap-2';
-            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${msg}`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2500);
+            syncControlsFromState();
+            draw();
         }
 
         window.onload = function() {
