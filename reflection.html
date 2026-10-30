@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光的反射虛擬互動實驗室</title>
+    <meta name="description" content="用雷射、平行光或點光源照射平面鏡、凹面鏡與凸面鏡，以量角器量測入射角與反射角並記錄數據。">
+    <meta name="category" content="光與色彩">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪞</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans h-full flex flex-col overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-3 backdrop-blur z-20">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/30 text-cyan-400">
+                <i class="fa-solid fa-diagram-project text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                    光的反射虛擬互動實驗室
+                    <span class="text-xs font-normal px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Physics Optics Engine v2.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">Reflection of Light Interactive Physics Lab</p>
+            </div>
+        </div>
+
+        <!-- Presets & Quick Actions -->
+        <div class="flex items-center space-x-2">
+            <div class="relative inline-block text-left">
+                <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 cursor-pointer">
+                    <option value="" disabled selected>快速載入實驗預設...</option>
+                    <option value="flatLaw">1. 平面鏡反射定律 (Single Ray Law)</option>
+                    <option value="concaveFocus">2. 凹面鏡平行光聚焦 (Concave Focus)</option>
+                    <option value="convexDivergence">3. 凸面鏡平行光發散 (Convex Scatter)</option>
+                    <option value="multiReflection">4. 雙鏡多次反射 (Periscope / Corner Reflector)</option>
+                </select>
+            </div>
+            
+            <button onclick="clearCanvasObjects()" class="px-3 py-2 bg-slate-800 hover:bg-rose-900/40 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50 rounded-lg text-xs transition flex items-center gap-1.5" title="清空畫面">
+                <i class="fa-solid fa-trash-can"></i> 清空鏡面
+            </button>
+            <button onclick="resetAll()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs transition flex items-center gap-1.5" title="重置">
+                <i class="fa-solid fa-rotate-right"></i> 重置實驗
+            </button>
+            <button onclick="toggleDataTable()" class="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold rounded-lg text-xs transition shadow-lg shadow-cyan-950 flex items-center gap-1.5">
+                <i class="fa-solid fa-table"></i> 數據紀錄表
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Left Control Sidebar -->
+        <aside class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-10 overflow-y-auto">
+            
+            <!-- Light Source Panel -->
+            <div class="p-4 border-b border-slate-800">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-sun"></i> 1. 光源設定 (Light Source)
+                </h2>
+                
+                <!-- Light Type Tabs -->
+                <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 mb-3">
+                    <button onclick="setLightType('single')" id="btnLightSingle" class="py-1.5 text-xs rounded-md font-medium text-white bg-slate-800 shadow transition flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-bolt text-cyan-400"></i> 單一雷射
+                    </button>
+                    <button onclick="setLightType('parallel')" id="btnLightParallel" class="py-1.5 text-xs rounded-md font-medium text-slate-400 hover:text-white transition flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-bars text-emerald-400"></i> 平行光束
+                    </button>
+                    <button onclick="setLightType('point')" id="btnLightPoint" class="py-1.5 text-xs rounded-md font-medium text-slate-400 hover:text-white transition flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-lightbulb text-amber-400"></i> 點光源
+                    </button>
+                </div>
+
+                <!-- Light Source Controls -->
+                <div class="space-y-3 bg-slate-950/50 p-3 rounded-lg border border-slate-800/80">
+                    <div>
+                        <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
+                            <span>發射角度 (Angle)</span>
+                            <span class="text-cyan-400 font-mono" id="lightAngleVal">35°</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="lightAngleSlider" min="0" max="360" value="35" step="0.5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
+                            <input type="number" id="lightAngleInput" value="35" min="0" max="360" step="0.5" class="w-16 bg-slate-900 border border-slate-700 rounded text-center text-xs text-cyan-300 focus:outline-none focus:border-cyan-500 py-1" oninput="updateLightFromControls()">
+                        </div>
+                    </div>
+
+                    <!-- Light Position X/Y -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">位置 X (px)</label>
+                            <input type="number" id="lightPosX" value="180" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" oninput="updateLightFromControls()">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">位置 Y (px)</label>
+                            <input type="number" id="lightPosY" value="180" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" oninput="updateLightFromControls()">
+                        </div>
+                    </div>
+
+                    <!-- Density Slider -->
+                    <div id="lightDensityContainer" class="pt-1 border-t border-slate-800/60 hidden">
+                        <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
+                            <span id="lightDensityLabel">光線數量</span>
+                            <span class="text-cyan-400 font-mono" id="lightDensityVal">5</span>
+                        </div>
+                        <input type="range" id="lightDensitySlider" min="2" max="15" value="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mirror Management Panel -->
+            <div class="p-4 border-b border-slate-800">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-vector-square"></i> 2. 新增與調整鏡面 (Mirrors)
+                </h2>
+                
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button onclick="addMirror('flat')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <i class="fa-solid fa-minus text-lg text-cyan-400"></i> 平面鏡
+                    </button>
+                    <button onclick="addMirror('concave')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <i class="fa-solid fa-moon text-lg text-amber-400"></i> 凹面鏡
+                    </button>
+                    <button onclick="addMirror('convex')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <i class="fa-solid fa-circle-half-stroke text-lg text-purple-400"></i> 凸面鏡
+                    </button>
+                </div>
+
+                <!-- Selected Mirror Inspector -->
+                <div id="selectedMirrorInspector" class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 hidden">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold text-slate-200 flex items-center gap-1" id="inspectorTitle">
+                            <i class="fa-solid fa-sliders text-cyan-400"></i> 當前選擇鏡面
+                        </span>
+                        <button onclick="deleteSelectedMirror()" class="text-xs text-rose-400 hover:text-rose-300 hover:underline">
+                            <i class="fa-solid fa-trash"></i> 刪除鏡面
+                        </button>
+                    </div>
+
+                    <div class="space-y-2 text-xs">
+                        <div>
+                            <div class="flex justify-between text-slate-400 mb-1">
+                                <span>旋轉角度 (Rotation)</span>
+                                <span class="text-cyan-400 font-mono" id="mirrorRotVal">90°</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="range" id="mirrorRotSlider" min="0" max="360" value="90" step="1" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('rotSlider')">
+                                <input type="number" id="mirrorRotInput" value="90" min="0" max="360" step="1" class="w-14 bg-slate-900 border border-slate-700 rounded text-center text-xs text-slate-200 py-0.5" oninput="updateSelectedMirrorFromControls('rotInput')">
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-slate-400 mb-1">
+                                <span>鏡面長度 (Length)</span>
+                                <span class="text-cyan-400 font-mono" id="mirrorLenVal">240px</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="range" id="mirrorLenSlider" min="40" max="600" value="240" step="10" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('lenSlider')">
+                                <input type="number" id="mirrorLenInput" value="240" min="40" max="600" step="10" class="w-14 bg-slate-900 border border-slate-700 rounded text-center text-xs text-slate-200 py-0.5" oninput="updateSelectedMirrorFromControls('lenInput')">
+                            </div>
+                        </div>
+
+                        <div id="focalLengthControl" class="hidden">
+                            <div class="flex justify-between text-slate-400 mb-1">
+                                <span>焦距 / 曲率 (Focal)</span>
+                                <span class="text-cyan-400 font-mono" id="mirrorFocalVal">150</span>
+                            </div>
+                            <input type="range" id="mirrorFocalSlider" min="60" max="300" value="150" step="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('focalSlider')">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Assist & Toggles -->
+            <div class="p-4 border-b border-slate-800">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-eye"></i> 3. 標籤與視覺輔助 (Visual Helpers)
+                </h2>
+
+                <div class="space-y-2 text-xs">
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-ruler-combined text-slate-400"></i> 法線 (Normals)
+                        </span>
+                        <input type="checkbox" id="chkShowNormals" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-square-root-variable text-amber-400"></i> 角度代號標記 (θi, θr 代號)
+                        </span>
+                        <input type="checkbox" id="chkShowAngles" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-bullseye text-purple-400"></i> 焦點(F)與曲率中心(C)
+                        </span>
+                        <input type="checkbox" id="chkShowFocal" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-border-all text-emerald-400"></i> 座標網格 (Grid)
+                        </span>
+                        <input type="checkbox" id="chkShowGrid" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-magnet text-cyan-400"></i> 對齊網格 (Snap to Grid)
+                        </span>
+                        <input type="checkbox" id="chkSnapToGrid" checked onchange="state.snapToGrid = this.checked; draw();" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-wand-magic-sparkles text-rose-400"></i> 反向延長線 / 虛擬光線 (Extensions)
+                        </span>
+                        <input type="checkbox" id="chkShowExtensions" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-compass text-cyan-400"></i> 互動式量角器 (Protractor)
+                        </span>
+                        <input type="checkbox" id="chkShowProtractor" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Operations Tip -->
+            <div class="p-4 mt-auto bg-slate-950/30 text-[11px] text-slate-400 border-t border-slate-800/60 space-y-1">
+                <p class="font-semibold text-slate-300 mb-1"><i class="fa-solid fa-circle-info text-cyan-400 me-1"></i> 操作技巧：</p>
+                <p>• <b>移動物件</b>：直接在畫面上拖曳光源、鏡面中心或量角器。</p>
+                <p>• <b>旋轉光源</b>：拖曳光源發射口前端的<b>藍色控制環</b>。</p>
+                <p>• <b>調整鏡面</b>：拖曳鏡面兩端手把可同時改變角度與長度。</p>
+            </div>
+        </aside>
+
+        <!-- Center Canvas Area -->
+        <main class="flex-1 relative bg-slate-950 flex items-center justify-center overflow-hidden">
+            
+            <!-- Canvas -->
+            <canvas id="opticsCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+            <!-- Floating Annotation Toolbar -->
+            <div class="absolute top-4 left-4 flex items-center gap-1 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 backdrop-blur shadow-2xl z-10">
+                <button onclick="setTool('select')" id="toolBtnSelect" class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-cyan-500 text-slate-950 shadow">
+                    <i class="fa-solid fa-arrow-pointer"></i> 選擇/移動
+                </button>
+                <button onclick="setTool('line')" id="toolBtnLine" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-slash"></i> 實線
+                </button>
+                <button onclick="setTool('dashed')" id="toolBtnDashed" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-ellipsis"></i> 虛線
+                </button>
+                <button onclick="setTool('text')" id="toolBtnText" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-font"></i> 文字標註
+                </button>
+                <button onclick="clearDrawings()" class="p-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 transition ms-1" title="清除所有標記">
+                    <i class="fa-solid fa-eraser"></i>
+                </button>
+            </div>
+
+            <!-- Top Floating Button & Zoom Controls -->
+            <div class="absolute top-4 right-4 flex items-center gap-2 z-10">
+                <!-- Zoom & Pan Controls -->
+                <div class="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 backdrop-blur shadow-xl text-xs space-x-1">
+                    <button onclick="zoomOut()" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition" title="縮小 (Zoom Out)">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <span id="zoomPercentText" class="px-2 font-mono text-cyan-400 font-medium">100%</span>
+                    <button onclick="zoomIn()" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition" title="放大 (Zoom In)">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <button onclick="resetZoomPan()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition text-[11px]" title="重置視野 (100%)">
+                        重置視角
+                    </button>
+                </div>
+
+                <button onclick="toggleDataTable()" class="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-medium transition flex items-center gap-1.5 backdrop-blur">
+                    <i class="fa-solid fa-pen-to-square"></i> 開啟 / 填寫數據紀錄表
+                </button>
+            </div>
+
+            <!-- Bottom Left Info Bar -->
+            <div class="absolute bottom-4 left-4 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 backdrop-blur text-xs text-slate-400 pointer-events-none flex items-center gap-3">
+                <span id="rayStatusText"><i class="fa-solid fa-check-circle text-emerald-400 me-1"></i> 光路運算正常</span>
+                <span class="text-slate-600">|</span>
+                <span id="mouseCoordsText" class="font-mono">X: 0, Y: 0</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Data Table Modal -->
+    <div id="dataTableModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-table-list text-cyan-400 text-lg"></i>
+                    <h3 class="font-bold text-slate-100">實驗數據紀錄表 (Experimental Data Log)</h3>
+                </div>
+                <button onclick="toggleDataTable()" class="text-slate-400 hover:text-white p-1 rounded-lg transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <!-- Manual Data Entry Bar -->
+                <div class="mb-5 p-4 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+                    <div class="font-semibold text-cyan-400 mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus-circle"></i> 手動輸入角度量測數據
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <div>
+                            <label class="block text-slate-400 mb-1">對應標示 / 鏡面</label>
+                            <select id="manualTargetSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+                                <option value="平面鏡 (θi, θr)">平面鏡 (θi, θr)</option>
+                                <option value="凹面鏡 (θi, θr)">凹面鏡 (θi, θr)</option>
+                                <option value="凸面鏡 (θi, θr)">凸面鏡 (θi, θr)</option>
+                                <option value="多次反射 (θi1, θr1)">多次反射 (θi1, θr1)</option>
+                                <option value="多次反射 (θi2, θr2)">多次反射 (θi2, θr2)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">量測入射角 θi (°)</label>
+                            <input type="number" id="manualIncInput" placeholder="請用量角器量測" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-amber-300 focus:outline-none focus:border-cyan-500 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">量測反射角 θr (°)</label>
+                            <input type="number" id="manualRefInput" placeholder="請用量角器量測" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-emerald-300 focus:outline-none focus:border-cyan-500 font-mono">
+                        </div>
+                        <div>
+                            <button onclick="addManualLogRecord()" class="w-full py-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-lg transition shadow-md flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-check"></i> 新增此筆紀錄
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <table class="w-full text-left text-xs text-slate-300 border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider bg-slate-950/50">
+                            <th class="p-3">編號 #</th>
+                            <th class="p-3">鏡面 / 標記位置</th>
+                            <th class="p-3">量測入射角 θi</th>
+                            <th class="p-3">量測反射角 θr</th>
+                            <th class="p-3">角度差 |θi - θr|</th>
+                            <th class="p-3">量測結果判定</th>
+                            <th class="p-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-slate-800/60 font-mono">
+                    </tbody>
+                </table>
+
+                <div id="emptyTableTip" class="text-center py-10 text-slate-500 text-sm">
+                    <i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-600"></i>
+                    尚無數據紀錄。請使用畫面上的<b>量角器</b>量測光線角度，並在上方填寫紀錄。
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between">
+                <button onclick="clearDataLogs()" class="px-3 py-1.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 rounded border border-rose-900/40 transition">
+                    <i class="fa-solid fa-trash me-1"></i> 清空紀錄
+                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="exportCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold rounded-lg text-xs transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-csv"></i> 匯出 CSV 檔
+                    </button>
+                    <button onclick="toggleDataTable()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs transition">
+                        關閉
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('opticsCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Simulation Main State
+        const state = {
+            // Zoom & Pan State
+            zoom: 1.0,
+            pan: { x: 0, y: 0 },
+            isPanning: false,
+            panStart: { x: 0, y: 0 },
+            spacePressed: false,
+
+            light: {
+                type: 'single', // 'single', 'parallel', 'point'
+                x: 180,
+                y: 180,
+                angle: 35, // degrees
+                density: 5
+            },
+            mirrors: [],
+            protractor: {
+                x: 450,
+                y: 300,
+                angle: 0,
+                radius: 110
+            },
+            selectedMirrorIndex: -1,
+            dataLogs: [],
+            
+            // Grid Snap & Annotation Drawing State
+            snapToGrid: true,
+            activeTool: 'select', // 'select', 'line', 'dashed', 'text'
+            drawings: [],
+            currentDrawing: null,
+
+            // Interaction State
+            draggedObject: null,
+            dragOffset: { x: 0, y: 0 },
+            dragAnchor: { x: 0, y: 0 },
+            dragMirrorIdx: -1
+        };
+
+        // Coordinate Conversion Helpers
+        function screenToWorld(screenX, screenY) {
+            return {
+                x: (screenX - state.pan.x) / state.zoom,
+                y: (screenY - state.pan.y) / state.zoom
+            };
+        }
+
+        function worldToScreen(worldX, worldY) {
+            return {
+                x: worldX * state.zoom + state.pan.x,
+                y: worldY * state.zoom + state.pan.y
+            };
+        }
+
+        function zoomIn() {
+            setZoom(state.zoom * 1.15, canvas.width / 2, canvas.height / 2);
+        }
+
+        function zoomOut() {
+            setZoom(state.zoom / 1.15, canvas.width / 2, canvas.height / 2);
+        }
+
+        function resetZoomPan() {
+            state.zoom = 1.0;
+            state.pan = { x: 0, y: 0 };
+            updateZoomUI();
+            draw();
+        }
+
+        function setZoom(newZoom, anchorScreenX, anchorScreenY) {
+            const clampedZoom = Math.min(Math.max(0.3, newZoom), 3.0);
+            if (clampedZoom === state.zoom) return;
+
+            // Maintain anchor point position during scale
+            state.pan.x = anchorScreenX - (anchorScreenX - state.pan.x) * (clampedZoom / state.zoom);
+            state.pan.y = anchorScreenY - (anchorScreenY - state.pan.y) * (clampedZoom / state.zoom);
+            state.zoom = clampedZoom;
+
+            updateZoomUI();
+            draw();
+        }
+
+        function updateZoomUI() {
+            const el = document.getElementById('zoomPercentText');
+            if (el) el.innerText = `${Math.round(state.zoom * 100)}%`;
+        }
+
+        function getSnapPos(x, y) {
+            if (!state.snapToGrid) return { x, y };
+            const gridSize = 20;
+            return {
+                x: Math.round(x / gridSize) * gridSize,
+                y: Math.round(y / gridSize) * gridSize
+            };
+        }
+
+        function setTool(tool) {
+            state.activeTool = tool;
+            ['select', 'line', 'dashed', 'text'].forEach(t => {
+                const btnName = `toolBtn${t.charAt(0).toUpperCase() + t.slice(1)}`;
+                const btn = document.getElementById(btnName);
+                if (!btn) return;
+                if (t === tool) {
+                    btn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 bg-cyan-500 text-slate-950 shadow';
+                } else {
+                    btn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5';
+                }
+            });
+        }
+
+        function clearDrawings() {
+            state.drawings = [];
+            state.currentDrawing = null;
+            draw();
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        const degToRad = deg => deg * Math.PI / 180;
+        const radToDeg = rad => rad * 180 / Math.PI;
+
+        function normalizeAngle(deg) {
+            deg = deg % 360;
+            return deg < 0 ? deg + 360 : deg;
+        }
+
+        function addMirror(type, customProps = {}) {
+            const centerX = customProps.x || canvas.width / 2 || 450;
+            const centerY = customProps.y || canvas.height / 2 || 300;
+            const angle = customProps.angle !== undefined ? customProps.angle : 90;
+
+            let mirror = {
+                id: Date.now() + Math.random(),
+                type: type,
+                x: centerX,
+                y: centerY,
+                length: customProps.length || 240,
+                angle: angle,
+                focalLength: customProps.focalLength || 150
+            };
+
+            state.mirrors.push(mirror);
+            state.selectedMirrorIndex = state.mirrors.length - 1;
+            updateInspectorUI();
+            draw();
+        }
+
+        function deleteSelectedMirror() {
+            if (state.selectedMirrorIndex >= 0 && state.selectedMirrorIndex < state.mirrors.length) {
+                state.mirrors.splice(state.selectedMirrorIndex, 1);
+                state.selectedMirrorIndex = -1;
+                updateInspectorUI();
+                draw();
+            }
+        }
+
+        function clearCanvasObjects() {
+            state.mirrors = [];
+            state.selectedMirrorIndex = -1;
+            updateInspectorUI();
+            draw();
+        }
+
+        function resetAll() {
+            state.light = { type: 'single', x: 180, y: 180, angle: 35, density: 5 };
+            state.mirrors = [];
+            state.selectedMirrorIndex = -1;
+            document.getElementById('chkShowProtractor').checked = true;
+            document.getElementById('chkShowNormals').checked = false;
+            document.getElementById('chkShowAngles').checked = true;
+            document.getElementById('chkShowFocal').checked = false;
+            document.getElementById('chkShowGrid').checked = false;
+            document.getElementById('chkShowExtensions').checked = false;
+            loadPreset('flatLaw');
+        }
+
+        function intersectRaySegment(ray, p1, p2) {
+            const dx = ray.dx;
+            const dy = ray.dy;
+            const vx = p2.x - p1.x;
+            const vy = p2.y - p1.y;
+
+            const denom = dx * vy - dy * vx;
+            if (Math.abs(denom) < 1e-8) return null;
+
+            const ox = p1.x - ray.x;
+            const oy = p1.y - ray.y;
+
+            const t = (ox * vy - oy * vx) / denom;
+            const u = (ox * dy - oy * dx) / denom;
+
+            if (t > 0.001 && u >= 0 && u <= 1) {
+                return { t, u, hitX: ray.x + t * dx, hitY: ray.y + t * dy };
+            }
+            return null;
+        }
+
+        function intersectRayArc(ray, mirror) {
+            const R = mirror.focalLength * 2;
+            const mirrorRad = degToRad(mirror.angle);
+            const normalOrientRad = mirrorRad + Math.PI / 2;
+            const cSign = mirror.type === 'concave' ? 1 : -1;
+
+            const Cx = mirror.x + Math.cos(normalOrientRad) * R * cSign;
+            const Cy = mirror.y + Math.sin(normalOrientRad) * R * cSign;
+
+            const ox = ray.x - Cx;
+            const oy = ray.y - Cy;
+
+            const a = ray.dx * ray.dx + ray.dy * ray.dy;
+            const b = 2 * (ox * ray.dx + oy * ray.dy);
+            const c = ox * ox + oy * oy - R * R;
+
+            const disc = b * b - 4 * a * c;
+            if (disc < 0) return null;
+
+            const sqrtD = Math.sqrt(disc);
+            const t1 = (-b - sqrtD) / (2 * a);
+            const t2 = (-b + sqrtD) / (2 * a);
+
+            const validTs = [t1, t2].filter(t => t > 0.001).sort((a, b) => a - b);
+
+            const centerAngle = Math.atan2(mirror.y - Cy, mirror.x - Cx);
+            const halfAngle = Math.asin(Math.min(1, (mirror.length / 2) / R));
+
+            for (let t of validTs) {
+                const hitX = ray.x + ray.dx * t;
+                const hitY = ray.y + ray.dy * t;
+                const hitAngle = Math.atan2(hitY - Cy, hitX - Cx);
+
+                let diff = hitAngle - centerAngle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+
+                if (Math.abs(diff) <= halfAngle) {
+                    return { t, hitX, hitY, Cx, Cy, R };
+                }
+            }
+            return null;
+        }
+
+        function calculateRays() {
+            const originRays = [];
+            const lightRad = degToRad(state.light.angle);
+            const dirX = Math.cos(lightRad);
+            const dirY = Math.sin(lightRad);
+
+            if (state.light.type === 'single') {
+                originRays.push({ x: state.light.x, y: state.light.y, dx: dirX, dy: dirY });
+            } else if (state.light.type === 'parallel') {
+                const count = state.light.density;
+                const spacing = 32;
+                const perpX = -dirY;
+                const perpY = dirX;
+                const startOffset = -((count - 1) * spacing) / 2;
+
+                for (let i = 0; i < count; i++) {
+                    const offset = startOffset + i * spacing;
+                    originRays.push({
+                        x: state.light.x + perpX * offset,
+                        y: state.light.y + perpY * offset,
+                        dx: dirX,
+                        dy: dirY
+                    });
+                }
+            } else if (state.light.type === 'point') {
+                const count = state.light.density * 2;
+                const spreadAngle = 100;
+                const startAngle = state.light.angle - spreadAngle / 2;
+                const step = spreadAngle / (count - 1);
+
+                for (let i = 0; i < count; i++) {
+                    const a = degToRad(startAngle + i * step);
+                    originRays.push({
+                        x: state.light.x,
+                        y: state.light.y,
+                        dx: Math.cos(a),
+                        dy: Math.sin(a)
+                    });
+                }
+            }
+
+            const maxBounces = 6;
+            const rayPaths = [];
+            const intersectionData = [];
+
+            originRays.forEach(ray => {
+                let currentRay = ray;
+                const path = [{ x: currentRay.x, y: currentRay.y }];
+
+                for (let bounce = 0; bounce < maxBounces; bounce++) {
+                    let closestHit = null;
+                    let closestT = Infinity;
+
+                    state.mirrors.forEach(mirror => {
+                        const mRad = degToRad(mirror.angle);
+                        const cosA = Math.cos(mRad);
+                        const sinA = Math.sin(mRad);
+                        const halfL = mirror.length / 2;
+
+                        if (mirror.type === 'flat') {
+                            const p1 = { x: mirror.x - cosA * halfL, y: mirror.y - sinA * halfL };
+                            const p2 = { x: mirror.x + cosA * halfL, y: mirror.y + sinA * halfL };
+                            const res = intersectRaySegment(currentRay, p1, p2);
+
+                            if (res && res.t < closestT) {
+                                closestT = res.t;
+
+                                let nx = -sinA;
+                                let ny = cosA;
+                                if (currentRay.dx * nx + currentRay.dy * ny > 0) {
+                                    nx = -nx;
+                                    ny = -ny;
+                                }
+
+                                const dot = currentRay.dx * nx + currentRay.dy * ny;
+                                const rx = currentRay.dx - 2 * dot * nx;
+                                const ry = currentRay.dy - 2 * dot * ny;
+
+                                const incAngle = radToDeg(Math.acos(Math.max(-1, Math.min(1, -dot))));
+
+                                closestHit = {
+                                    t: res.t,
+                                    x: res.hitX,
+                                    y: res.hitY,
+                                    normal: { x: nx, y: ny },
+                                    reflectDir: { x: rx, y: ry },
+                                    incidentAngle: incAngle,
+                                    reflectedAngle: incAngle,
+                                    mirror: mirror,
+                                    incomingDir: { dx: currentRay.dx, dy: currentRay.dy }
+                                };
+                            }
+                        } else {
+                            const res = intersectRayArc(currentRay, mirror);
+                            if (res && res.t < closestT) {
+                                closestT = res.t;
+
+                                let nx = (res.hitX - res.Cx) / res.R;
+                                let ny = (res.hitY - res.Cy) / res.R;
+
+                                if (mirror.type === 'concave') {
+                                    nx = -nx;
+                                    ny = -ny;
+                                }
+
+                                if (currentRay.dx * nx + currentRay.dy * ny > 0) {
+                                    nx = -nx;
+                                    ny = -ny;
+                                }
+
+                                const dot = currentRay.dx * nx + currentRay.dy * ny;
+                                const rx = currentRay.dx - 2 * dot * nx;
+                                const ry = currentRay.dy - 2 * dot * ny;
+
+                                const incAngle = radToDeg(Math.acos(Math.max(-1, Math.min(1, -dot))));
+
+                                closestHit = {
+                                    t: res.t,
+                                    x: res.hitX,
+                                    y: res.hitY,
+                                    normal: { x: nx, y: ny },
+                                    reflectDir: { x: rx, y: ry },
+                                    incidentAngle: incAngle,
+                                    reflectedAngle: incAngle,
+                                    mirror: mirror,
+                                    incomingDir: { dx: currentRay.dx, dy: currentRay.dy }
+                                };
+                            }
+                        }
+                    });
+
+                    if (closestHit) {
+                        path.push({ x: closestHit.x, y: closestHit.y });
+                        intersectionData.push(closestHit);
+
+                        currentRay = {
+                            x: closestHit.x,
+                            y: closestHit.y,
+                            dx: closestHit.reflectDir.x,
+                            dy: closestHit.reflectDir.y
+                        };
+                    } else {
+                        const farDist = 2000;
+                        path.push({
+                            x: currentRay.x + currentRay.dx * farDist,
+                            y: currentRay.y + currentRay.dy * farDist
+                        });
+                        break;
+                    }
+                }
+                rayPaths.push(path);
+            });
+
+            return { rayPaths, intersectionData };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            // Apply Global View Transformation (Zoom & Pan)
+            ctx.translate(state.pan.x, state.pan.y);
+            ctx.scale(state.zoom, state.zoom);
+
+            // 1. Grid
+            if (document.getElementById('chkShowGrid').checked) {
+                drawGrid();
+            }
+
+            // 2. Custom Annotations
+            drawAnnotations();
+
+            // 3. Rays
+            const { rayPaths, intersectionData } = calculateRays();
+            drawRays(rayPaths);
+
+            // 3.5 Virtual Ray Extensions (Backward dashed lines)
+            if (document.getElementById('chkShowExtensions')?.checked) {
+                drawRayExtensions(intersectionData);
+            }
+
+            // 4. Mirrors
+            state.mirrors.forEach((mirror, idx) => {
+                drawMirror(mirror, idx === state.selectedMirrorIndex);
+            });
+
+            // 5. Angle Labels & Normals
+            if (document.getElementById('chkShowNormals').checked || document.getElementById('chkShowAngles').checked) {
+                drawIntersectionHelpers(intersectionData);
+            }
+
+            // 6. Light Source
+            drawLightSource();
+
+            // 7. Protractor
+            if (document.getElementById('chkShowProtractor').checked) {
+                drawProtractor();
+            }
+
+            ctx.restore();
+        }
+
+        function drawAnnotations() {
+            ctx.save();
+            const allDrawings = [...state.drawings];
+            if (state.currentDrawing) allDrawings.push(state.currentDrawing);
+
+            allDrawings.forEach(item => {
+                if (item.type === 'line' || item.type === 'dashed') {
+                    ctx.strokeStyle = '#facc15';
+                    ctx.lineWidth = 2;
+                    if (item.type === 'dashed') {
+                        ctx.setLineDash([6, 6]);
+                    } else {
+                        ctx.setLineDash([]);
+                    }
+                    ctx.beginPath();
+                    ctx.moveTo(item.x1, item.y1);
+                    ctx.lineTo(item.x2, item.y2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                } else if (item.type === 'text') {
+                    ctx.fillStyle = '#facc15';
+                    ctx.font = 'bold 13px sans-serif';
+                    ctx.fillText(item.text, item.x, item.y);
+                }
+            });
+            ctx.restore();
+        }
+
+        function drawRays(rayPaths) {
+            ctx.save();
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 8;
+
+            rayPaths.forEach(path => {
+                if (path.length < 2) return;
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].x, path[i].y);
+                }
+                ctx.stroke();
+
+                for (let i = 0; i < path.length - 1; i++) {
+                    const p1 = path[i];
+                    const p2 = path[i + 1];
+                    drawRayArrow(p1.x, p1.y, p2.x, p2.y, '#00f0ff');
+                }
+            });
+            ctx.restore();
+        }
+
+        function drawRayArrow(x1, y1, x2, y2, color) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 30) return;
+
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const angle = Math.atan2(dy, dx);
+            const arrowSize = 8;
+
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.translate(midX, midY);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-arrowSize, -arrowSize / 1.8);
+            ctx.lineTo(-arrowSize * 0.6, 0);
+            ctx.lineTo(-arrowSize, arrowSize / 1.8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawRayExtensions(intersectionData) {
+            if (!intersectionData || intersectionData.length === 0) return;
+            ctx.save();
+            ctx.strokeStyle = '#e879f9';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+
+            intersectionData.forEach(hit => {
+                const { x, y, reflectDir } = hit;
+                const extLen = 500;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - reflectDir.x * extLen, y - reflectDir.y * extLen);
+                ctx.stroke();
+            });
+
+            ctx.restore();
+        }
+
+        // Adjust Grid to cover expanded world area
+        function drawGrid() {
+            ctx.save();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1 / state.zoom;
+            const step = 40;
+
+            const startX = Math.floor((-state.pan.x / state.zoom) / step) * step - step;
+            const endX = startX + (canvas.width / state.zoom) + step * 2;
+
+            const startY = Math.floor((-state.pan.y / state.zoom) / step) * step - step;
+            const endY = startY + (canvas.height / state.zoom) + step * 2;
+
+            for (let x = startX; x < endX; x += step) {
+                ctx.beginPath();
+                ctx.moveTo(x, startY); ctx.lineTo(x, endY);
+                ctx.stroke();
+            }
+            for (let y = startY; y < endY; y += step) {
+                ctx.beginPath();
+                ctx.moveTo(startX, y); ctx.lineTo(endX, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawMirror(mirror, isSelected) {
+            ctx.save();
+            const rad = degToRad(mirror.angle);
+            const cosA = Math.cos(rad);
+            const sinA = Math.sin(rad);
+            const halfL = mirror.length / 2;
+
+            if (mirror.type === 'flat') {
+                const x1 = mirror.x - cosA * halfL;
+                const y1 = mirror.y - sinA * halfL;
+                const x2 = mirror.x + cosA * halfL;
+                const y2 = mirror.y + sinA * halfL;
+
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1.5;
+                const nx = -sinA * 8;
+                const ny = cosA * 8;
+                for (let i = -halfL; i <= halfL; i += 12) {
+                    const px = mirror.x + cosA * i;
+                    const py = mirror.y + sinA * i;
+                    ctx.beginPath();
+                    ctx.moveTo(px, py);
+                    ctx.lineTo(px + nx, py + ny);
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = isSelected ? '#38bdf8' : '#cbd5e1';
+                ctx.lineWidth = isSelected ? 6 : 4;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                drawHandle(x1, y1, isSelected);
+                drawHandle(x2, y2, isSelected);
+            } else if (mirror.type === 'concave' || mirror.type === 'convex') {
+                const R = mirror.focalLength * 2;
+                const normalOrientRad = rad + Math.PI / 2;
+                const cSign = mirror.type === 'concave' ? 1 : -1;
+
+                const Cx = mirror.x + Math.cos(normalOrientRad) * R * cSign;
+                const Cy = mirror.y + Math.sin(normalOrientRad) * R * cSign;
+
+                const startAngle = Math.atan2(mirror.y - sinA * halfL - Cy, mirror.x - cosA * halfL - Cx);
+                const endAngle = Math.atan2(mirror.y + sinA * halfL - Cy, mirror.x + cosA * halfL - Cx);
+
+                ctx.strokeStyle = isSelected ? '#38bdf8' : (mirror.type === 'concave' ? '#f59e0b' : '#c084fc');
+                ctx.lineWidth = isSelected ? 6 : 4;
+                ctx.beginPath();
+                ctx.arc(Cx, Cy, R, startAngle, endAngle, false);
+                ctx.stroke();
+
+                if (document.getElementById('chkShowFocal').checked) {
+                    const Fx = mirror.x + Math.cos(normalOrientRad) * mirror.focalLength * cSign;
+                    const Fy = mirror.y + Math.sin(normalOrientRad) * mirror.focalLength * cSign;
+
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.beginPath(); ctx.arc(Fx, Fy, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.font = 'bold 11px monospace';
+                    ctx.fillText('F', Fx + 8, Fy + 4);
+
+                    ctx.fillStyle = '#a855f7';
+                    ctx.beginPath(); ctx.arc(Cx, Cy, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillText('C', Cx + 8, Cy + 4);
+
+                    ctx.strokeStyle = '#334155';
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.moveTo(Cx, Cy); ctx.lineTo(mirror.x, mirror.y); ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                drawHandle(mirror.x - cosA * halfL, mirror.y - sinA * halfL, isSelected);
+                drawHandle(mirror.x + cosA * halfL, mirror.y + sinA * halfL, isSelected);
+            }
+
+            ctx.fillStyle = isSelected ? '#38bdf8' : '#00f0ff';
+            ctx.beginPath(); ctx.arc(mirror.x, mirror.y, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawHandle(x, y, isSelected) {
+            ctx.fillStyle = isSelected ? '#38bdf8' : '#64748b';
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+
+        function drawIntersectionHelpers(data) {
+            if (!data || data.length === 0) return;
+
+            const showNormals = document.getElementById('chkShowNormals').checked;
+            const showAngles = document.getElementById('chkShowAngles').checked;
+
+            data.forEach((hit, idx) => {
+                if (idx > 5) return;
+
+                const { x, y, normal, incomingDir, reflectDir } = hit;
+
+                ctx.save();
+
+                if (showNormals) {
+                    ctx.strokeStyle = '#c084fc';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([4, 4]);
+
+                    const normalLen = 65;
+                    ctx.beginPath();
+                    ctx.moveTo(x - normal.x * 20, y - normal.y * 20);
+                    ctx.lineTo(x + normal.x * normalLen, y + normal.y * normalLen);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    ctx.fillStyle = '#c084fc';
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.fillText('N (法線)', x + normal.x * (normalLen + 8), y + normal.y * (normalLen + 8));
+                }
+
+                if (showAngles) {
+                    const normalAng = Math.atan2(normal.y, normal.x);
+                    const incAng = Math.atan2(-incomingDir.dy, -incomingDir.dx);
+                    const refAng = Math.atan2(reflectDir.dy, reflectDir.x);
+
+                    const arcRadius = 35;
+                    ctx.lineWidth = 1.5;
+
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.beginPath();
+                    ctx.arc(x, y, arcRadius, Math.min(normalAng, incAng), Math.max(normalAng, incAng));
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#34d399';
+                    ctx.beginPath();
+                    ctx.arc(x, y, arcRadius, Math.min(normalAng, refAng), Math.max(normalAng, refAng));
+                    ctx.stroke();
+
+                    const incBisector = (normalAng + incAng) / 2;
+                    const refBisector = (normalAng + refAng) / 2;
+
+                    const labelDist = 55;
+                    const incLabelX = x + Math.cos(incBisector) * labelDist;
+                    const incLabelY = y + Math.sin(incBisector) * labelDist;
+
+                    const refLabelX = x + Math.cos(refBisector) * labelDist;
+                    const refLabelY = y + Math.sin(refBisector) * labelDist;
+
+                    // Display symbol code ONLY (no numeric values, so students measure using protractor)
+                    const labelSuffix = data.length > 1 ? `_${idx + 1}` : '';
+                    drawPillBadge(`θi${labelSuffix}`, incLabelX, incLabelY, '#fbbf24');
+                    drawPillBadge(`θr${labelSuffix}`, refLabelX, refLabelY, '#34d399');
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawPillBadge(text, x, y, color) {
+            ctx.save();
+            ctx.font = 'bold 11px monospace';
+            const metrics = ctx.measureText(text);
+            const padding = 5;
+            const w = metrics.width + padding * 2;
+            const h = 18;
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.roundRect(x - w / 2, y - h / 2, w, h, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+
+        function drawLightSource() {
+            ctx.save();
+            ctx.translate(state.light.x, state.light.y);
+            const rad = degToRad(state.light.angle);
+            ctx.rotate(rad);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-22, -12, 34, 24, 5);
+            ctx.fill(); ctx.stroke();
+
+            ctx.fillStyle = '#00f0ff';
+            ctx.beginPath();
+            ctx.arc(12, 0, 8, -Math.PI / 2, Math.PI / 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.arc(28, 0, 7, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#00f0ff'; ctx.beginPath(); ctx.arc(28, 0, 3, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawProtractor() {
+            const p = state.protractor;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(degToRad(p.angle));
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, p.radius, Math.PI, 0, false);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.font = '8px sans-serif';
+            ctx.textAlign = 'center';
+
+            for (let deg = 0; deg <= 180; deg += 5) {
+                const r = degToRad(180 - deg);
+                const isMajor = deg % 10 === 0;
+                const tickLen = isMajor ? 10 : 5;
+
+                const x1 = Math.cos(r) * p.radius;
+                const y1 = -Math.sin(r) * p.radius;
+                const x2 = Math.cos(r) * (p.radius - tickLen);
+                const y2 = -Math.sin(r) * (p.radius - tickLen);
+
+                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+
+                if (isMajor) {
+                    const tx = Math.cos(r) * (p.radius - 18);
+                    const ty = -Math.sin(r) * (p.radius - 18) + 3;
+                    ctx.fillText(`${deg}°`, tx, ty);
+                }
+            }
+
+            ctx.strokeStyle = '#00f0ff';
+            ctx.beginPath();
+            ctx.moveTo(-8, 0); ctx.lineTo(8, 0);
+            ctx.moveTo(0, -8); ctx.lineTo(0, 8);
+            ctx.stroke();
+
+            ctx.fillStyle = '#00f0ff';
+            ctx.beginPath(); ctx.arc(0, -p.radius - 12, 6, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const screenX = e.clientX - rect.left;
+            const screenY = e.clientY - rect.top;
+            const world = screenToWorld(screenX, screenY);
+            return {
+                screenX,
+                screenY,
+                x: world.x,
+                y: world.y
+            };
+        }
+
+        // Keyboard Space Tracking for Pan
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space' && !state.spacePressed && e.target.tagName !== 'INPUT') {
+                state.spacePressed = true;
+                canvas.classList.add('cursor-grab');
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            if (e.code === 'Space') {
+                state.spacePressed = false;
+                canvas.classList.remove('cursor-grab', 'cursor-grabbing');
+            }
+        });
+
+        // Mouse Wheel Zoom
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const pos = getMousePos(e);
+            const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+            setZoom(state.zoom * zoomFactor, pos.screenX, pos.screenY);
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', e => {
+            const pos = getMousePos(e);
+
+            // Middle Click or Space + Left Click triggers Canvas Panning
+            if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
+                state.isPanning = true;
+                state.panStart = { x: pos.screenX - state.pan.x, y: pos.screenY - state.pan.y };
+                canvas.classList.add('cursor-grabbing');
+                return;
+            }
+
+            const snapPos = getSnapPos(pos.x, pos.y);
+
+            // Active Tool Drawing Handlers
+            if (state.activeTool === 'line' || state.activeTool === 'dashed') {
+                state.currentDrawing = {
+                    type: state.activeTool,
+                    x1: snapPos.x,
+                    y1: snapPos.y,
+                    x2: snapPos.x,
+                    y2: snapPos.y
+                };
+                return;
+            } else if (state.activeTool === 'text') {
+                const text = prompt('請輸入標註文字 (Text Annotation):', '物距 d = 20cm');
+                if (text && text.trim()) {
+                    state.drawings.push({
+                        type: 'text',
+                        x: snapPos.x,
+                        y: snapPos.y,
+                        text: text.trim()
+                    });
+                }
+                setTool('select');
+                draw();
+                return;
+            }
+
+            // 1. Light Emitter Rotation Tip Check
+            const lightRad = degToRad(state.light.angle);
+            const tipX = state.light.x + Math.cos(lightRad) * 28;
+            const tipY = state.light.y + Math.sin(lightRad) * 28;
+            if (Math.hypot(pos.x - tipX, pos.y - tipY) < 16 / state.zoom) {
+                state.draggedObject = 'light-rot';
+                return;
+            }
+
+            // 2. Light Emitter Body Check
+            if (Math.hypot(pos.x - state.light.x, pos.y - state.light.y) < 22 / state.zoom) {
+                state.draggedObject = 'light-body';
+                state.dragOffset = { x: pos.x - state.light.x, y: pos.y - state.light.y };
+                return;
+            }
+
+            // 3. Protractor Check
+            if (document.getElementById('chkShowProtractor').checked) {
+                const p = state.protractor;
+                const protRotX = p.x + Math.sin(degToRad(p.angle)) * (p.radius + 12);
+                const protRotY = p.y - Math.cos(degToRad(p.angle)) * (p.radius + 12);
+                if (Math.hypot(pos.x - protRotX, pos.y - protRotY) < 16 / state.zoom) {
+                    state.draggedObject = 'protractor-rot';
+                    return;
+                }
+                if (Math.hypot(pos.x - p.x, pos.y - p.y) < p.radius) {
+                    state.draggedObject = 'protractor-body';
+                    state.dragOffset = { x: pos.x - p.x, y: pos.y - p.y };
+                    return;
+                }
+            }
+
+            // 4. Mirrors Drag / Rotate / Resize Handles
+            for (let i = state.mirrors.length - 1; i >= 0; i--) {
+                const m = state.mirrors[i];
+                const rad = degToRad(m.angle);
+                const halfL = m.length / 2;
+
+                const h1 = { x: m.x - Math.cos(rad) * halfL, y: m.y - Math.sin(rad) * halfL };
+                const h2 = { x: m.x + Math.cos(rad) * halfL, y: m.y + Math.sin(rad) * halfL };
+
+                if (Math.hypot(pos.x - h1.x, pos.y - h1.y) < 16 / state.zoom) {
+                    state.draggedObject = 'mirror-h1';
+                    state.dragMirrorIdx = i;
+                    state.dragAnchor = { x: h2.x, y: h2.y };
+                    state.selectedMirrorIndex = i;
+                    updateInspectorUI();
+                    return;
+                }
+                if (Math.hypot(pos.x - h2.x, pos.y - h2.y) < 16 / state.zoom) {
+                    state.draggedObject = 'mirror-h2';
+                    state.dragMirrorIdx = i;
+                    state.dragAnchor = { x: h1.x, y: h1.y };
+                    state.selectedMirrorIndex = i;
+                    updateInspectorUI();
+                    return;
+                }
+                if (Math.hypot(pos.x - m.x, pos.y - m.y) < 24 / state.zoom) {
+                    state.draggedObject = 'mirror-center';
+                    state.dragMirrorIdx = i;
+                    state.selectedMirrorIndex = i;
+                    state.dragOffset = { x: pos.x - m.x, y: pos.y - m.y };
+                    updateInspectorUI();
+                    return;
+                }
+            }
+
+            state.selectedMirrorIndex = -1;
+            updateInspectorUI();
+            draw();
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            const pos = getMousePos(e);
+            document.getElementById('mouseCoordsText').innerText = `X: ${Math.round(pos.x)}, Y: ${Math.round(pos.y)}`;
+
+            // Handle View Panning
+            if (state.isPanning) {
+                state.pan.x = pos.screenX - state.panStart.x;
+                state.pan.y = pos.screenY - state.panStart.y;
+                draw();
+                return;
+            }
+
+            if (state.currentDrawing) {
+                const snapPos = getSnapPos(pos.x, pos.y);
+                state.currentDrawing.x2 = snapPos.x;
+                state.currentDrawing.y2 = snapPos.y;
+                draw();
+                return;
+            }
+
+            if (!state.draggedObject) return;
+
+            if (state.draggedObject === 'light-body') {
+                const snapPos = getSnapPos(pos.x - state.dragOffset.x, pos.y - state.dragOffset.y);
+                state.light.x = snapPos.x;
+                state.light.y = snapPos.y;
+                syncControlsFromState();
+            } else if (state.draggedObject === 'light-rot') {
+                let angle = radToDeg(Math.atan2(pos.y - state.light.y, pos.x - state.light.x));
+                angle = normalizeAngle(angle);
+                if (state.snapToGrid) {
+                    angle = Math.round(angle / 5) * 5;
+                } else {
+                    angle = Math.round(angle * 2) / 2;
+                }
+                state.light.angle = angle;
+                syncControlsFromState();
+            } else if (state.draggedObject === 'protractor-body') {
+                const snapPos = getSnapPos(pos.x - state.dragOffset.x, pos.y - state.dragOffset.y);
+                state.protractor.x = snapPos.x;
+                state.protractor.y = snapPos.y;
+            } else if (state.draggedObject === 'protractor-rot') {
+                let angle = radToDeg(Math.atan2(pos.y - state.protractor.y, pos.x - state.protractor.x)) + 90;
+                angle = normalizeAngle(angle);
+                if (state.snapToGrid) {
+                    angle = Math.round(angle / 5) * 5;
+                }
+                state.protractor.angle = angle;
+            } else if (state.draggedObject === 'mirror-center') {
+                const m = state.mirrors[state.dragMirrorIdx];
+                const snapPos = getSnapPos(pos.x - state.dragOffset.x, pos.y - state.dragOffset.y);
+                m.x = snapPos.x;
+                m.y = snapPos.y;
+            } else if (state.draggedObject === 'mirror-h1' || state.draggedObject === 'mirror-h2') {
+                const m = state.mirrors[state.dragMirrorIdx];
+                const currentPos = state.snapToGrid ? getSnapPos(pos.x, pos.y) : pos;
+                const anchor = state.dragAnchor;
+
+                let dx, dy;
+                if (state.draggedObject === 'mirror-h1') {
+                    dx = anchor.x - currentPos.x;
+                    dy = anchor.y - currentPos.y;
+                } else {
+                    dx = currentPos.x - anchor.x;
+                    dy = currentPos.y - anchor.y;
+                }
+
+                const dist = Math.max(20, Math.hypot(dx, dy));
+                m.length = Math.round(dist);
+                m.x = (anchor.x + currentPos.x) / 2;
+                m.y = (anchor.y + currentPos.y) / 2;
+                m.angle = normalizeAngle(radToDeg(Math.atan2(dy, dx)));
+                updateInspectorUI();
+            }
+
+            draw();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (state.isPanning) {
+                state.isPanning = false;
+                canvas.classList.remove('cursor-grabbing');
+            }
+            if (state.currentDrawing) {
+                state.drawings.push(state.currentDrawing);
+                state.currentDrawing = null;
+                draw();
+            }
+            state.draggedObject = null;
+            state.dragMirrorIdx = -1;
+        });
+
+        function setLightType(type) {
+            state.light.type = type;
+
+            ['Single', 'Parallel', 'Point'].forEach(t => {
+                const btn = document.getElementById(`btnLight${t}`);
+                if (t.toLowerCase() === type) {
+                    btn.classList.add('bg-slate-800', 'shadow', 'text-white');
+                    btn.classList.remove('text-slate-400');
+                } else {
+                    btn.classList.remove('bg-slate-800', 'shadow', 'text-white');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+
+            const densityContainer = document.getElementById('lightDensityContainer');
+            if (type === 'parallel' || type === 'point') {
+                densityContainer.classList.remove('hidden');
+                document.getElementById('lightDensityLabel').innerText = type === 'parallel' ? '光束數量' : '點光源密度';
+            } else {
+                densityContainer.classList.add('hidden');
+            }
+
+            draw();
+        }
+
+        function updateLightFromControls() {
+            const angleVal = parseFloat(document.getElementById('lightAngleSlider').value);
+            document.getElementById('lightAngleInput').value = angleVal;
+            document.getElementById('lightAngleVal').innerText = `${angleVal}°`;
+
+            state.light.angle = angleVal;
+            state.light.x = parseFloat(document.getElementById('lightPosX').value) || 0;
+            state.light.y = parseFloat(document.getElementById('lightPosY').value) || 0;
+            state.light.density = parseInt(document.getElementById('lightDensitySlider').value) || 5;
+            document.getElementById('lightDensityVal').innerText = state.light.density;
+
+            draw();
+        }
+
+        function syncControlsFromState() {
+            document.getElementById('lightPosX').value = state.light.x;
+            document.getElementById('lightPosY').value = state.light.y;
+            document.getElementById('lightAngleSlider').value = state.light.angle;
+            document.getElementById('lightAngleInput').value = state.light.angle;
+            document.getElementById('lightAngleVal').innerText = `${state.light.angle}°`;
+        }
+
+        function updateInspectorUI() {
+            const container = document.getElementById('selectedMirrorInspector');
+            if (state.selectedMirrorIndex < 0 || state.selectedMirrorIndex >= state.mirrors.length) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            const m = state.mirrors[state.selectedMirrorIndex];
+
+            const typeNames = { flat: '平面鏡', concave: '凹面鏡', convex: '凸面鏡' };
+            document.getElementById('inspectorTitle').innerHTML = `<i class="fa-solid fa-sliders text-cyan-400"></i> 當前選擇：${typeNames[m.type]}`;
+
+            document.getElementById('mirrorRotSlider').value = Math.round(m.angle);
+            document.getElementById('mirrorRotInput').value = Math.round(m.angle);
+            document.getElementById('mirrorRotVal').innerText = `${Math.round(m.angle)}°`;
+
+            document.getElementById('mirrorLenSlider').value = Math.round(m.length);
+            document.getElementById('mirrorLenInput').value = Math.round(m.length);
+            document.getElementById('mirrorLenVal').innerText = `${Math.round(m.length)}px`;
+
+            const focalControl = document.getElementById('focalLengthControl');
+            if (m.type === 'concave' || m.type === 'convex') {
+                focalControl.classList.remove('hidden');
+                document.getElementById('mirrorFocalSlider').value = m.focalLength;
+                document.getElementById('mirrorFocalVal').innerText = m.focalLength;
+            } else {
+                focalControl.classList.add('hidden');
+            }
+        }
+
+        function updateSelectedMirrorFromControls(source) {
+            if (state.selectedMirrorIndex < 0) return;
+            const m = state.mirrors[state.selectedMirrorIndex];
+
+            let rotVal = parseFloat(source === 'rotInput' ? document.getElementById('mirrorRotInput').value : document.getElementById('mirrorRotSlider').value);
+            if (isNaN(rotVal)) rotVal = 0;
+            document.getElementById('mirrorRotSlider').value = rotVal;
+            document.getElementById('mirrorRotInput').value = rotVal;
+            document.getElementById('mirrorRotVal').innerText = `${rotVal}°`;
+            m.angle = normalizeAngle(rotVal);
+
+            let lenVal = parseFloat(source === 'lenInput' ? document.getElementById('mirrorLenInput').value : document.getElementById('mirrorLenSlider').value);
+            if (isNaN(lenVal)) lenVal = 100;
+            document.getElementById('mirrorLenSlider').value = lenVal;
+            document.getElementById('mirrorLenInput').value = lenVal;
+            document.getElementById('mirrorLenVal').innerText = `${lenVal}px`;
+            m.length = lenVal;
+
+            if (m.type !== 'flat') {
+                const focalVal = parseInt(document.getElementById('mirrorFocalSlider').value);
+                m.focalLength = focalVal;
+                document.getElementById('mirrorFocalVal').innerText = focalVal;
+            }
+
+            draw();
+        }
+
+        function loadPreset(presetKey) {
+            clearCanvasObjects();
+
+            if (presetKey === 'flatLaw') {
+                setLightType('single');
+                state.light.x = 180;
+                state.light.y = 180;
+                state.light.angle = 35;
+                addMirror('flat', { x: 450, y: 300, angle: 90, length: 240 });
+            } else if (presetKey === 'concaveFocus') {
+                setLightType('parallel');
+                state.light.x = 150;
+                state.light.y = 300;
+                state.light.angle = 0;
+                state.light.density = 7;
+                addMirror('concave', { x: 550, y: 300, angle: 90, length: 280, focalLength: 160 });
+            } else if (presetKey === 'convexDivergence') {
+                setLightType('parallel');
+                state.light.x = 150;
+                state.light.y = 300;
+                state.light.angle = 0;
+                state.light.density = 7;
+                addMirror('convex', { x: 500, y: 300, angle: 90, length: 280, focalLength: 160 });
+            } else if (presetKey === 'multiReflection') {
+                setLightType('single');
+                state.light.x = 150;
+                state.light.y = 180;
+                state.light.angle = 30;
+                addMirror('flat', { x: 450, y: 220, angle: 45, length: 220 });
+                addMirror('flat', { x: 450, y: 420, angle: 135, length: 220 });
+            }
+        }
+
+        function addManualLogRecord() {
+            const target = document.getElementById('manualTargetSelect').value;
+            const incVal = parseFloat(document.getElementById('manualIncInput').value);
+            const refVal = parseFloat(document.getElementById('manualRefInput').value);
+
+            if (isNaN(incVal) || isNaN(refVal)) {
+                alertToast('請輸入有效的量測角度數字！');
+                return;
+            }
+
+            const diff = Math.abs(incVal - refVal);
+            let evaluation = '完美符合';
+            if (diff > 0 && diff <= 2) {
+                evaluation = '極小誤差 (符合)';
+            } else if (diff > 2 && diff <= 5) {
+                evaluation = '輕微誤差';
+            } else if (diff > 5) {
+                evaluation = '誤差較大 (請重新量測)';
+            }
+
+            state.dataLogs.push({
+                id: state.dataLogs.length + 1,
+                mirrorType: target,
+                incidentAngle: incVal.toFixed(1),
+                reflectedAngle: refVal.toFixed(1),
+                diff: diff.toFixed(1),
+                isValid: evaluation
+            });
+
+            // Clear inputs
+            document.getElementById('manualIncInput').value = '';
+            document.getElementById('manualRefInput').value = '';
+
+            renderDataTable();
+            alertToast('已手動新增量測數據！');
+        }
+
+        function toggleDataTable() {
+            const modal = document.getElementById('dataTableModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function renderDataTable() {
+            const tbody = document.getElementById('dataTableBody');
+            const emptyTip = document.getElementById('emptyTableTip');
+            tbody.innerHTML = '';
+
+            if (state.dataLogs.length === 0) {
+                emptyTip.classList.remove('hidden');
+                return;
+            }
+
+            emptyTip.classList.add('hidden');
+            state.dataLogs.forEach((log, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition';
+                
+                let badgeClass = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+                if (log.diff > 2 && log.diff <= 5) {
+                    badgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                } else if (log.diff > 5) {
+                    badgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-400">#${log.id}</td>
+                    <td class="p-3 text-cyan-300">${log.mirrorType}</td>
+                    <td class="p-3 text-amber-400 font-bold">${log.incidentAngle}°</td>
+                    <td class="p-3 text-emerald-400 font-bold">${log.reflectedAngle}°</td>
+                    <td class="p-3 text-slate-300">${log.diff}°</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] border ${badgeClass}">${log.isValid}</span></td>
+                    <td class="p-3 text-right">
+                        <button onclick="deleteLogEntry(${index})" class="text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteLogEntry(idx) {
+            state.dataLogs.splice(idx, 1);
+            renderDataTable();
+        }
+
+        function clearDataLogs() {
+            state.dataLogs = [];
+            renderDataTable();
+        }
+
+        function exportCSV() {
+            if (state.dataLogs.length === 0) {
+                alertToast('無資料可供匯出！');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "編號,鏡面類型,入射角(度),反射角(度),角度差,驗證結果\n";
+
+            state.dataLogs.forEach(row => {
+                csvContent += `${row.id},${row.mirrorType},${row.incidentAngle},${row.reflectedAngle},${row.diff},${row.isValid}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `光的反射實驗數據紀錄_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function alertToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-12 right-6 bg-cyan-500 text-slate-950 px-4 py-2 rounded-xl font-semibold text-xs shadow-2xl z-50 transition transform duration-300 flex items-center gap-2';
+            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${msg}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            loadPreset('flatLaw');
+        };
+    </script>
+</body>
+</html>
