@@ -67,6 +67,15 @@
                         <option value="realConvex">9. 真實凸透鏡：兩個曲面各折射一次</option>
                         <option value="realConcave">10. 真實凹透鏡</option>
                     </optgroup>
+                    <optgroup label="成像">
+                        <option value="imgConvexFar">11. 凸透鏡：物體在 2F 以外</option>
+                        <option value="imgConvexMid">12. 凸透鏡：物體在 F 與 2F 之間</option>
+                        <option value="imgMagnifier">13. 凸透鏡：物體在 F 以內（放大鏡）</option>
+                        <option value="imgConcaveLens">14. 凹透鏡成像</option>
+                        <option value="imgConcaveMirror">15. 凹面鏡成像</option>
+                        <option value="imgConvexMirror">16. 凸面鏡成像</option>
+                        <option value="imgFlatMirror">17. 平面鏡成像</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -189,6 +198,19 @@
                     </button>
                 </div>
 
+                <p class="text-[11px] text-slate-500 mb-1.5">成像：物體與屏幕（搭配理想薄透鏡、面鏡）</p>
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button onclick="addMirror('object', { style: 'arrow' })" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V4M7 9l5-5 5 5"/></svg> 箭頭
+                    </button>
+                    <button onclick="addMirror('object', { style: 'candle' })" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="11" width="6" height="10" rx="1" fill="currentColor" fill-opacity=".25"/><path d="M12 3c2 2.5 2 4.5 0 6c-2-1.5-2-3.5 0-6Z" fill="currentColor" fill-opacity=".6"/></svg> 蠟燭
+                    </button>
+                    <button onclick="addMirror('screen')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v15M7 21h10"/></svg> 屏幕
+                    </button>
+                </div>
+
                 <!-- Selected Element Inspector -->
                 <div id="selectedMirrorInspector" class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 hidden">
                     <div class="flex justify-between items-center mb-2">
@@ -248,6 +270,15 @@
                             <p id="lensInfo" class="hidden mt-1.5 text-[11px] leading-relaxed text-slate-400"></p>
                         </div>
 
+                        <div id="objectControl" class="hidden">
+                            <div class="text-slate-400 mb-1">物體樣式</div>
+                            <div class="grid grid-cols-2 gap-1">
+                                <button onclick="setObjectStyle('arrow')" id="styleArrowBtn" class="py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300">箭頭</button>
+                                <button onclick="setObjectStyle('candle')" id="styleCandleBtn" class="py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300">蠟燭</button>
+                            </div>
+                            <p id="objectInfo" class="hidden mt-2 p-2 rounded bg-slate-900/80 border border-slate-800 text-[11px] leading-relaxed text-slate-300"></p>
+                        </div>
+
                         <div id="indexControl" class="hidden">
                             <div class="flex justify-between text-slate-400 mb-1">
                                 <span>折射率 n</span>
@@ -271,6 +302,20 @@
                 </h2>
 
                 <div class="space-y-2 text-xs">
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-bolt text-cyan-400"></i> 雷射光源 (Laser)
+                        </span>
+                        <input type="checkbox" id="chkShowLight" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
+                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <i class="fa-solid fa-arrows-split-up-and-left text-yellow-300"></i> 成像的三條特殊光線
+                        </span>
+                        <input type="checkbox" id="chkPrincipal" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                    </label>
+
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
                         <span class="flex items-center gap-2 text-slate-300">
                             <i class="fa-solid fa-ruler-combined text-slate-400"></i> 法線 (Normals)
@@ -342,6 +387,7 @@
                 <p>• <b>鏡子背面</b>：畫斜線的一側是背面，光照到會被擋住；把鏡子轉 180° 就能換面。</p>
                 <p>• <b>角度代號</b>：反射用 θi（入射角）、θr（反射角）；折射用 θ₁（入射角）、θ₂（折射角）。</p>
                 <p>• <b>真實透鏡</b>：焦距是薄透鏡近似值，實際交點會因透鏡厚度與球面像差而偏移。</p>
+                <p>• <b>成像</b>：物體會對最近的理想薄透鏡或面鏡成像；拖曳物體底端移動，拖曳頂端改變高度。實像畫實線，虛像畫虛線。打開座標網格（一格 40px）可量物距與像距。</p>
                 <p>• <b>觸控螢幕</b>：單指拖曳物件，兩指縮放、移動畫面。</p>
             </div>
         </aside>
@@ -536,7 +582,8 @@
             flat: { length: 240, angle: 90 }, concave: { length: 240, angle: 90 }, convex: { length: 240, angle: 90 },
             rect: { length: 300, angle: 0, thickness: 120 }, semi: { length: 260, angle: 90 },
             lensConvex: { length: 180, angle: 90 }, lensConcave: { length: 180, angle: 90 },
-            idealConvex: { length: 260, angle: 90 }, idealConcave: { length: 260, angle: 90 }
+            idealConvex: { length: 260, angle: 90 }, idealConcave: { length: 260, angle: 90 },
+            object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }
         };
 
         function addMirror(type, customProps = {}) {
@@ -550,7 +597,8 @@
                 angle: customProps.angle !== undefined ? customProps.angle : def.angle,
                 focalLength: customProps.focalLength || 150,
                 thickness: customProps.thickness || def.thickness || 120,
-                n: customProps.n || 1.5
+                n: customProps.n || 1.5,
+                style: customProps.style || 'candle'
             };
             if (isRealLens(mirror)) {
                 mirror.radius = customProps.radius || 2 * (mirror.n - 1) * mirror.focalLength;
@@ -593,6 +641,7 @@
             document.getElementById('chkShowFocal').checked = false;
             document.getElementById('chkShowGrid').checked = false;
             document.getElementById('chkShowExtensions').checked = false;
+            document.getElementById('chkShowLight').checked = true;
             document.getElementById('partialSlider').value = 40;
             updatePartialLevel();
             loadPreset('flatLaw');
@@ -628,7 +677,8 @@
             flat: '平面鏡', concave: '凹面鏡', convex: '凸面鏡',
             rect: '長方形玻璃磚', semi: '半圓形玻璃磚',
             lensConvex: '凸透鏡（真實）', lensConcave: '凹透鏡（真實）',
-            idealConvex: '凸透鏡（理想薄透鏡）', idealConcave: '凹透鏡（理想薄透鏡）'
+            idealConvex: '凸透鏡（理想薄透鏡）', idealConcave: '凹透鏡（理想薄透鏡）',
+            object: '物體', screen: '屏幕'
         };
         const isCurvedMirror = m => m.type === 'concave' || m.type === 'convex';
 
@@ -696,6 +746,7 @@
         function mirrorEnds(m) {
             const rad = degToRad(m.angle);
             const cosA = Math.cos(rad), sinA = Math.sin(rad);
+            if (m.type === 'object') return [{ x: m.x, y: m.y }, { x: m.x + cosA * m.length, y: m.y + sinA * m.length }];
             if (!isCurvedMirror(m)) {
                 const halfL = m.length / 2;
                 return [{ x: m.x - cosA * halfL, y: m.y - sinA * halfL }, { x: m.x + cosA * halfL, y: m.y + sinA * halfL }];
@@ -713,6 +764,7 @@
             const dist = Math.max(20, Math.hypot(dx, dy));
             m.angle = normalizeAngle(radToDeg(Math.atan2(dy, dx)));
             const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+            if (m.type === 'object') { m.x = p1.x; m.y = p1.y; m.length = Math.round(dist); return; }
             if (!isCurvedMirror(m)) {
                 m.length = Math.round(dist);
                 m.x = midX; m.y = midY;
@@ -887,12 +939,14 @@
         // ───────── 光線追跡 ─────────
         // paths：每一段光路（含部分反射分出的支線）；events：被標示角度那條光線的反射、折射、全反射位置
         function traceRays() {
+            if (!document.getElementById('chkShowLight').checked) return { paths: [], events: [], multi: false };
             const originRays = makeOriginRays();
             // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°
             const trackedRay = originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0;
             const partialOn = partialLevel() > 0;
             const mirrors = state.mirrors.filter(m => MIRROR_TYPES.includes(m.type));
             const ideals = state.mirrors.filter(m => IDEAL_TYPES.includes(m.type));
+            const screens = state.mirrors.filter(m => m.type === 'screen');
             const prims = [];
             state.mirrors.forEach(m => { if (GLASS_TYPES.includes(m.type)) prims.push(...glassPrims(m)); });
 
@@ -912,6 +966,11 @@
                         for (const m of mirrors) { const h = hitMirror(cur, m); if (h && (!best || h.t < best.t)) best = { ...h, kind: 'mirror' }; }
                         for (const p of prims) { const h = hitGlassPrim(cur, p); if (h && (!best || h.t < best.t)) best = { ...h, kind: 'glass' }; }
                         for (const m of ideals) { const h = hitIdeal(cur, m); if (h && (!best || h.t < best.t)) best = { ...h, kind: 'ideal' }; }
+                        for (const m of screens) {   // 屏幕擋光
+                            const [p1, p2] = mirrorEnds(m);
+                            const h = intersectRaySegment(cur, p1, p2);
+                            if (h && (!best || h.t < best.t)) best = { t: h.t, x: h.hitX, y: h.hitY, absorbed: true, kind: 'mirror' };
+                        }
                         if (!best) {
                             pts.push({ x: cur.x + cur.dx * 4000, y: cur.y + cur.dy * 4000 });
                             escaped = true;
@@ -985,7 +1044,7 @@
 
             // 3. 玻璃與透鏡本體（畫在光線下面，光線在玻璃裡才看得清楚）
             state.mirrors.forEach((m, idx) => {
-                if (!MIRROR_TYPES.includes(m.type)) drawOptic(m, idx === state.selectedMirrorIndex);
+                if (GLASS_TYPES.includes(m.type) || IDEAL_TYPES.includes(m.type)) drawOptic(m, idx === state.selectedMirrorIndex);
             });
 
             // 4. 光線
@@ -995,22 +1054,28 @@
                 drawRayExtensions(paths);
             }
 
-            // 5. 鏡子，以及所有元件的手把
+            // 5. 鏡子
             state.mirrors.forEach((m, idx) => {
-                const sel = idx === state.selectedMirrorIndex;
-                if (MIRROR_TYPES.includes(m.type)) drawMirror(m, sel);
-                else drawElementHandles(m, sel);
+                if (MIRROR_TYPES.includes(m.type)) drawMirror(m, idx === state.selectedMirrorIndex);
             });
 
-            // 6. 法線與角度代號
+            // 6. 成像：特殊光線、像、屏幕、物體
+            drawImaging();
+
+            // 7. 其他元件的手把
+            state.mirrors.forEach((m, idx) => {
+                if (!MIRROR_TYPES.includes(m.type)) drawElementHandles(m, idx === state.selectedMirrorIndex);
+            });
+
+            // 8. 法線與角度代號
             if (document.getElementById('chkShowNormals').checked) {
                 drawIntersectionHelpers(events);
             }
 
-            // 7. Light Source
-            drawLightSource();
+            // 9. 光源
+            if (document.getElementById('chkShowLight').checked) drawLightSource();
 
-            // 8. Protractor
+            // 10. 量角器
             if (document.getElementById('chkShowProtractor').checked) {
                 drawProtractor();
             }
@@ -1315,7 +1380,7 @@
 
         function drawElementHandles(m, isSelected) {
             const [e1, e2] = mirrorEnds(m);
-            drawHandle(e1.x, e1.y, isSelected);
+            if (m.type !== 'object') drawHandle(e1.x, e1.y, isSelected);   // 物體只有頂端一個手把；底端用來整個拖曳
             drawHandle(e2.x, e2.y, isSelected);
             ctx.save();
             ctx.fillStyle = isSelected ? '#38bdf8' : '#00f0ff';
@@ -1329,6 +1394,8 @@
             const f = frame(m);
             const dt = (px - m.x) * f.tx + (py - m.y) * f.ty;
             const ds = (px - m.x) * f.nx + (py - m.y) * f.ny;
+            if (m.type === 'object') return dt >= -8 && dt <= m.length + 8 && Math.abs(ds) <= Math.max(10, m.length * 0.14);
+            if (m.type === 'screen') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= 10;
             if (m.type === 'rect') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= (m.thickness || 120) / 2;
             if (m.type === 'semi') return ds >= -8 && Math.hypot(dt, ds) <= m.length / 2;
             if (m.type === 'lensConvex' || m.type === 'lensConcave') {
@@ -1337,6 +1404,368 @@
             }
             if (IDEAL_TYPES.includes(m.type) || m.type === 'flat') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= 10;
             return false;
+        }
+
+        // ───────── 成像：物體、像、三條特殊光線、屏幕 ─────────
+        // 成像用理想的透鏡／面鏡公式（1/p + 1/q = 1/f），所以只支援理想薄透鏡、凹凸面鏡和平面鏡；
+        // 真實透鏡有像差，光線不會聚成一點，不在這裡處理。
+        const IMAGING_TYPES = ['idealConvex', 'idealConcave', 'concave', 'convex', 'flat'];
+        const GRID_PX = 40;   // 網格一格的長度
+        const fmtLen = v => `${Math.round(v)}px（${(v / GRID_PX).toFixed(Math.abs(v / GRID_PX % 1) < 0.05 ? 0 : 1)} 格）`;
+        const objTip = o => ({ x: o.x + Math.cos(degToRad(o.angle)) * o.length, y: o.y + Math.sin(degToRad(o.angle)) * o.length });
+
+        // 找物體附近可以成像的元件（以元件中心的距離判斷）
+        function findImagingOptic(obj) {
+            let best = null, bestD = Infinity;
+            state.mirrors.forEach(m => {
+                if (!IMAGING_TYPES.includes(m.type)) return;
+                const d = Math.hypot(m.x - obj.x, m.y - obj.y);
+                if (d < bestD) { bestD = d; best = m; }
+            });
+            return best;
+        }
+
+        // 以元件為準的成像座標：w 沿主軸、由物體一側指向元件（物體在 w < 0）；t 垂直主軸
+        function imagingSetup(obj, op) {
+            const fr = frame(op);
+            const O = { x: op.x, y: op.y };   // 透鏡中心、面鏡頂點（鏡心）
+            const isLens = IDEAL_TYPES.includes(op.type);
+            const sBase = (obj.x - O.x) * fr.nx + (obj.y - O.y) * fr.ny;
+            if (Math.abs(sBase) < 2) return { error: '物體放在元件上，無法成像' };
+            let Ax, Ay;
+            if (isLens) { const k = sBase < 0 ? 1 : -1; Ax = fr.nx * k; Ay = fr.ny * k; }
+            else {
+                if (sBase <= 0) return { error: '物體在鏡子背面，看不到像' };   // 面鏡的反射面朝 +n
+                Ax = -fr.nx; Ay = -fr.ny;
+            }
+            let f;
+            if (op.type === 'idealConvex' || op.type === 'concave') f = op.focalLength;
+            else if (op.type === 'idealConcave' || op.type === 'convex') f = -op.focalLength;
+            else f = Infinity;   // 平面鏡
+            const S = {
+                op, O, isLens, f, A: { x: Ax, y: Ay }, T: { x: fr.tx, y: fr.ty },
+                toLocal: p => ({ w: (p.x - O.x) * Ax + (p.y - O.y) * Ay, t: (p.x - O.x) * fr.tx + (p.y - O.y) * fr.ty }),
+                toWorld: (w, t) => ({ x: O.x + Ax * w + fr.tx * t, y: O.y + Ay * w + fr.ty * t })
+            };
+            // 物點 → 像點。q > 0 是實像，q < 0 是虛像
+            S.image = p => {
+                const L = S.toLocal(p);
+                const pDist = -L.w;
+                if (pDist <= 0.5) return null;
+                const inv = (f === Infinity ? 0 : 1 / f) - 1 / pDist;
+                if (Math.abs(inv) < 1e-6) return { infinite: true, p: pDist };
+                const q = 1 / inv;
+                const ti = -(q / pDist) * L.t;
+                const wi = isLens ? q : -q;   // 透鏡的實像在另一側；面鏡的實像在同一側
+                return { p: pDist, q, real: q > 0, w: wi, t: ti, pt: S.toWorld(wi, ti), m: -q / pDist };
+            };
+            return S;
+        }
+
+        // 計算一個物體的成像結果
+        function computeImaging(obj) {
+            const op = findImagingOptic(obj);
+            if (!op) return { error: '附近沒有可以成像的元件（理想薄透鏡、凹凸面鏡或平面鏡）' };
+            const S = imagingSetup(obj, op);
+            if (S.error) return { op, error: S.error };
+            const tip = objTip(obj);
+            const iBase = S.image({ x: obj.x, y: obj.y }), iTip = S.image(tip);
+            if (!iBase || !iTip) return { op, S, error: '物體跨過了元件，無法成像' };
+            if (iBase.infinite || iTip.infinite) return { op, S, infinite: true, p: iBase.p, tip };
+            const objH = S.toLocal(tip).t - S.toLocal({ x: obj.x, y: obj.y }).t;
+            const imgH = iTip.t - iBase.t;
+            const mag = Math.abs(objH) > 1e-6 ? imgH / objH : iTip.m;
+            return { op, S, tip, iBase, iTip, p: iBase.p, q: iBase.q, real: iTip.real, mag };
+        }
+
+        function describeImage(r) {
+            const kind = r.real ? '實像' : '虛像';
+            const dir = r.mag < 0 ? '倒立' : '正立';
+            const a = Math.abs(r.mag);
+            const size = a > 1.02 ? '放大' : (a < 0.98 ? '縮小' : '等大');
+            return `${dir}・${size}・${kind}`;
+        }
+
+        // 畫物體（箭頭或蠟燭）。base → tip 是物體的方向；dashed 用來畫虛像
+        function drawObjectShape(base, tip, style, color, opts = {}) {
+            const dx = tip.x - base.x, dy = tip.y - base.y;
+            const L = Math.hypot(dx, dy);
+            if (L < 1) return;
+            const ux = dx / L, uy = dy / L, vx = -uy, vy = ux;
+            const P = (a, b) => ({ x: base.x + ux * a + vx * b, y: base.y + uy * a + vy * b });   // a：沿物體，b：橫向
+            ctx.save();
+            ctx.globalAlpha = opts.alpha ?? 1;
+            if (opts.dashed) ctx.setLineDash([5, 4]);
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            if (style === 'candle') {
+                const w = Math.max(5, Math.min(14, L * 0.12)) * (opts.widthScale ?? 1);
+                const bodyTop = L * 0.72;
+                const corners = [P(0, -w), P(bodyTop, -w), P(bodyTop, w), P(0, w)];
+                ctx.beginPath();
+                corners.forEach((c, i) => i ? ctx.lineTo(c.x, c.y) : ctx.moveTo(c.x, c.y));
+                ctx.closePath();
+                ctx.fillStyle = opts.dashed ? 'rgba(254, 243, 199, 0.08)' : 'rgba(254, 243, 199, 0.85)';
+                ctx.fill();
+                ctx.strokeStyle = opts.dashed ? color : '#fde68a';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                const wick1 = P(bodyTop, 0), wick2 = P(bodyTop + L * 0.06, 0);
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(wick1.x, wick1.y); ctx.lineTo(wick2.x, wick2.y); ctx.stroke();
+                // 火焰：尖端就是物體頂端
+                const fw = w * 0.9, fBase = bodyTop + L * 0.04;
+                const f0 = P(fBase, 0), f1 = P(fBase + (L - fBase) * 0.45, -fw), f2 = P(L, 0), f3 = P(fBase + (L - fBase) * 0.45, fw);
+                if (!opts.dashed) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 14; }
+                ctx.beginPath();
+                ctx.moveTo(f0.x, f0.y);
+                ctx.quadraticCurveTo(f1.x, f1.y, f2.x, f2.y);
+                ctx.quadraticCurveTo(f3.x, f3.y, f0.x, f0.y);
+                ctx.fillStyle = opts.dashed ? 'rgba(251, 146, 60, 0.15)' : '#fb923c';
+                ctx.fill();
+                ctx.strokeStyle = opts.dashed ? color : '#fde047';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+            } else {
+                const head = Math.min(14, L * 0.3);
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = opts.lineWidth ?? 3;
+                ctx.beginPath(); ctx.moveTo(base.x, base.y);
+                const neck = P(L - head * 0.8, 0);
+                ctx.lineTo(neck.x, neck.y); ctx.stroke();
+                ctx.setLineDash([]);
+                const h1 = P(L - head, -head * 0.55), h2 = P(L - head, head * 0.55);
+                ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(h1.x, h1.y); ctx.lineTo(h2.x, h2.y); ctx.closePath();
+                if (opts.dashed) ctx.stroke(); else ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // 光線與面鏡所在圓的交點（取靠近鏡心那一側）
+        function arcHitPoint(op, from, dir) {
+            const g = curveGeom(op);
+            const ox = from.x - g.Cx, oy = from.y - g.Cy;
+            const b = ox * dir.x + oy * dir.y, c = ox * ox + oy * oy - g.R * g.R;
+            const disc = b * b - c;
+            if (disc < 0) return null;
+            const sq = Math.sqrt(disc);
+            const vx = op.x - g.Cx, vy = op.y - g.Cy;
+            let best = null;
+            for (const t of [-b - sq, -b + sq]) {
+                const p = { x: from.x + dir.x * t, y: from.y + dir.y * t };
+                if ((p.x - g.Cx) * vx + (p.y - g.Cy) * vy > 0 && (!best || t < best.t)) best = { ...p, t };
+            }
+            return best;
+        }
+
+        // 三條特殊光線：1 平行主軸、2 通過鏡心（面鏡：通過曲率中心 C）、3 通過焦點
+        function principalRays(r) {
+            const { S, op, tip } = r;
+            const T = S.toLocal(tip);
+            const f = S.f;
+            const rays = [];
+            const add = (dw, dt, color, label) => {
+                if (dw <= 1e-6) return;
+                const L = Math.hypot(dw, dt); dw /= L; dt /= L;
+                const tP = T.t + dt * (-T.w / dw);   // 打到元件平面（w = 0）的位置
+                rays.push({ d: { w: dw, t: dt }, tP, color, label });
+            };
+            const towardPositive = (pw, pt) => { let dw = pw - T.w, dt = pt - T.t; if (dw < 0) { dw = -dw; dt = -dt; } return [dw, dt]; };
+            add(1, 0, '#facc15', '平行主軸');
+            if (S.isLens || f === Infinity) add(...towardPositive(0, 0), '#4ade80', S.isLens ? '通過光心' : '射向鏡心');
+            else add(...towardPositive(-2 * f, 0), '#4ade80', '通過曲率中心');
+            if (f !== Infinity) add(...towardPositive(-f, 0), '#f472b6', '通過焦點');
+
+            return rays.map(ray => {
+                const dirW = { x: S.A.x * ray.d.w + S.T.x * ray.d.t, y: S.A.y * ray.d.w + S.T.y * ray.d.t };
+                let P = S.toWorld(0, ray.tP);
+                if (isCurvedMirror(op)) { const h = arcHitPoint(op, tip, dirW); if (h) P = h; }
+                // 出射方向：像在有限遠時直接朝像點（虛像則背離像點）；像在無窮遠時用理想透鏡／面鏡的對應關係
+                let out;
+                if (!r.infinite) {
+                    const I = r.iTip.pt;
+                    const vx = (I.x - P.x) * (r.real ? 1 : -1), vy = (I.y - P.y) * (r.real ? 1 : -1);
+                    const L = Math.hypot(vx, vy);
+                    out = L > 1e-6 ? { x: vx / L, y: vy / L } : dirW;
+                } else {
+                    const Q = { w: f, t: f * ray.d.t / ray.d.w };
+                    let ow = (Q.w - 0) * Math.sign(f), ot = (Q.t - ray.tP) * Math.sign(f);
+                    const L = Math.hypot(ow, ot); ow /= L; ot /= L;
+                    if (!S.isLens) ow = -ow;
+                    out = { x: S.A.x * ow + S.T.x * ot, y: S.A.y * ow + S.T.y * ot };
+                }
+                return { ...ray, P, out };
+            });
+        }
+
+        function drawArrowHead(x, y, dx, dy, color) {
+            const a = Math.atan2(dy, dx);
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.translate(x, y); ctx.rotate(a);
+            ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-5, -4); ctx.lineTo(-3, 0); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+
+        // 光線打到元件長度以外時，用虛線把元件延伸出去（課本作圖的習慣）
+        function drawElementExtension(op, S, tP) {
+            const half = op.length / 2;
+            if (Math.abs(tP) <= half) return;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([3, 4]);
+            ctx.beginPath();
+            const sgn = Math.sign(tP), far = Math.abs(tP) + 12;
+            if (isCurvedMirror(op)) {
+                const g = curveGeom(op);
+                const ends = mirrorEnds(op);
+                const e = S.toLocal(ends[0]).t * sgn > 0 ? ends[0] : ends[1];
+                const ea = Math.atan2(e.y - g.Cy, e.x - g.Cx);
+                const extra = Math.asin(Math.min(0.99, far / g.R)) - Math.asin(Math.min(0.99, half / g.R));
+                const dirSign = angleBetween(g.center, ea) > 0 ? 1 : -1;
+                ctx.arc(g.Cx, g.Cy, g.R, ea, ea + dirSign * Math.max(0, extra), dirSign < 0);
+            } else {
+                const p1 = S.toWorld(0, sgn * half), p2 = S.toWorld(0, sgn * far);
+                ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 屏幕上看到的像：在像的位置清晰，離開越遠越模糊；虛像無法呈現在屏幕上
+        function drawScreenImage(scr, r, obj) {
+            const half = scr.length / 2;
+            const sf = frame(scr);
+            const label = (text, color) => {
+                const p = toWorld(scr, -half - 16, 0);
+                drawPillBadge(text, p.x, p.y, color);
+            };
+            if (!r || r.error || r.infinite) { if (r && r.infinite) label('像在無窮遠處，屏幕上沒有像', '#94a3b8'); return; }
+            const { S } = r;
+            const wS = S.toLocal(scr).w;
+            if (!r.real) { label('虛像無法呈現在屏幕上', '#94a3b8'); return; }
+            const rightSide = S.isLens ? wS > 1 : wS < -1;
+            if (!rightSide) { label('屏幕要放在實像那一側', '#94a3b8'); return; }
+            const aperture = r.op.length / 2;
+            const proj = img => {   // 通過鏡心的光線在屏幕位置的落點
+                const w = S.toWorld(wS, img.t * (wS / img.w));
+                const along = (w.x - scr.x) * sf.tx + (w.y - scr.y) * sf.ty;
+                return { x: scr.x + sf.tx * along, y: scr.y + sf.ty * along, along };
+            };
+            const spread = Math.max(...[r.iBase, r.iTip].map(img => aperture * Math.abs(wS - img.w) / Math.abs(img.w)));
+            const pb = proj(r.iBase), pt = proj(r.iTip);
+            ctx.save();
+            if (spread < 3) {
+                drawObjectShape(pb, pt, obj.style, '#fb923c', { widthScale: Math.abs(r.mag) });
+                label('清晰的像', '#4ade80');
+            } else {
+                // 模糊：像的光散成一片，越模糊越暗
+                const lo = Math.min(pb.along, pt.along) - spread, hi = Math.max(pb.along, pt.along) + spread;
+                const a = Math.min(0.75, 8 / spread);
+                const g1 = toWorld(scr, lo, 0), g2 = toWorld(scr, hi, 0);
+                const grad = ctx.createLinearGradient(g1.x, g1.y, g2.x, g2.y);
+                grad.addColorStop(0, 'rgba(251, 146, 60, 0)');
+                grad.addColorStop(0.5, `rgba(251, 146, 60, ${a})`);
+                grad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'butt';
+                ctx.beginPath(); ctx.moveTo(g1.x, g1.y); ctx.lineTo(g2.x, g2.y); ctx.stroke();
+                label('模糊：前後移動屏幕', '#fbbf24');
+            }
+            ctx.restore();
+        }
+
+        function drawScreen(scr, isSelected) {
+            const [e1, e2] = mirrorEnds(scr);
+            const sf = frame(scr);
+            ctx.save();
+            ctx.strokeStyle = isSelected ? '#38bdf8' : '#e2e8f0';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'butt';
+            ctx.beginPath(); ctx.moveTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y); ctx.stroke();
+            // 底座
+            const foot = e2;
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(foot.x - sf.nx * 14, foot.y - sf.ny * 14); ctx.lineTo(foot.x + sf.nx * 14, foot.y + sf.ny * 14); ctx.stroke();
+            ctx.restore();
+        }
+
+        // 每次重畫時計算所有物體的成像，畫出特殊光線、像與屏幕上的像
+        function drawImaging() {
+            const objects = state.mirrors.filter(m => m.type === 'object');
+            const screens = state.mirrors.filter(m => m.type === 'screen');
+            const showRays = document.getElementById('chkPrincipal').checked;
+            state.imaging = {};
+            objects.forEach(obj => {
+                const r = computeImaging(obj);
+                state.imaging[obj.id] = r;
+                if (r.error) return;
+                if (showRays) {
+                    principalRays(r).forEach(ray => {
+                        ctx.save();
+                        ctx.strokeStyle = ray.color;
+                        ctx.lineWidth = 2;
+                        ctx.globalAlpha = 0.95;
+                        ctx.beginPath(); ctx.moveTo(r.tip.x, r.tip.y); ctx.lineTo(ray.P.x, ray.P.y); ctx.stroke();
+                        drawArrowHead((r.tip.x + ray.P.x) / 2, (r.tip.y + ray.P.y) / 2, ray.P.x - r.tip.x, ray.P.y - r.tip.y, ray.color);
+                        let outLen = 420;
+                        if (!r.infinite && r.real) outLen = Math.hypot(r.iTip.pt.x - ray.P.x, r.iTip.pt.y - ray.P.y) + 160;
+                        const end = { x: ray.P.x + ray.out.x * outLen, y: ray.P.y + ray.out.y * outLen };
+                        ctx.beginPath(); ctx.moveTo(ray.P.x, ray.P.y); ctx.lineTo(end.x, end.y); ctx.stroke();
+                        drawArrowHead(ray.P.x + ray.out.x * 70, ray.P.y + ray.out.y * 70, ray.out.x, ray.out.y, ray.color);
+                        if (!r.infinite && !r.real) {   // 虛像：出射光的反向延長線交於像點
+                            ctx.setLineDash([5, 5]);
+                            ctx.lineWidth = 1.3;
+                            ctx.globalAlpha = 0.8;
+                            ctx.beginPath(); ctx.moveTo(ray.P.x, ray.P.y); ctx.lineTo(r.iTip.pt.x, r.iTip.pt.y); ctx.stroke();
+                        }
+                        ctx.restore();
+                        drawElementExtension(r.op, r.S, r.S.toLocal(ray.P).t);
+                    });
+                }
+                if (!r.infinite) {
+                    drawObjectShape(r.iBase.pt, r.iTip.pt, obj.style, r.real ? '#fb923c' : '#fdba74',
+                        r.real ? { alpha: 0.9, widthScale: Math.abs(r.mag) } : { dashed: true, alpha: 0.9, widthScale: Math.abs(r.mag) });
+                    const lp = r.iTip.pt;
+                    const away = r.S.toLocal(lp).t >= r.S.toLocal(r.iBase.pt).t ? 1 : -1;
+                    const q = { x: lp.x + r.S.T.x * away * 18, y: lp.y + r.S.T.y * away * 18 };
+                    drawPillBadge(describeImage(r), q.x, q.y, r.real ? '#fb923c' : '#fdba74');
+                }
+            });
+            const firstObj = objects[0];
+            screens.forEach((scr, i) => {
+                drawScreen(scr, state.mirrors.indexOf(scr) === state.selectedMirrorIndex);
+                if (firstObj) drawScreenImage(scr, state.imaging[firstObj.id], firstObj);
+            });
+            objects.forEach(obj => drawObjectShape({ x: obj.x, y: obj.y }, objTip(obj), obj.style, '#fb923c'));
+            refreshObjectInfo();
+        }
+
+        // 面板上的物距、像距、放大率
+        function refreshObjectInfo() {
+            const box = document.getElementById('objectInfo');
+            if (!box) return;
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || m.type !== 'object') { box.classList.add('hidden'); return; }
+            box.classList.remove('hidden');
+            const r = (state.imaging || {})[m.id];
+            if (!r) { box.innerHTML = ''; return; }
+            if (r.error) { box.innerHTML = `<span class="text-amber-300">${r.error}</span>`; return; }
+            const f = r.S.f;
+            const head = `成像元件：${TYPE_NAMES[r.op.type]}${f === Infinity ? '' : `，焦距 f = ${fmtLen(Math.abs(f))}`}`;
+            if (r.infinite) { box.innerHTML = `${head}<br>物距 p = ${fmtLen(r.p)}<br><span class="text-amber-300">物體在焦點上，光線射出後互相平行，像在無窮遠處（不成像）。</span>`; return; }
+            box.innerHTML = `${head}<br>物距 p = ${fmtLen(r.p)}<br>像距 q = ${fmtLen(Math.abs(r.q))}${r.real ? '' : (r.S.isLens ? '（虛像和物體在同一側）' : '（虛像在鏡子後方）')}<br>放大率 = ${Math.abs(r.mag).toFixed(2)} 倍<br><b class="text-orange-300">${describeImage(r)}</b>`;
+        }
+
+        function setObjectStyle(style) {
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || m.type !== 'object') return;
+            m.style = style;
+            updateInspectorUI();
+            draw();
         }
 
         function drawHandle(x, y, isSelected) {
@@ -1629,13 +2058,14 @@
             const lightRad = degToRad(state.light.angle);
             const tipX = state.light.x + Math.cos(lightRad) * 28;
             const tipY = state.light.y + Math.sin(lightRad) * 28;
-            if (Math.hypot(pos.x - tipX, pos.y - tipY) < hr) {
+            const lightOn = document.getElementById('chkShowLight').checked;
+            if (lightOn && Math.hypot(pos.x - tipX, pos.y - tipY) < hr) {
                 state.draggedObject = 'light-rot';
                 return;
             }
 
             // 2. Light Emitter Body Check
-            if (Math.hypot(pos.x - state.light.x, pos.y - state.light.y) < Math.max(22 / state.zoom, hr)) {
+            if (lightOn && Math.hypot(pos.x - state.light.x, pos.y - state.light.y) < Math.max(22 / state.zoom, hr)) {
                 state.draggedObject = 'light-body';
                 state.dragOffset = { x: pos.x - state.light.x, y: pos.y - state.light.y };
                 return;
@@ -1665,7 +2095,7 @@
                 const m = state.mirrors[i];
                 const [h1, h2] = mirrorEnds(m);
 
-                if (Math.hypot(pos.x - h1.x, pos.y - h1.y) < hr) {
+                if (m.type !== 'object' && Math.hypot(pos.x - h1.x, pos.y - h1.y) < hr) {
                     state.draggedObject = 'mirror-h1';
                     state.dragMirrorIdx = i;
                     state.dragAnchor = { x: h2.x, y: h2.y };
@@ -1869,7 +2299,7 @@
             $('mirrorRotInput').value = Math.round(m.angle);
             $('mirrorRotVal').innerText = `${Math.round(m.angle)}°`;
 
-            const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)' };
+            const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)', object: '物體高度 (Height)', screen: '屏幕高度 (Height)' };
             $('mirrorLenLabel').innerText = lenLabels[m.type] || (LENS_TYPES.includes(m.type) ? '透鏡高度 (Height)' : '鏡面長度 (Length)');
             $('mirrorLenSlider').value = Math.round(m.length);
             $('mirrorLenInput').value = Math.round(m.length);
@@ -1898,6 +2328,14 @@
             $('mirrorIndexSlider').min = isRealLens(m) ? LENS_N_MIN : 1.0;
             $('mirrorIndexSlider').value = m.n;
             $('mirrorIndexVal').innerText = m.n.toFixed(2);
+
+            $('objectControl').classList.toggle('hidden', m.type !== 'object');
+            if (m.type === 'object') {
+                const on = 'bg-cyan-600 text-white border-cyan-500', off = 'bg-slate-800 text-slate-300 border-slate-700';
+                $('styleArrowBtn').className = `py-1 rounded border text-[11px] ${m.style === 'arrow' ? on : off}`;
+                $('styleCandleBtn').className = `py-1 rounded border text-[11px] ${m.style === 'candle' ? on : off}`;
+            }
+            refreshObjectInfo();
 
             const info = $('lensInfo');
             info.classList.toggle('hidden', !isRealLens(m));
@@ -1995,6 +2433,19 @@
             angleWanted = true;
             setChk('chkShowFocal', false);
             setChk('chkShowExtensions', false);
+            setChk('chkShowLight', true);
+            setChk('chkShowProtractor', true);
+            // 成像預設：關掉雷射、打開網格與焦點；鏡心放在網格交點上，方便用格子量物距與像距
+            const imaging = (opticType, opt, obj, scr) => {
+                setChk('chkShowLight', false);
+                setChk('chkShowGrid', true);
+                setChk('chkShowFocal', true);
+                addMirror(opticType, opt);
+                addMirror('object', obj);
+                if (scr) addMirror('screen', scr);
+                protractorAt(900, 620);
+                document.getElementById('chkShowProtractor').checked = false;
+            };
 
             if (presetKey === 'flatLaw') {
                 light('single', 180, 180, 35);
@@ -2040,6 +2491,36 @@
                 setChk('chkShowFocal', true);
                 setChk('chkShowExtensions', presetKey === 'realConcave');
                 protractorAt(800, 580);
+            } else if (presetKey === 'imgConvexFar') {
+                // f = 3 格，物距 9 格 → 像距 4.5 格，倒立縮小實像；屏幕放在像的位置
+                imaging('idealConvex', { x: 520, y: 320, angle: 90, length: 300, focalLength: 120 },
+                    { x: 160, y: 320, angle: 270, length: 120, style: 'candle' },
+                    { x: 700, y: 320, angle: 90, length: 240 });
+            } else if (presetKey === 'imgConvexMid') {
+                // f = 2 格，物距 3 格 → 像距 6 格，倒立放大實像
+                imaging('idealConvex', { x: 440, y: 320, angle: 90, length: 260, focalLength: 80 },
+                    { x: 320, y: 320, angle: 270, length: 60, style: 'candle' },
+                    { x: 680, y: 320, angle: 90, length: 300 });
+            } else if (presetKey === 'imgMagnifier') {
+                // f = 4 格，物距 2 格 → 正立放大虛像（放大鏡）
+                imaging('idealConvex', { x: 560, y: 320, angle: 90, length: 300, focalLength: 160 },
+                    { x: 480, y: 320, angle: 270, length: 60, style: 'arrow' });
+            } else if (presetKey === 'imgConcaveLens') {
+                // f = 3 格，物距 6 格 → 正立縮小虛像
+                imaging('idealConcave', { x: 520, y: 320, angle: 90, length: 300, focalLength: 120 },
+                    { x: 280, y: 320, angle: 270, length: 120, style: 'arrow' });
+            } else if (presetKey === 'imgConcaveMirror') {
+                // f = 3 格，物距 9 格 → 倒立縮小實像（在鏡前）
+                imaging('concave', { x: 680, y: 320, angle: 90, length: 300, focalLength: 120 },
+                    { x: 320, y: 320, angle: 270, length: 100, style: 'candle' });
+            } else if (presetKey === 'imgConvexMirror') {
+                // f = 3 格，物距 6 格 → 正立縮小虛像（在鏡後）
+                imaging('convex', { x: 600, y: 320, angle: 90, length: 300, focalLength: 120 },
+                    { x: 360, y: 320, angle: 270, length: 120, style: 'arrow' });
+            } else if (presetKey === 'imgFlatMirror') {
+                // 像距等於物距，正立等大虛像
+                imaging('flat', { x: 560, y: 320, angle: 90, length: 300 },
+                    { x: 360, y: 320, angle: 270, length: 100, style: 'candle' });
             }
             state.selectedMirrorIndex = -1;
             syncAngleToggle();
