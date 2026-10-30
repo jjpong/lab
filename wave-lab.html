@@ -125,6 +125,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
     <div class="playbar">
       <button id="play" class="primary" type="button">暫停</button>
       <button id="slow" type="button" aria-pressed="false">慢動作</button>
+      <button id="stepBtn" type="button" title="按一下前進一格；按住不放就慢慢前進">逐格 ▸|</button>
       <button id="reset" type="button">清除重來</button>
       <button id="pulseL" class="pulse" type="button" hidden>送出一個脈衝</button>
       <button id="pulseR" class="pulse" type="button" hidden>右邊送出脈衝</button>
@@ -1051,7 +1052,7 @@ function drawSound(g) {
           trails[k].forEach(([tx, ty], i) => i ? ctx.lineTo(tx, ty) : ctx.moveTo(tx, ty));
           ctx.stroke(); ctx.restore();
         }
-        if (playing) { trails[k].push([x, y]); if (trails[k].length > 150) trails[k].shift(); }
+        if (moving) { trails[k].push([x, y]); if (trails[k].length > 150) trails[k].shift(); }
         dot(x, y, 5.5, CH.red, "rgba(36,55,46,.9)");
       });
     }
@@ -1248,7 +1249,12 @@ let last = performance.now();
 function frame(ts) {
   const dtReal = Math.min(0.05, (ts - last) / 1000); last = ts;
   const s = S[cur];
-  if (playing) stepTab(cur, dtReal * (slow ? 0.3 : 1));
+  /* how much simulated time passes this frame: playing, holding the step button, or a single step */
+  let simDt = playing ? dtReal * (slow ? 0.3 : 1) : 0;
+  if (!playing && stepHold) simDt = dtReal * 0.3;
+  simDt += stepQueue; stepQueue = 0;
+  moving = simDt > 0;
+  if (moving) stepTab(cur, simDt);
   if (W > 0 && H > 0) {
     background();
     if (cur === "water") drawWater();
@@ -1256,11 +1262,11 @@ function frame(ts) {
       const g = geo();
       if (cur === "rope" || cur === "spring") {
         const U = makeU(cur);
-        if (playing) updateEnvelope(cur, U, dtReal * (slow ? 0.3 : 1));
+        if (moving) updateEnvelope(cur, U, simDt);
         cur === "rope" ? drawRope(g) : drawSpring(g);
       } else {
         if (s.view === "micro" && s.medium !== "vacuum") { genParts(g); updateThermal(s.wL.t); }
-        if (playing) updateEar(g);
+        if (moving) updateEar(g);
         drawSound(g);
       }
     }
@@ -1399,6 +1405,20 @@ $$("[data-opt]").forEach(b => b.addEventListener("click", () => { const k = b.da
 
 $("#play").addEventListener("click", () => setPlaying(!playing));
 $("#slow").addEventListener("click", e => { slow = !slow; e.currentTarget.setAttribute("aria-pressed", String(slow)); });
+/* step button: a tap pauses and moves one frame (1/30 s); holding it keeps creeping forward in slow motion */
+const STEP = 1 / 30;
+let stepQueue = 0, stepHold = false, moving = false, stepTimer = null;
+const stepBtn = $("#stepBtn");
+stepBtn.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  if (playing) setPlaying(false);
+  stepQueue += STEP;
+  clearTimeout(stepTimer);
+  stepTimer = setTimeout(() => { stepHold = true; stepBtn.setAttribute("aria-pressed", "true"); }, 350);
+});
+const stepEnd = () => { clearTimeout(stepTimer); stepHold = false; stepBtn.setAttribute("aria-pressed", "false"); };
+["pointerup", "pointerleave", "pointercancel"].forEach(ev => stepBtn.addEventListener(ev, stepEnd));
+stepBtn.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (playing) setPlaying(false); stepQueue += STEP; } });
 $("#reset").addEventListener("click", () => { resetTab(cur, false); setPlaying(true); });
 function sendPulse(side) {
   const s = S[cur];
