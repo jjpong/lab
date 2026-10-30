@@ -231,6 +231,14 @@
                             <input type="range" id="mirrorThickSlider" min="20" max="300" value="120" step="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('thickSlider')">
                         </div>
 
+                        <div id="radiusControl" class="hidden">
+                            <div class="flex justify-between text-slate-400 mb-1">
+                                <span>曲率半徑 R (Curvature)</span>
+                                <span class="text-cyan-400 font-mono" id="mirrorRadiusVal">160px</span>
+                            </div>
+                            <input type="range" id="mirrorRadiusSlider" min="30" max="600" value="160" step="1" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('radiusSlider')">
+                        </div>
+
                         <div id="focalLengthControl" class="hidden">
                             <div class="flex justify-between text-slate-400 mb-1">
                                 <span id="mirrorFocalLabel">焦距 (Focal)</span>
@@ -305,12 +313,16 @@
                         <input type="checkbox" id="chkShowExtensions" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
 
-                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
-                        <span class="flex items-center gap-2 text-slate-300">
-                            <i class="fa-solid fa-circle-half-stroke text-sky-300"></i> 玻璃表面的部分反射光
-                        </span>
-                        <input type="checkbox" id="chkPartial" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
-                    </label>
+                    <div class="p-2 bg-slate-950/40 rounded border border-slate-800">
+                        <div class="flex items-center justify-between text-slate-300 mb-1.5">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-circle-half-stroke text-sky-300"></i> 玻璃表面的部分反射光
+                            </span>
+                            <span class="font-mono text-cyan-400" id="partialVal">40%</span>
+                        </div>
+                        <input type="range" id="partialSlider" min="0" max="100" step="5" value="40" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updatePartialLevel()">
+                        <p class="text-[11px] text-slate-500 mt-1">調整亮度，拉到 0% 就是關閉</p>
+                    </div>
 
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
                         <span class="flex items-center gap-2 text-slate-300">
@@ -540,6 +552,10 @@
                 thickness: customProps.thickness || def.thickness || 120,
                 n: customProps.n || 1.5
             };
+            if (isRealLens(mirror)) {
+                mirror.radius = customProps.radius || 2 * (mirror.n - 1) * mirror.focalLength;
+                enforceLensLimits(mirror, 'radius');
+            }
             state.mirrors.push(mirror);
             state.selectedMirrorIndex = state.mirrors.length - 1;
             updateInspectorUI();
@@ -577,7 +593,8 @@
             document.getElementById('chkShowFocal').checked = false;
             document.getElementById('chkShowGrid').checked = false;
             document.getElementById('chkShowExtensions').checked = false;
-            document.getElementById('chkPartial').checked = true;
+            document.getElementById('partialSlider').value = 40;
+            updatePartialLevel();
             loadPreset('flatLaw');
         }
 
@@ -638,32 +655,29 @@
             return { R, Cx, Cy, center, half, ux, uy, cSign };
         }
 
-        // 真實透鏡（對稱雙凸 / 雙凹）：由焦距與折射率反推曲率半徑 R = 2(n − 1)f（薄透鏡近似）
+        // 真實透鏡（對稱雙凸 / 雙凹）：曲率半徑 R 是透鏡本身的形狀，焦距由 R 與折射率決定
+        //   f = R / (2(n − 1))（薄透鏡近似）
+        //   改折射率 → 曲率不變、焦距改變；改焦距 → 折射率不變、曲率改變；改曲率 → 焦距改變
         // 球面的半高不能超過曲率半徑，所以透鏡半高最多取 R 的 95%
-        const LENS_H_MAX = 0.95, FOCAL_MAX = 400, LENS_N_MIN = 1.2;
+        const LENS_H_MAX = 0.95, LENS_N_MIN = 1.1;
         const isRealLens = m => m.type === 'lensConvex' || m.type === 'lensConcave';
-        // 這個高度與折射率下，焦距最小可以多少
-        function lensMinFocal(m) {
-            return Math.ceil((m.length / 2) / (LENS_H_MAX * 2 * (m.n - 1)));
-        }
-        // changed：使用者剛改的是哪一項。改高度時限制高度；改焦距或折射率時維持高度、把焦距拉到最小值
+        const lensFocal = m => m.radius / (2 * (m.n - 1));
+        // changed：使用者剛改的是哪一項。改高度時限制高度；改曲率（或焦距）時維持高度、把曲率拉到最小值
         function enforceLensLimits(m, changed) {
             if (!isRealLens(m)) return false;
             m.n = Math.max(LENS_N_MIN, m.n);
-            const hMax = LENS_H_MAX * 2 * (m.n - 1) * m.focalLength;
-            if (m.length / 2 <= hMax + 1e-9) return false;
+            let hit = false;
             if (changed === 'length') {
-                m.length = Math.floor(2 * hMax);
+                if (m.length / 2 > LENS_H_MAX * m.radius + 1e-9) { m.length = Math.floor(2 * LENS_H_MAX * m.radius); hit = true; }
             } else {
-                const fNeed = lensMinFocal(m);
-                if (fNeed <= FOCAL_MAX) m.focalLength = fNeed;
-                else { m.focalLength = FOCAL_MAX; m.length = Math.floor(2 * LENS_H_MAX * 2 * (m.n - 1) * FOCAL_MAX); }
+                const minR = (m.length / 2) / LENS_H_MAX;
+                if (m.radius < minR - 1e-9) { m.radius = Math.ceil(minR); hit = true; }
             }
-            return true;
+            m.focalLength = lensFocal(m);
+            return hit;
         }
         function lensGeom(m) {
-            const n = m.n || 1.5;
-            const R = Math.max(20, 2 * (n - 1) * m.focalLength);
+            const R = Math.max(20, m.radius || 2 * ((m.n || 1.5) - 1) * m.focalLength);
             const h = Math.min(m.length / 2, R * LENS_H_MAX);   // 控制項會先保證高度不超過上限，這裡只是保險
             const sag = R - Math.sqrt(R * R - h * h);
             if (m.type === 'lensConvex') {
@@ -876,7 +890,7 @@
             const originRays = makeOriginRays();
             // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°
             const trackedRay = originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0;
-            const partialOn = document.getElementById('chkPartial').checked;
+            const partialOn = partialLevel() > 0;
             const mirrors = state.mirrors.filter(m => MIRROR_TYPES.includes(m.type));
             const ideals = state.mirrors.filter(m => IDEAL_TYPES.includes(m.type));
             const prims = [];
@@ -1040,8 +1054,8 @@
             paths.forEach(p => {
                 const pts = p.points;
                 if (pts.length < 2) return;
-                // 亮度依光的強度：部分反射分出的支線比較暗
-                ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I));
+                // 亮度依光的強度：部分反射分出的支線比較暗，並再乘上使用者設定的部分反射亮度
+                ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I)) * (p.main ? 1 : partialLevel());
                 // 多條光線時，標示角度的那一條畫粗一點
                 ctx.lineWidth = multi ? (p.tracked ? 3.5 : 1.8) : (p.main ? 2.5 : 1.6);
                 ctx.beginPath();
@@ -1867,9 +1881,18 @@
 
             const hasFocal = isCurvedMirror(m) || LENS_TYPES.includes(m.type);
             $('focalLengthControl').classList.toggle('hidden', !hasFocal);
-            $('mirrorFocalLabel').innerText = (m.type === 'lensConvex' || m.type === 'lensConcave') ? '焦距（薄透鏡近似）' : '焦距 (Focal)';
-            $('mirrorFocalSlider').value = m.focalLength;
-            $('mirrorFocalVal').innerText = m.focalLength;
+            $('mirrorFocalLabel').innerText = isRealLens(m) ? '焦距（薄透鏡近似）' : '焦距 (Focal)';
+            // 真實透鏡的焦距會隨折射率變得很長或很短，所以滑桿範圍放寬
+            const fs = $('mirrorFocalSlider');
+            if (isRealLens(m)) { fs.min = 20; fs.max = 1000; fs.step = 1; } else { fs.min = 60; fs.max = 400; fs.step = 5; }
+            fs.value = m.focalLength;
+            $('mirrorFocalVal').innerText = Math.round(m.focalLength);
+
+            $('radiusControl').classList.toggle('hidden', !isRealLens(m));
+            if (isRealLens(m)) {
+                $('mirrorRadiusSlider').value = m.radius;
+                $('mirrorRadiusVal').innerText = `${Math.round(m.radius)}px`;
+            }
 
             $('indexControl').classList.toggle('hidden', !GLASS_TYPES.includes(m.type));
             $('mirrorIndexSlider').min = isRealLens(m) ? LENS_N_MIN : 1.0;
@@ -1881,9 +1904,9 @@
             if (isRealLens(m)) {
                 const g = lensGeom(m);
                 const thick = g.convex ? `中心厚度 ${Math.round(g.d)}px` : `邊緣厚度 ${Math.round(2 * g.edge)}px`;
-                let html = `曲率半徑 R = ${Math.round(g.R)}px，${thick}。焦距越短，表面越彎；高度只影響口徑和厚度，不影響焦距。`;
-                if (state.lensLimitHit === 'length') html += `<br><span class="text-amber-300">這個焦距下，高度最多 ${m.length}px（球面的半高不能超過曲率半徑）。</span>`;
-                else if (state.lensLimitHit) html += `<br><span class="text-amber-300">高度 ${m.length}px 時，焦距最小 ${lensMinFocal(m)}，再小表面就彎不下去了。</span>`;
+                let html = `${thick}。改折射率時曲率不變、焦距改變；改焦距時折射率不變、曲率改變。`;
+                if (state.lensLimitHit === 'length') html += `<br><span class="text-amber-300">曲率半徑 ${Math.round(m.radius)}px 時，高度最多 ${m.length}px（球面的半高不能超過曲率半徑）。</span>`;
+                else if (state.lensLimitHit) html += `<br><span class="text-amber-300">高度 ${m.length}px 時，曲率半徑最小 ${Math.round(m.radius)}px（焦距最小 ${Math.round(m.focalLength)}），表面再彎就撐不住這個高度。</span>`;
                 info.innerHTML = html;
             }
         }
@@ -1911,17 +1934,27 @@
                 m.thickness = parseInt($('mirrorThickSlider').value) || 120;
                 $('mirrorThickVal').innerText = `${m.thickness}px`;
             }
-            if (isCurvedMirror(m) || LENS_TYPES.includes(m.type)) {
-                m.focalLength = parseInt($('mirrorFocalSlider').value) || 150;
-                $('mirrorFocalVal').innerText = m.focalLength;
-            }
             if (GLASS_TYPES.includes(m.type)) {
                 m.n = parseFloat($('mirrorIndexSlider').value) || 1.5;
-                $('mirrorIndexVal').innerText = m.n.toFixed(2);
             }
-            const changed = (source === 'lenSlider' || source === 'lenInput') ? 'length' : (source === 'focalSlider' ? 'focal' : 'other');
+            if (isRealLens(m)) {
+                // 真實透鏡：改焦距 → 用目前的折射率換算新的曲率；改曲率 → 直接設定
+                if (source === 'focalSlider') m.radius = 2 * (m.n - 1) * (parseFloat($('mirrorFocalSlider').value) || 150);
+                if (source === 'radiusSlider') m.radius = parseFloat($('mirrorRadiusSlider').value) || 160;
+            } else if (isCurvedMirror(m) || LENS_TYPES.includes(m.type)) {
+                m.focalLength = parseInt($('mirrorFocalSlider').value) || 150;
+            }
+            const changed = (source === 'lenSlider' || source === 'lenInput') ? 'length'
+                : (source === 'focalSlider' || source === 'radiusSlider') ? 'radius' : 'other';
             state.lensLimitHit = enforceLensLimits(m, changed) ? changed : null;
             updateInspectorUI();
+            draw();
+        }
+
+        const partialLevel = () => (parseFloat(document.getElementById('partialSlider').value) || 0) / 100;
+        function updatePartialLevel() {
+            const v = Math.round(partialLevel() * 100);
+            document.getElementById('partialVal').innerText = v ? `${v}%` : '關閉';
             draw();
         }
 
@@ -1958,11 +1991,10 @@
             };
             const protractorAt = (x, y) => { state.protractor.x = x; state.protractor.y = y; state.protractor.angle = 0; };
             // 每個預設先把輔助選項設回固定狀態，避免沿用上一個預設的設定
-            setChk('chkShowNormals', true);
+            setChk('chkShowNormals', false);
             angleWanted = true;
             setChk('chkShowFocal', false);
             setChk('chkShowExtensions', false);
-            setChk('chkPartial', true);
 
             if (presetKey === 'flatLaw') {
                 light('single', 180, 180, 35);
@@ -1988,21 +2020,18 @@
                 // 光斜射穿過長方形玻璃磚：進入時偏向法線，離開時偏離法線，出射光與入射光平行但側移
                 light('single', 150, 150, 30);
                 addMirror('rect', { x: 460, y: 330, angle: 0, length: 380, thickness: 120, n: 1.5 });
-                setChk('chkShowNormals', true);
-                setChk('chkPartial', true);
+
                 protractorAt(800, 140);
             } else if (presetKey === 'semiTIR') {
                 // 光對準圓心從弧面射入不偏折，只在平面折射；旋轉玻璃磚即可改變入射角
                 light('single', 140, 320, 0);
                 addMirror('semi', { x: 480, y: 320, angle: 115, length: 280, n: 1.5 });
-                setChk('chkShowNormals', true);
-                setChk('chkPartial', true);
+
                 protractorAt(800, 560);
             } else if (presetKey === 'idealConvex' || presetKey === 'idealConcave') {
                 light('parallel', 60, 300, 0, 7);
                 addMirror(presetKey, { x: 460, y: 300, angle: 90, length: 280, focalLength: 160 });
                 setChk('chkShowFocal', true);
-                setChk('chkShowNormals', false);
                 setChk('chkShowExtensions', presetKey === 'idealConcave');
                 protractorAt(800, 580);
             } else if (presetKey === 'realConvex' || presetKey === 'realConcave') {
@@ -2010,8 +2039,6 @@
                 addMirror(presetKey === 'realConvex' ? 'lensConvex' : 'lensConcave', { x: 460, y: 300, angle: 90, length: 180, focalLength: 160, n: 1.5 });
                 setChk('chkShowFocal', true);
                 setChk('chkShowExtensions', presetKey === 'realConcave');
-                setChk('chkShowNormals', false);
-                setChk('chkPartial', false);
                 protractorAt(800, 580);
             }
             state.selectedMirrorIndex = -1;
