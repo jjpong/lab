@@ -237,6 +237,7 @@
                                 <span class="text-cyan-400 font-mono" id="mirrorFocalVal">150</span>
                             </div>
                             <input type="range" id="mirrorFocalSlider" min="60" max="400" value="150" step="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('focalSlider')">
+                            <p id="lensInfo" class="hidden mt-1.5 text-[11px] leading-relaxed text-slate-400"></p>
                         </div>
 
                         <div id="indexControl" class="hidden">
@@ -266,14 +267,14 @@
                         <span class="flex items-center gap-2 text-slate-300">
                             <i class="fa-solid fa-ruler-combined text-slate-400"></i> 法線 (Normals)
                         </span>
-                        <input type="checkbox" id="chkShowNormals" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                        <input type="checkbox" id="chkShowNormals" onchange="syncAngleToggle(); draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
 
-                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
+                    <label id="angleToggleLabel" title="先勾選「法線」才能顯示角度代號" class="flex items-center justify-between p-2 ml-4 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40 transition">
                         <span class="flex items-center gap-2 text-slate-300">
                             <i class="fa-solid fa-square-root-variable text-amber-400"></i> 角度代號標記 (θi/θr、θ₁/θ₂)
                         </span>
-                        <input type="checkbox" id="chkShowAngles" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                        <input type="checkbox" id="chkShowAngles" checked onchange="angleWanted = this.checked; draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
 
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
@@ -638,10 +639,32 @@
         }
 
         // 真實透鏡（對稱雙凸 / 雙凹）：由焦距與折射率反推曲率半徑 R = 2(n − 1)f（薄透鏡近似）
+        // 球面的半高不能超過曲率半徑，所以透鏡半高最多取 R 的 95%
+        const LENS_H_MAX = 0.95, FOCAL_MAX = 400, LENS_N_MIN = 1.2;
+        const isRealLens = m => m.type === 'lensConvex' || m.type === 'lensConcave';
+        // 這個高度與折射率下，焦距最小可以多少
+        function lensMinFocal(m) {
+            return Math.ceil((m.length / 2) / (LENS_H_MAX * 2 * (m.n - 1)));
+        }
+        // changed：使用者剛改的是哪一項。改高度時限制高度；改焦距或折射率時維持高度、把焦距拉到最小值
+        function enforceLensLimits(m, changed) {
+            if (!isRealLens(m)) return false;
+            m.n = Math.max(LENS_N_MIN, m.n);
+            const hMax = LENS_H_MAX * 2 * (m.n - 1) * m.focalLength;
+            if (m.length / 2 <= hMax + 1e-9) return false;
+            if (changed === 'length') {
+                m.length = Math.floor(2 * hMax);
+            } else {
+                const fNeed = lensMinFocal(m);
+                if (fNeed <= FOCAL_MAX) m.focalLength = fNeed;
+                else { m.focalLength = FOCAL_MAX; m.length = Math.floor(2 * LENS_H_MAX * 2 * (m.n - 1) * FOCAL_MAX); }
+            }
+            return true;
+        }
         function lensGeom(m) {
             const n = m.n || 1.5;
             const R = Math.max(20, 2 * (n - 1) * m.focalLength);
-            const h = Math.min(m.length / 2, R * 0.95);
+            const h = Math.min(m.length / 2, R * LENS_H_MAX);   // 控制項會先保證高度不超過上限，這裡只是保險
             const sag = R - Math.sqrt(R * R - h * h);
             if (m.type === 'lensConvex') {
                 const e = 6;                    // 邊緣厚度
@@ -679,6 +702,7 @@
             if (!isCurvedMirror(m)) {
                 m.length = Math.round(dist);
                 m.x = midX; m.y = midY;
+                enforceLensLimits(m, 'length');
                 return;
             }
             const R = m.focalLength * 2;
@@ -965,7 +989,7 @@
             });
 
             // 6. 法線與角度代號
-            if (document.getElementById('chkShowNormals').checked || document.getElementById('chkShowAngles').checked) {
+            if (document.getElementById('chkShowNormals').checked) {
                 drawIntersectionHelpers(events);
             }
 
@@ -1319,7 +1343,7 @@
         function drawIntersectionHelpers(events) {
             if (!events || events.length === 0) return;
             const showNormals = document.getElementById('chkShowNormals').checked;
-            const showAngles = document.getElementById('chkShowAngles').checked;
+            const showAngles = showNormals && document.getElementById('chkShowAngles').checked;   // 角度代號必須搭配法線
             const minAngle = degToRad(0.6);
             const list = events.slice(0, 10).map(ev => {
                 const nA = Math.atan2(ev.n.y, ev.n.x);
@@ -1823,6 +1847,7 @@
             container.classList.remove('hidden');
             const m = state.mirrors[state.selectedMirrorIndex];
             const $ = id => document.getElementById(id);
+            if (state.lensLimitFor !== m.id) { state.lensLimitHit = null; state.lensLimitFor = m.id; }
 
             $('inspectorTitle').innerHTML = `<i class="fa-solid fa-sliders text-cyan-400"></i> 當前選擇：${TYPE_NAMES[m.type]}`;
 
@@ -1847,8 +1872,20 @@
             $('mirrorFocalVal').innerText = m.focalLength;
 
             $('indexControl').classList.toggle('hidden', !GLASS_TYPES.includes(m.type));
+            $('mirrorIndexSlider').min = isRealLens(m) ? LENS_N_MIN : 1.0;
             $('mirrorIndexSlider').value = m.n;
             $('mirrorIndexVal').innerText = m.n.toFixed(2);
+
+            const info = $('lensInfo');
+            info.classList.toggle('hidden', !isRealLens(m));
+            if (isRealLens(m)) {
+                const g = lensGeom(m);
+                const thick = g.convex ? `中心厚度 ${Math.round(g.d)}px` : `邊緣厚度 ${Math.round(2 * g.edge)}px`;
+                let html = `曲率半徑 R = ${Math.round(g.R)}px，${thick}。焦距越短，表面越彎；高度只影響口徑和厚度，不影響焦距。`;
+                if (state.lensLimitHit === 'length') html += `<br><span class="text-amber-300">這個焦距下，高度最多 ${m.length}px（球面的半高不能超過曲率半徑）。</span>`;
+                else if (state.lensLimitHit) html += `<br><span class="text-amber-300">高度 ${m.length}px 時，焦距最小 ${lensMinFocal(m)}，再小表面就彎不下去了。</span>`;
+                info.innerHTML = html;
+            }
         }
 
         function updateSelectedMirrorFromControls(source) {
@@ -1882,7 +1919,23 @@
                 m.n = parseFloat($('mirrorIndexSlider').value) || 1.5;
                 $('mirrorIndexVal').innerText = m.n.toFixed(2);
             }
+            const changed = (source === 'lenSlider' || source === 'lenInput') ? 'length' : (source === 'focalSlider' ? 'focal' : 'other');
+            state.lensLimitHit = enforceLensLimits(m, changed) ? changed : null;
+            updateInspectorUI();
             draw();
+        }
+
+        // 角度代號要量的是光線與「法線」的夾角，所以法線沒打開時，角度代號不能勾選
+        let angleWanted = true;   // 使用者對「角度代號」的選擇；法線關掉時先記住，打開時再恢復
+        function syncAngleToggle() {
+            const on = document.getElementById('chkShowNormals').checked;
+            const box = document.getElementById('chkShowAngles');
+            box.disabled = !on;
+            box.checked = on && angleWanted;
+            const label = document.getElementById('angleToggleLabel');
+            label.classList.toggle('opacity-40', !on);
+            label.classList.toggle('cursor-not-allowed', !on);
+            label.classList.toggle('cursor-pointer', on);
         }
 
         function setSelectedIndex(n) {
@@ -1890,6 +1943,7 @@
             const m = state.mirrors[state.selectedMirrorIndex];
             if (!GLASS_TYPES.includes(m.type)) return;
             m.n = n;
+            state.lensLimitHit = enforceLensLimits(m, 'other') ? 'other' : null;
             updateInspectorUI();
             draw();
         }
@@ -1904,8 +1958,8 @@
             };
             const protractorAt = (x, y) => { state.protractor.x = x; state.protractor.y = y; state.protractor.angle = 0; };
             // 每個預設先把輔助選項設回固定狀態，避免沿用上一個預設的設定
-            setChk('chkShowNormals', false);
-            setChk('chkShowAngles', true);
+            setChk('chkShowNormals', true);
+            angleWanted = true;
             setChk('chkShowFocal', false);
             setChk('chkShowExtensions', false);
             setChk('chkPartial', true);
@@ -1948,7 +2002,7 @@
                 light('parallel', 60, 300, 0, 7);
                 addMirror(presetKey, { x: 460, y: 300, angle: 90, length: 280, focalLength: 160 });
                 setChk('chkShowFocal', true);
-                setChk('chkShowAngles', false);
+                setChk('chkShowNormals', false);
                 setChk('chkShowExtensions', presetKey === 'idealConcave');
                 protractorAt(800, 580);
             } else if (presetKey === 'realConvex' || presetKey === 'realConcave') {
@@ -1956,17 +2010,19 @@
                 addMirror(presetKey === 'realConvex' ? 'lensConvex' : 'lensConcave', { x: 460, y: 300, angle: 90, length: 180, focalLength: 160, n: 1.5 });
                 setChk('chkShowFocal', true);
                 setChk('chkShowExtensions', presetKey === 'realConcave');
-                setChk('chkShowAngles', false);
+                setChk('chkShowNormals', false);
                 setChk('chkPartial', false);
                 protractorAt(800, 580);
             }
             state.selectedMirrorIndex = -1;
+            syncAngleToggle();
             updateInspectorUI();
             syncControlsFromState();
             draw();
         }
 
         window.onload = function() {
+            syncAngleToggle();
             resizeCanvas();
             loadPreset('flatLaw');
         };
