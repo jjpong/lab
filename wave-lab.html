@@ -287,10 +287,10 @@ const FONT = '"LXGW WenKai TC","Kaiti TC","STKaiti","BiauKai","DFKai-SB",serif';
 
 /* ---------- wave engine: each source's history is laid out along the distance the wave has travelled ---------- */
 class Wave {
-  constructor() { this.N = 8192; this.mask = 8191; this.cell = 1 / 1400; this.buf = new Float32Array(this.N); this.reset(); }
+  constructor(bits = 13) { this.N = 1 << bits; this.mask = this.N - 1; this.cell = 1 / 1400; this.buf = new Float32Array(this.N); this.reset(); }
   reset() {
     this.buf.fill(0); this.D = 0; this.k = 0; this.prevS = 0; this.t = 0;
-    this.amp = 0; this.pulses = []; this.manual = 0; this.src = 0; this.out = 0;
+    this.amp = 0; this.pulses = []; this.manual = 0; this.src = 0; this.out = 0; this.nz = -Infinity;
   }
   push(dt, v, s) {
     const D0 = this.D, D1 = D0 + v * dt, c = this.cell;
@@ -300,12 +300,14 @@ class Wave {
       this.k++;
     }
     this.D = D1; this.prevS = s;
+    if (Math.abs(s) > 1e-6) this.nz = D1;
   }
   at(x) {                      // value emitted when the wave had travelled x less than now
     const p = (this.D - x) / this.cell;
     if (p < 0 || x < 0) return 0;
     const i = Math.floor(p);
     if (i >= this.k - 1) return this.prevS;
+    if (i <= this.k - this.N) return 0;        // older than the stored history
     const a = this.buf[i & this.mask], b = this.buf[(i + 1) & this.mask];
     return a + (b - a) * (p - i);
   }
@@ -331,14 +333,20 @@ const MEDIA = {
 const AUDIO_SCALE = 550;
 const TANK_CM = 60;
 
-const noRefl = () => ({ from: Infinity, to: -Infinity });
-const mk1D = o => Object.assign({ wL: new Wave(), wR: new Wave(), phase: 0, endL: "src", endR: "none", invR: false,
-  reflL: noRefl(), reflR: noRefl(), xL: new Wave(), xR: new Wave(), xreflL: noRefl(), xreflR: noRefl(), env: new Float32Array(241), warm: false }, o);
+/* both ends of a rope or spring reflect unless nothing is attached there ("none");
+   each end keeps a short history so switching an end mid-run only affects waves that arrive afterwards */
+const mkHist = on => [[-Infinity, on]];
+const mk1D = (o, bits = 17) => Object.assign({ wL: new Wave(bits), wR: new Wave(bits), phase: 0, endL: "src", endR: "none", invR: false,
+  reflL: mkHist(true), reflR: mkHist(false), xL: new Wave(bits), xR: new Wave(bits), xreflL: mkHist(true), xreflR: mkHist(false),
+  env: new Float32Array(241), warm: false }, o);
+const GAMMA = 0.82;        // amplitude kept per screen-length travelled when both ends are attached (a little friction)
+const CAV_SCALE = 0.22;    // with both ends held, the hand only needs a small motion; resonance builds the large one
+const cavity = s => s.endL !== "none" && s.endR !== "none";
 const S = {
   rope: mk1D({ mode: "cont", amp: 0.55, freq: 0.8, type: 0, tension: 6 }),
   spring: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, type: 0, tension: 6, dir: "long", lastDir: "long", graph: false }),
   sound: mk1D({ mode: "cont", amp: 0.6, freq: 0.7, view: "macro", medium: "air", thermal: 0.15,
-                shade: false, graph: false, trail: false, audio: false }),
+                shade: false, graph: false, trail: false, audio: false }, 13),
   water: { wA: new Wave(), wB: new Wave(), phase: 0, D: 0, drops: [], mode: "cont", amp: 0.7, freq: 1.0,
            n: 2, sep: 0.2, depth: "deep", fx: 0.66, fy: 0.5, warm: false }
 };
@@ -366,9 +374,9 @@ const isLong = n => n === "sound" || (n === "spring" && S.spring.dir === "long")
 const strainAmp = () => S.sound.amp * MEDIA[S.sound.medium].strain;
 const presScale = () => cur === "sound" ? 0.65 / MEDIA[S.sound.medium].strain : 1;
 function contAmp(n) {
-  const s = S[n], lam = speed(n) / s.freq;
-  if (!isLong(n)) return s.amp;
-  if (n === "spring") return Math.min(s.amp * 0.055, 0.8 * lam / TAU);
+  const s = S[n], lam = speed(n) / s.freq, k = n !== "sound" && cavity(s) ? CAV_SCALE : 1;
+  if (!isLong(n)) return s.amp * k;
+  if (n === "spring") return Math.min(s.amp * 0.055, 0.8 * lam / TAU) * k;
   return Math.min(0.04, strainAmp() * lam / TAU);
 }
 function pulseAmp(n) {
@@ -448,17 +456,14 @@ function warm(n) {
   s.warm = true;
   if (s.mode !== "cont") return;
   if (n === "water") stepWater(Math.min(12, 1.25 / speed(n)));
-  else stepTab(n, Math.min(12, 1.12 / speed(n)));
+  else stepTab(n, Math.min(40, (n !== "sound" && cavity(s) ? 10 : 1.12) / speed(n)));
 }
 function resetTab(n, prewarm) {
   const s = S[n];
   if (n === "water") { s.wA.reset(); s.wB.reset(); s.D = 0; s.drops = []; s.phase = 0; }
   else {
     s.wL.reset(); s.wR.reset(); s.xL.reset(); s.xR.reset(); s.phase = 0; s.env.fill(0);
-    for (const sd of ["L", "R"]) for (const pre of ["refl", "xrefl"]) {
-      const rf = s[pre + sd];
-      if (s["end" + sd] === "held") { rf.from = 0; rf.to = Infinity; } else { rf.from = Infinity; rf.to = -Infinity; }
-    }
+    for (const sd of ["L", "R"]) for (const pre of ["refl", "xrefl"]) s[pre + sd] = mkHist(s["end" + sd] !== "none");
   }
   earHist.length = 0; earEnv = 0; trails.forEach(t => t.length = 0);
   s.warm = !prewarm;
@@ -467,10 +472,8 @@ function resetTab(n, prewarm) {
 function setEnd(n, side, val) {
   const s = S[n], prev = s["end" + side];
   if (prev === val) return;
-  for (const [rf, D] of [[s["refl" + side], s.wL.D], [s["xrefl" + side], s.xL.D]]) {
-    if (prev === "held") rf.to = D;
-    if (val === "held") { rf.from = D; rf.to = Infinity; }
-  }
+  if ((prev !== "none") !== (val !== "none"))
+    for (const [h, D] of [[s["refl" + side], s.wL.D], [s["xrefl" + side], s.xL.D]]) h.push([D, val !== "none"]);
   s["end" + side] = val; s.env.fill(0);
 }
 
@@ -478,18 +481,36 @@ function setEnd(n, side, val) {
 function makeU(n) {
   const s = S[n];
   if (n === "sound") { const w = s.wL; return x => w.at(x); }
-  return makeU1(s.wL, s.wR, s.reflL, s.reflR);
+  const U = makeU1(s.wL, s.wR, s.reflL, s.reflR, s);
+  return x => soften(U(x));
 }
+/* keep an over-driven resonance on the board */
+const soften = u => { const a = Math.abs(u); return a < 1.2 ? u : Math.sign(u) * (1.2 + 0.5 * Math.tanh((a - 1.2) / 0.5)); };
+function reflAt(h, d) { for (let i = h.length - 1; i >= 0; i--) if (h[i][0] <= d) return h[i][1]; return false; }
 /* the push-pull part of a freely shaken spring */
-const makeUx = () => { const s = S.spring; return makeU1(s.xL, s.xR, s.xreflL, s.xreflR); };
-function makeU1(wL, wR, rL, rR) {
-  const D = wL.D;
-  return x => {
-    let u = wL.at(x) + wR.at(1 - x);
-    const hr = D - (1 - x); if (hr >= rR.from && hr <= rR.to) u -= wL.at(2 - x);
-    const hl = D - x; if (hl >= rL.from && hl <= rL.to) u -= wR.at(1 + x);
+const makeUx = () => { const s = S.spring; return makeU1(s.xL, s.xR, s.xreflL, s.xreflR, s); };
+function makeU1(wL, wR, hL, hR, s) {
+  const D = wL.D, g = cavity(s) ? GAMMA : 1, lnG = Math.log(g);
+  const maxP = Math.min(wL.N * wL.cell * 0.97, g < 1 ? Math.log(0.003) / lnG : 3);
+  for (const h of [hL, hR]) while (h.length > 1 && h[1][0] < D - maxP - 2) { h.shift(); h[0][0] = -Infinity; }
+  const steady = hL.length === 1 && hR.length === 1;
+  /* y = distance from this hand's end; reflections happen alternately at the far end and back at the near end */
+  const chain = (w, y, hNear, hFar) => {
+    if (D - w.nz > maxP + 2) return 0;
+    let u = 0;
+    for (let m = 0; ; m++) {
+      const P = m % 2 === 0 ? m + y : m + 1 - y;
+      if (P > maxP) break;
+      let ok;
+      if (steady) ok = m === 0 || (hFar[0][1] && (m === 1 || hNear[0][1]));
+      else { ok = true; for (let k = 1; k <= m && ok; k++) ok = reflAt(k % 2 ? hFar : hNear, D - P + k); }
+      if (!ok) { if (steady) break; continue; }
+      const a = w.at(P);
+      if (a) u += (m % 2 ? -a : a) * (g === 1 ? 1 : Math.exp(lnG * P));
+    }
     return u;
   };
+  return x => chain(wL, x, hL, hR) + chain(wR, 1 - x, hR, hL);
 }
 const gradOf = U => (x, h = 0.004) => (U(x + h) - U(x - h)) / (2 * h);
 
@@ -608,7 +629,8 @@ function rails(g, count, span, xMax) {
   ctx.stroke(); ctx.restore();
 }
 function railA(s) {
-  if (s.mode === "cont") return Math.max(0.15, Math.max(s.wL.amp, s.wR.amp) * (standing(s) ? 2 : 1));
+  if (s.mode === "cont" && standing(s)) { let m = 0; for (const e of s.env) m = Math.max(m, e); return Math.max(0.15, m); }
+  if (s.mode === "cont") return Math.max(0.15, Math.max(s.wL.amp, s.wR.amp));
   return s.mode === "pulse" ? s.amp : 1;
 }
 function drawChain(g, yAt, NB, r, xMax) {
@@ -689,7 +711,12 @@ function standingLabels(g, s) {
   eqLine(g);
   const env = s.env, n = env.length - 1; let mx = 0;
   for (let i = 0; i <= n; i++) mx = Math.max(mx, env[i]);
-  if (mx < 0.05) return;
+  /* off resonance the bounced waves mostly cancel: the rope barely moves more than the hand */
+  const hand = Math.max(s.wL.amp, s.wR.amp);
+  if (mx < 0.05 || mx < 2.2 * hand) {
+    text("還沒有形成明顯的駐波：來回反射的波互相抵消，振動小又不規則。試著慢慢調整頻率。", 14, 22, { color: CH.orange, size: 15, align: "left", bold: true });
+    return;
+  }
   ctx.save(); ctx.strokeStyle = CH.orange; ctx.globalAlpha = 0.55; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
   for (const sg of [1, -1]) {
     ctx.beginPath();
@@ -1208,7 +1235,8 @@ function updateInfo() {
       : `<span><i>波速</i><b>${fmt(vr, 1)} 公尺/秒</b></span>`;
     html = `<div class="vals">${vtxt}<span><i>頻率</i><b>${fmt(f)} 赫茲（每秒 ${fmt(f)} 次）</b></span><span><i>週期</i><b>${fmt(1 / f)} 秒</b></span><span><i>波長</i><b>${lam}</b></span></div>
       <div class="law">波速 = 頻率 × 波長（v = f × λ）</div><div class="note">${factor}</div>
-      ${standing(s) ? '<div class="note">兩列頻率相同、方向相反的波重疊，會形成駐波：有些點幾乎不動（波節），有些點振動最大（波腹）。相鄰兩個波節相距半個波長。</div>' : ""}`;
+      ${standing(s) ? `<div class="note">波在兩端之間來回反射，頻率相同、方向相反的波重疊形成駐波：有些點幾乎不動（波節），有些點振動最大（波腹），相鄰兩個波節相距半個波長。</div>
+      <div class="note">這條${n === "rope" ? "繩子" : "彈簧"}容易形成駐波的頻率（共振頻率）：${[1, 2, 3, 4, 5, 6].map(k => k * v / 2).filter(fk => fk >= 0.3 && fk <= 1.5).map(fk => fmt(fk) + " 赫茲").join("、")}……，都是最低那個頻率的整數倍。調到這些頻率附近，等十幾秒，駐波就會越來越明顯。</div>` : ""}`;
   }
   if (html !== infoEl._last) { infoEl.innerHTML = html; infoEl._last = html; }
   $("#toGen").href = "f-generator.html?f=" + Math.round(S.sound.freq * AUDIO_SCALE);
@@ -1255,7 +1283,7 @@ function endNote(s) {
   if (L === "src" && R === "src") parts.push("兩端同時振動：兩列波相遇時會互相重疊。");
   if (R === "none") parts.push(`右端沒有接東西：${thing}很長，波會一直往右傳出畫面。`);
   if (L === "none") parts.push(`左端沒有接東西：${thing}很長，波會一直往左傳出畫面。`);
-  if ((L === "src" && R !== "none") || (R === "src" && L !== "none")) parts.push("波傳回正在振動的手時，會被那隻手吸收。");
+  if (L !== "none" && R !== "none") parts.push(`兩端都有接住：波會在兩端之間來回反射。只有${thing}長度剛好是半個波長的整數倍時，來回的波才會互相加強，形成明顯的駐波。`);
   return parts.join("");
 }
 function hintText() {
