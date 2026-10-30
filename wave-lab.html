@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>波動實驗台</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%2324372e'/><path d='M8.0,32.0 L9.2,29.0 L10.4,26.1 L11.6,23.6 L12.8,21.5 L14.0,20.0 L15.2,19.2 L16.4,19.0 L17.6,19.6 L18.8,20.9 L20.0,22.8 L21.2,25.2 L22.4,28.0 L23.6,31.0 L24.8,34.0 L26.0,37.0 L27.2,39.6 L28.4,41.9 L29.6,43.6 L30.8,44.6 L32.0,45.0 L33.2,44.6 L34.4,43.6 L35.6,41.9 L36.8,39.6 L38.0,37.0 L39.2,34.0 L40.4,31.0 L41.6,28.0 L42.8,25.2 L44.0,22.8 L45.2,20.9 L46.4,19.6 L47.6,19.0 L48.8,19.2 L50.0,20.0 L51.2,21.5 L52.4,23.6 L53.6,26.1 L54.8,29.0 L56.0,32.0' fill='none' stroke='%23eef1e8' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='24' cy='19' r='5' fill='%23ff7a6a'/></svg>">
-<meta name="description" content="用繩子、彈簧、喇叭和水波槽觀察橫波、縱波、聲波、反射、駐波與水波干涉。">
+<meta name="description" content="用繩子、彈簧、喇叭、水波槽和弦樂器觀察橫波、縱波、聲波、反射、駐波、水波干涉與音調高低。">
 <meta name="category" content="波動與聲音">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -97,6 +97,18 @@ body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15
 .ends{display:flex;justify-content:space-between;color:var(--muted);font-size:.82rem}
 .num{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700;font-size:.9rem}
 .small{color:var(--muted);font-size:.85rem;margin:0}
+.rec{width:100%;border-collapse:collapse;font-size:.9rem;font-variant-numeric:tabular-nums}
+.rec th{font-weight:500;color:var(--muted);font-size:.8rem;text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rec td{padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rec td.bar{width:40%;min-width:90px}
+.pbar{position:relative;height:10px;border-radius:99px;background:var(--chip)}
+.pbar i{position:absolute;top:-3px;width:16px;height:16px;border-radius:50%;background:var(--accent);transform:translateX(-50%)}
+.pbar b{position:absolute;right:0;top:-18px;font-size:.75rem;font-weight:500;color:var(--muted)}
+.rec button{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:7px;padding:2px 9px;cursor:pointer}
+.recWrap{overflow-x:auto}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow button{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:9px;padding:7px 12px;min-height:40px;cursor:pointer}
+.btnrow button.main{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:560px){
   .brand h1{font-size:1.55rem}
@@ -110,12 +122,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 
 <div class="app" id="app">
   <header class="top">
-    <div class="brand"><h1>波動實驗台</h1><p>橫波・縱波・聲波・水波</p></div>
+    <div class="brand"><h1>波動實驗台</h1><p>橫波・縱波・聲波・水波・弦樂器</p></div>
     <nav class="tabs" role="tablist" aria-label="選擇介質">
       <button role="tab" id="tab-rope" data-tab="rope" aria-selected="true">繩子</button>
       <button role="tab" id="tab-spring" data-tab="spring" aria-selected="false">彈簧</button>
       <button role="tab" id="tab-sound" data-tab="sound" aria-selected="false">聲音</button>
       <button role="tab" id="tab-water" data-tab="water" aria-selected="false">水波</button>
+      <button role="tab" id="tab-string" data-tab="string" aria-selected="false">弦樂器</button>
     </nav>
     <button class="ghost" id="fs" type="button">全螢幕</button>
   </header>
@@ -130,13 +143,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
       <button id="pulseL" class="pulse" type="button" hidden>送出一個脈衝</button>
       <button id="pulseR" class="pulse" type="button" hidden>右邊送出脈衝</button>
       <button id="pulseB" class="pulse" type="button" hidden>兩邊同時送出</button>
+      <button id="pluck" class="pulse" type="button" hidden>撥弦</button>
       <span id="hint" class="hint"></span>
     </div>
     <div id="info" class="info" hidden></div>
   </section>
 
   <section class="controls">
-    <div class="card">
+    <div class="card" data-for="rope spring sound water">
       <h2>振動方式</h2>
       <div class="seg" id="mode" role="group" aria-label="振動方式">
         <button type="button" data-v="cont">連續振動</button>
@@ -150,7 +164,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" data-for="rope spring sound water">
       <h2>波源</h2>
       <div class="sl">
         <label for="amp"><span id="ampName">振幅</span></label>
@@ -254,6 +268,34 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
       <p class="small">點一下水面可以移動紅色浮標。</p>
     </div>
 
+    <div class="card" data-for="string">
+      <h2>弦</h2>
+      <div class="seg" id="strType" role="group" aria-label="弦的粗細">
+        <button type="button" data-v="0">細弦</button>
+        <button type="button" data-v="1">中弦</button>
+        <button type="button" data-v="2">粗弦</button>
+      </div>
+      <div class="sl">
+        <label for="strLen">弦長（振動部分）<output id="strLenNum" class="num"></output></label>
+        <input type="range" id="strLen" min="20" max="65" step="0.5">
+        <div class="ends"><span>短</span><span>長</span></div>
+      </div>
+      <div class="sl">
+        <label for="strT">鬆緊（轉弦鈕）<output id="strTNum" class="num" hidden></output></label>
+        <input type="range" id="strT" min="20" max="120" step="1">
+        <div class="ends"><span>鬆</span><span>緊</span></div>
+      </div>
+      <div class="togs"><button type="button" class="tog" id="strSound" aria-pressed="true">播放聲音</button></div>
+      <p class="small">拖曳黑板上的琴橋也可以改變弦長。動畫中弦的振動放慢了約 200 倍，聲音則是實際音高。</p>
+    </div>
+
+    <div class="card" data-for="string">
+      <h2>記錄表</h2>
+      <div class="btnrow"><button type="button" class="main" id="recAdd">記下這次的條件與音高</button><button type="button" id="recClear">清除</button></div>
+      <div class="recWrap"><table class="rec" id="recTable"></table></div>
+      <p class="small" id="recNote">一次只改變一個條件，比較音高的變化。點 ▶ 可以再聽一次。</p>
+    </div>
+
     <div class="card">
       <h2>顯示</h2>
       <div class="togs">
@@ -351,11 +393,22 @@ const S = {
   water: { wA: new Wave(), wB: new Wave(), phase: 0, D: 0, drops: [], mode: "cont", amp: 0.7, freq: 1.0,
            n: 2, sep: 0.2, depth: "deep", fx: 0.66, fy: 0.5, warm: false }
 };
+/* strings: mass per metre (kg/m); each is 4× heavier than the last, so the pitch drops by an octave */
+const STRINGS = [
+  { name: "細弦", mu: 0.0004, w: 1.8, color: "#e9edf0" },
+  { name: "中弦", mu: 0.0016, w: 3, color: "#dccb9e" },
+  { name: "粗弦", mu: 0.0064, w: 4.8, color: "#c9a464" }
+];
+const SCALE_CM = 65, STR_SLOW = 200;
+S.string = { type: 1, tension: 60, len: 65, p: 0.5, t: 0, modes: [], sound: true, records: [], warm: true };
+try { const r = JSON.parse(localStorage.getItem("wavelab-records") || "[]"); if (Array.isArray(r)) S.string.records = r.slice(0, 15); } catch (e) {}
+const strF = (st = S.string) => Math.sqrt(st.tension / STRINGS[st.type].mu) / (2 * st.len / 100);
 const DISP = { track: false, rails: false, arrows: false, labels: false, info: false };
 let cur = "rope", playing = true, slow = false;
 
 function speed(n) {
   const s = S[n];
+  if (n === "string") return Math.sqrt(s.tension / STRINGS[s.type].mu);
   if (n === "rope") return 0.16 * Math.sqrt(s.tension / ROPES[s.type].mu);
   if (n === "spring") { const v = springSpeeds(); return s.dir === "long" ? v.l : v.t; }
   if (n === "water") return s.depth === "deep" ? 0.08 : 0.05;
@@ -398,6 +451,7 @@ let floatDrag = null;
 /* ---------- time stepping ---------- */
 function stepTab(n, dt) {
   if (n === "water") return stepWater(dt);
+  if (n === "string") { S.string.t += dt; return; }
   const s = S[n], v = speed(n), h = 1 / 240, free = n === "spring" && isFree();
   const ws = n === "sound" ? [["L", s.wL, v, "target"]] : [["L", s.wL, v, "target"], ["R", s.wR, v, "target"]];
   if (free) { const vl = springSpeeds().l; ws.push(["L", s.xL, vl, "tx"], ["R", s.xR, vl, "tx"]); }
@@ -452,6 +506,7 @@ function stepWater(dt) {
   s.drops = s.drops.filter(dp => s.D - dp.D0 < 1.5);
 }
 function warm(n) {
+  if (n === "string") return;
   const s = S[n];
   if (s.warm) return;
   s.warm = true;
@@ -461,6 +516,7 @@ function warm(n) {
 }
 function resetTab(n, prewarm) {
   const s = S[n];
+  if (n === "string") { s.modes = []; s.t = 0; stopVoices(0.05); return; }
   if (n === "water") { s.wA.reset(); s.wB.reset(); s.D = 0; s.drops = []; s.phase = 0; }
   else {
     s.wL.reset(); s.wR.reset(); s.xL.reset(); s.xR.reset(); s.phase = 0; s.env.fill(0);
@@ -1167,6 +1223,174 @@ function drawWater() {
   text("動畫已放慢", 10, 14, { color: "rgba(238,241,232,.6)", size: 12, align: "left" });
 }
 
+/* ---------- string instrument ---------- */
+/* a pluck at fraction p of the string sets each standing-wave mode n with weight 2·sin(nπp)/(n²π²p(1−p)) */
+function pluck(p = 0.5) {
+  const st = S.string;
+  st.p = clamp(p, 0.06, 0.94); st.t = 0;
+  st.modes = [];
+  for (let n = 1; n <= 12; n++) {
+    const b = 2 * Math.sin(n * Math.PI * st.p) / (n * n * Math.PI * Math.PI * st.p * (1 - st.p));
+    if (Math.abs(b) > 1e-4) st.modes.push({ n, b, tau: 6 / (1 + 0.25 * (n - 1)) });
+  }
+  st.plucked = { type: st.type, tension: st.tension, len: st.len, f: strF() };
+  if (st.sound) pluckSound(strF(), st.p);
+  if (!playing) setPlaying(true);
+  $("#recAdd").disabled = false;
+}
+let voices = [], strMaster = null;
+function stopVoices(fade = 0.04) {
+  if (!audio.ctx) { voices = []; return; }
+  const t = audio.ctx.currentTime;
+  voices.forEach(v => { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.linearRampToValueAtTime(0, t + fade); v.o.stop(t + fade + 0.02); } catch (e) {} });
+  voices = [];
+}
+function pluckSound(f, p) {
+  ensureAudio(); if (!audio.ctx) return;
+  const ac = audio.ctx, t = ac.currentTime;
+  if (!strMaster) { strMaster = ac.createGain(); strMaster.gain.value = 1; strMaster.connect(ac.destination); }
+  stopVoices(0.03);                                   // plucking again stops the old vibration, as on a real string
+  const parts = [];
+  for (let n = 1; n <= 10; n++) {
+    if (n * f > 12000) break;
+    const b = Math.abs(2 * Math.sin(n * Math.PI * p) / (n * n * Math.PI * Math.PI * p * (1 - p)));
+    if (b > 1e-3) parts.push([n, b]);
+  }
+  const tot = parts.reduce((a, [, b]) => a + b, 0) || 1;
+  for (const [n, b] of parts) {
+    const o = ac.createOscillator(), g = ac.createGain(), tau = 1.6 / (1 + 0.35 * (n - 1));
+    o.type = "sine"; o.frequency.setValueAtTime(n * f, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.32 * b / tot, t + 0.006);
+    g.gain.setTargetAtTime(0, t + 0.006, tau);
+    o.connect(g).connect(strMaster); o.start(t); o.stop(t + 0.006 + tau * 7);
+    voices.push({ o, g, n });
+  }
+}
+/* sliding the bridge or turning the peg while the string rings bends the pitch */
+function retuneVoices() {
+  if (!audio.ctx || !voices.length) return;
+  const t = audio.ctx.currentTime, f = strF();
+  voices.forEach(v => v.o.frequency.setTargetAtTime(v.n * f, t, 0.015));
+}
+function strGeo() {
+  const narrow = W < 560;
+  const nut = narrow ? 34 : 70, end = W - (narrow ? 70 : 120);
+  const midY = H * 0.47, bridge = nut + (S.string.len / SCALE_CM) * (end - nut);
+  return { nut, end, midY, bridge, h: Math.min(H * 0.2, 80), peg: end + (narrow ? 30 : 50) };
+}
+function strAmp() {                               // how strongly the string is still ringing (0…1)
+  const st = S.string; let a = 0;
+  for (const m of st.modes) a += Math.abs(m.b) * Math.exp(-st.t / m.tau);
+  return Math.min(1, a);
+}
+function noteOf(f) {
+  const N = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"], S2 = ["Do", "Do♯", "Re", "Re♯", "Mi", "Fa", "Fa♯", "Sol", "Sol♯", "La", "La♯", "Si"];
+  const n = Math.round(12 * Math.log2(f / 440)) + 57, k = ((n % 12) + 12) % 12;
+  return `${N[k]}${Math.floor(n / 12)}（${S2[k]}）`;
+}
+const PMIN = 40, PMAX = 1600;
+const pitchPos = f => clamp(Math.log(f / PMIN) / Math.log(PMAX / PMIN), 0, 1);
+function drawString() {
+  const st = S.string, g = strGeo(), sp = STRINGS[st.type], f = strF(), fv = f / STR_SLOW;
+  const L = g.bridge - g.nut, y0 = g.midY;
+  /* fingerboard: fret marks where the bridge gives each semitone (length = 65 cm × 2^(−k/12)) */
+  ctx.save();
+  ctx.fillStyle = "rgba(120,84,48,.55)"; ctx.fillRect(g.nut, y0 - 22, g.end - g.nut, 44);
+  ctx.strokeStyle = "rgba(230,220,200,.35)"; ctx.lineWidth = 2;
+  for (let k = 1; k <= 20; k++) {
+    const x = g.nut + Math.pow(2, -k / 12) * (g.end - g.nut);
+    if (x < g.nut + (20 / SCALE_CM) * (g.end - g.nut)) break;
+    ctx.beginPath(); ctx.moveTo(x, y0 - 22); ctx.lineTo(x, y0 + 22); ctx.stroke();
+  }
+  ctx.restore();
+  /* the string: vibrating part (nut → bridge) and the dead part (bridge → peg) */
+  const yAt = x => {
+    let u = 0;
+    for (const m of st.modes) {
+      if (m.n > 1 && m.n * fv > 6) continue;              // too fast to draw at 60 frames per second
+      u += m.b * Math.exp(-st.t / m.tau) * Math.sin(m.n * Math.PI * x) * Math.cos(TAU * m.n * fv * st.t);
+    }
+    return y0 - u * g.h;
+  };
+  if (DISP.labels && st.modes.length) {
+    ctx.save(); ctx.strokeStyle = CH.orange; ctx.globalAlpha = 0.5; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+    const A = strAmp() * g.h;
+    for (const sg of [1, -1]) { ctx.beginPath(); for (let i = 0; i <= 60; i++) { const x = g.nut + L * i / 60, y = y0 - sg * A * Math.sin(Math.PI * i / 60); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+    ctx.restore();
+    text("波節", g.nut, y0 + 40, { color: CH.orange, size: 14, bold: true });
+    text("波節", g.bridge, y0 - 38, { color: CH.orange, size: 14, bold: true });
+    text("波腹", g.nut + L / 2, y0 - A - 16, { color: CH.orange, size: 14, bold: true });
+    text("基音：弦長 = 半個波長", g.nut + L / 2, y0 + g.h + 16, { color: CH.orange, size: 15, bold: true });
+  }
+  ctx.save(); ctx.strokeStyle = sp.color; ctx.lineWidth = sp.w; ctx.lineCap = "round"; ctx.beginPath();
+  for (let i = 0; i <= 160; i++) { const x = g.nut + L * i / 160, y = yAt(i / 160); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+  ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.moveTo(g.bridge, y0); ctx.lineTo(g.peg, y0); ctx.stroke();
+  ctx.restore();
+  /* nut, bridge (draggable) and tuning peg (turned further for more tension) */
+  ctx.save();
+  ctx.fillStyle = "#e8e2d4"; ctx.fillRect(g.nut - 7, y0 - 26, 7, 52);
+  ctx.fillStyle = "#3a4f43"; ctx.strokeStyle = CH.yellow; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(g.bridge, y0 - 2); ctx.lineTo(g.bridge - 13, y0 + 30); ctx.lineTo(g.bridge + 13, y0 + 30); ctx.closePath(); ctx.fill(); ctx.stroke();
+  if (!strDrag) { ctx.setLineDash([3, 4]); ctx.globalAlpha = .6 + .3 * Math.sin(performance.now() / 300); ctx.beginPath(); ctx.arc(g.bridge, y0 + 16, 24, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+  const ang = -Math.PI / 2 + (st.tension - 20) / 100 * Math.PI * 1.5;
+  ctx.fillStyle = "#2c3b33"; ctx.strokeStyle = CH.white; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(g.peg, y0, 15, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(g.peg, y0); ctx.lineTo(g.peg + 13 * Math.cos(ang), y0 + 13 * Math.sin(ang)); ctx.stroke();
+  ctx.restore();
+  text("琴橋", g.bridge, y0 + 44, { color: CH.yellow, size: 13 });
+  text("弦鈕", g.peg, y0 + 32, { color: CH.dim, size: 13 });
+  /* length ruler */
+  const ry = Math.min(H - 22, y0 + g.h + 72);
+  ctx.save(); ctx.strokeStyle = CH.dim; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(g.nut, ry); ctx.lineTo(g.end, ry);
+  for (let c = 0; c <= SCALE_CM; c += 5) { const x = g.nut + c / SCALE_CM * (g.end - g.nut); ctx.moveTo(x, ry); ctx.lineTo(x, ry - (c % 10 ? 4 : 8)); }
+  ctx.stroke(); ctx.restore();
+  for (let c = 0; c <= 60; c += (W < 560 ? 20 : 10)) text(String(c), g.nut + c / SCALE_CM * (g.end - g.nut), ry + 12, { color: CH.dim, size: 12 });
+  text("公分", g.end, ry + 12, { color: CH.dim, size: 12 });
+  ctx.save(); ctx.strokeStyle = CH.yellow; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(g.nut, ry - 14); ctx.lineTo(g.bridge, ry - 14); ctx.stroke(); ctx.restore();
+  text(`弦長 ${st.len.toFixed(1)} 公分`, (g.nut + g.bridge) / 2, ry - 26, { color: CH.yellow, size: 14, bold: true });
+  /* red dot and arrow at the middle */
+  if (DISP.track) {
+    dot(g.nut + L / 2, yAt(0.5), 7, CH.red, "rgba(36,55,46,.9)");
+    if (DISP.arrows) { const A = Math.max(18, strAmp() * g.h); arrow(g.nut + L / 2 - 20, y0 - A, g.nut + L / 2 - 20, y0 + A, { color: CH.red, both: true, width: 2.2, head: 8 }); }
+  }
+  /* pitch meter: position only, numbers when 數值與公式 is on */
+  const mx = 16, mh = Math.min(150, H * 0.42), my = 16, a = strAmp();
+  ctx.save(); ctx.fillStyle = "rgba(20,32,26,.75)"; ctx.strokeStyle = CH.faint; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(mx, my, 54, mh + 30, 8); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = CH.dim; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(mx + 27, my + 12); ctx.lineTo(mx + 27, my + mh); ctx.stroke();
+  ctx.restore();
+  text("高", mx + 44, my + 14, { color: CH.dim, size: 12 }); text("低", mx + 44, my + mh, { color: CH.dim, size: 12 });
+  const py = my + mh - pitchPos(f) * (mh - 12);
+  ctx.save(); ctx.globalAlpha = 0.35 + 0.65 * Math.max(a, st.modes.length ? 0 : 0.6); dot(mx + 27, py, 8, CH.yellow, "rgba(36,55,46,.9)"); ctx.restore();
+  text("音高", mx + 27, my + mh + 18, { color: CH.white, size: 13 });
+  if (DISP.info) text(`${Math.round(f)} Hz　${noteOf(f)}`, mx + 64, py, { color: CH.yellow, size: 14, align: "left", bold: true });
+  if (!st.modes.length) text("按「撥弦」或直接點一下弦", (g.nut + g.end) / 2, Math.max(28, y0 - g.h - 20), { color: CH.dim, size: 15 });
+  text("動畫已放慢", W - 10, 14, { color: CH.dim, size: 12, align: "right" });
+}
+let strDrag = null;
+function setStrLen(v, snap) {
+  const st = S.string;
+  if (snap) {   /* dragging the bridge clicks onto a fret when it is close */
+    const k = Math.round(12 * Math.log2(SCALE_CM / v)), fl = SCALE_CM * Math.pow(2, -k / 12);
+    if (k >= 0 && Math.abs(fl - v) < 0.6) v = fl;
+  }
+  st.len = clamp(Math.round(v * 10) / 10, 20, 65);
+  $("#strLen").value = st.len; $("#strLenNum").textContent = st.len.toFixed(1) + " 公分"; retuneVoices();
+}
+function renderRecords() {
+  const st = S.string, tb = $("#recTable");
+  if (!st.records.length) { tb.innerHTML = ""; $("#recNote").textContent = "撥弦後按「記下」，把每一次的條件和音高記下來。一次只改變一個條件，比較音高的變化。"; return; }
+  $("#recNote").textContent = "點 ▶ 可以再聽一次。一次只改變一個條件，比較音高的變化。";
+  tb.innerHTML = `<tr><th>次</th><th>弦</th><th>鬆緊</th><th>弦長</th><th>音高</th><th></th></tr>` + st.records.map((r, i) =>
+    `<tr><td>${i + 1}</td><td>${STRINGS[r.type].name}</td><td>${r.tension} 牛頓</td><td>${r.len.toFixed(1)} 公分</td>
+     <td class="bar"><div class="pbar"><i style="left:${(pitchPos(r.f) * 100).toFixed(1)}%"></i>${DISP.info ? `<b>${Math.round(r.f)} Hz</b>` : ""}</div></td>
+     <td><button type="button" data-rec="${i}" aria-label="再聽第 ${i + 1} 次">▶</button></td></tr>`).join("");
+  tb.querySelectorAll("[data-rec]").forEach(b => b.addEventListener("click", () => { ensureAudio(); pluckSound(st.records[+b.dataset.rec].f, 0.5); }));
+}
+function saveRecords() { try { localStorage.setItem("wavelab-records", JSON.stringify(S.string.records)); } catch (e) {} }
+
 /* ---------- ear & audio ---------- */
 const earHist = []; let earEnv = 0;
 function updateEar(g) {
@@ -1207,6 +1431,15 @@ function updateInfo() {
   if (!DISP.info) return;
   const n = cur, s = S[n], v = speed(n);
   let html = "";
+  if (n === "string") {
+    const f = strF(), mu = STRINGS[s.type].mu;
+    html = `<div class="vals"><span><i>弦長</i><b>${s.len.toFixed(1)} 公分</b></span><span><i>張力</i><b>${s.tension} 牛頓</b></span><span><i>每公尺弦的質量</i><b>${(mu * 1000).toFixed(1)} 公克</b></span><span><i>弦上的波速</i><b>${Math.round(v)} 公尺/秒</b></span><span><i>基音頻率</i><b>${Math.round(f)} 赫茲（${noteOf(f)}）</b></span></div>
+      <div class="law">基音頻率 = 波速 ÷（2 × 弦長）　　波速 = √（張力 ÷ 每公尺弦的質量）</div>
+      <div class="note">弦越短、拉得越緊、越細越輕，音調越高。弦長減半，頻率變成兩倍（高八度）；張力變成四倍，或弦每公尺的質量變成四分之一，頻率也會變成兩倍。</div>
+      <div class="note">撥弦時，弦會同時以基音和它的整數倍頻率（泛音）振動，泛音的組合影響音色。</div>`;
+    if (html !== infoEl._last) { infoEl.innerHTML = html; infoEl._last = html; }
+    return;
+  }
   if (n === "sound") {
     const m = MEDIA[s.medium];
     if (m.state === "none") {
@@ -1258,6 +1491,7 @@ function frame(ts) {
   if (W > 0 && H > 0) {
     background();
     if (cur === "water") drawWater();
+    else if (cur === "string") drawString();
     else {
       const g = geo();
       if (cur === "rope" || cur === "spring") {
@@ -1294,6 +1528,7 @@ function endNote(s) {
 }
 function hintText() {
   const s = S[cur];
+  if (cur === "string") return "按「撥弦」或直接點弦來撥；拖曳琴橋改變弦長，轉弦鈕（鬆緊）改變張力。";
   if (cur === "water") {
     if (s.mode === "cont") return "波源持續上下點水。點一下水面可以移動浮標。";
     if (s.mode === "pulse") return "按「送出一個脈衝」或點一下水面，波源點一下水。";
@@ -1355,6 +1590,13 @@ function syncUI() {
   $("#pulseB").hidden = !pulse || !two;
   canvas.classList.toggle("grab", s.mode === "manual" && cur !== "water");
   canvas.classList.toggle("tap", s.mode === "pulse" || cur === "water");
+  $("#pluck").hidden = cur !== "string";
+  if (cur === "string") {
+    setSeg("strType", s.type); $("#strLen").value = s.len; $("#strLenNum").textContent = s.len.toFixed(1) + " 公分";
+    $("#strT").value = s.tension; $("#strTNum").textContent = s.tension + " 牛頓"; $("#strTNum").hidden = !DISP.info;
+    $("#strSound").setAttribute("aria-pressed", String(s.sound)); renderRecords();
+    canvas.classList.add("tap");
+  }
   $("#hint").textContent = hintText();
   infoEl.hidden = !DISP.info; $("#freqNum").hidden = !DISP.info;
   if (DISP.info) { infoEl._last = ""; updateInfo(); }
@@ -1391,6 +1633,18 @@ segHandler("view", v => { S.sound.view = v; trails.forEach(t => t.length = 0); }
 segHandler("medium", v => { if (S.sound.medium !== v) { S.sound.medium = v; partsKey = ""; resetTab("sound", true); } });
 segHandler("wn", v => { if (S.water.n !== +v) { S.water.n = +v; resetTab("water", true); } });
 segHandler("depth", v => { S.water.depth = v; });
+segHandler("strType", v => { S.string.type = +v; retuneVoices(); });
+$("#strLen").addEventListener("input", e => setStrLen(+e.target.value));
+$("#strT").addEventListener("input", e => { S.string.tension = +e.target.value; $("#strTNum").textContent = S.string.tension + " 牛頓"; retuneVoices(); });
+$("#strSound").addEventListener("click", () => { const st = S.string; st.sound = !st.sound; if (!st.sound) stopVoices(0.05); syncUI(); });
+$("#pluck").addEventListener("click", () => pluck(0.5));
+$("#recAdd").addEventListener("click", () => {
+  const st = S.string;
+  st.records.push({ type: st.type, tension: st.tension, len: st.len, f: strF() });
+  if (st.records.length > 15) st.records.shift();
+  saveRecords(); renderRecords();
+});
+$("#recClear").addEventListener("click", () => { S.string.records = []; saveRecords(); renderRecords(); });
 
 $("#amp").addEventListener("input", e => { S[cur].amp = +e.target.value; });
 $("#freq").addEventListener("input", e => { S[cur].freq = +e.target.value; $("#toGen").href = "f-generator.html?f=" + Math.round(S.sound.freq * AUDIO_SCALE); if (S[cur].env) S[cur].env.fill(0); updateInfo(); });
@@ -1467,6 +1721,14 @@ function pickSide(s, px) {
 }
 canvas.addEventListener("pointerdown", e => {
   const [px, py] = boardXY(e), s = S[cur];
+  if (cur === "string") {
+    const g = strGeo();
+    if (Math.abs(px - g.bridge) < 26 && py > g.midY - 30 && py < g.midY + 50) {
+      strDrag = e.pointerId; try { canvas.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); return;
+    }
+    if (px > g.nut && px < g.bridge) pluck((px - g.nut) / (g.bridge - g.nut)); else pluck(0.5);
+    return;
+  }
   if (cur === "water") {
     if (DISP.track && Math.hypot(px - s.fx * W, py - s.fy * H) < 24) {
       floatDrag = e.pointerId; try { canvas.setPointerCapture(e.pointerId); } catch (_) {} return;
@@ -1493,11 +1755,13 @@ canvas.addEventListener("pointerdown", e => {
 canvas.addEventListener("pointermove", e => {
   const [px, py] = boardXY(e);
   if (floatDrag === e.pointerId) { S.water.fx = clamp(px / W, 0, 1); S.water.fy = clamp(py / H, 0, 1); return; }
+  if (strDrag === e.pointerId) { const g = strGeo(); setStrLen((px - g.nut) / (g.end - g.nut) * SCALE_CM, true); return; }
   const side = pointers.get(e.pointerId);
   if (side) dragTarget(side, px, py);
 });
 const endDrag = e => {
   if (floatDrag === e.pointerId) floatDrag = null;
+  if (strDrag === e.pointerId) strDrag = null;
   const side = pointers.get(e.pointerId);
   if (side) { dragT[side].active = false; pointers.delete(e.pointerId); }
 };
@@ -1508,6 +1772,7 @@ canvas.addEventListener("lostpointercapture", endDrag);
 document.addEventListener("keydown", e => {
   if (e.target !== document.body) return;
   if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+  if ((e.key === "p" || e.key === "P") && cur === "string") { pluck(0.5); return; }
   if (e.key === "p" || e.key === "P") sendPulse((cur === "rope" || cur === "spring") ? "B" : "L");
 });
 
