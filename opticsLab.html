@@ -369,12 +369,28 @@
                         <p class="text-[11px] text-slate-500 mt-1">調整亮度，拉到 0% 就是關閉</p>
                     </div>
 
-                    <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
-                        <span class="flex items-center gap-2 text-slate-300">
-                            <i class="fa-solid fa-compass text-cyan-400"></i> 互動式量角器 (Protractor)
-                        </span>
-                        <input type="checkbox" id="chkShowProtractor" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
-                    </label>
+                    <div class="p-2 bg-slate-950/40 rounded border border-slate-800">
+                        <label class="flex items-center justify-between cursor-pointer">
+                            <span class="flex items-center gap-2 text-slate-300">
+                                <i class="fa-solid fa-compass text-cyan-400"></i> 互動式量角器 (Protractor)
+                            </span>
+                            <input type="checkbox" id="chkShowProtractor" onchange="syncProtractorUI(); draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                        </label>
+                        <div id="protractorOptions" class="hidden mt-2 space-y-2">
+                            <div class="grid grid-cols-2 gap-1">
+                                <button onclick="setProtractorType('half')" id="protHalfBtn" class="py-1 rounded border text-[11px]">半圓 180°</button>
+                                <button onclick="setProtractorType('full')" id="protFullBtn" class="py-1 rounded border text-[11px]">全圓 360°</button>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-slate-400 mb-1">
+                                    <span>大小（半徑）</span>
+                                    <span class="text-cyan-400 font-mono" id="protSizeVal">130px</span>
+                                </div>
+                                <input type="range" id="protSizeSlider" min="50" max="400" step="5" value="130" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="state.protractor.radius = +this.value; syncProtractorUI(); draw()">
+                            </div>
+                            <p class="text-[11px] text-slate-500">拖曳圓點旋轉，拖曳方形手把放大縮小</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -468,7 +484,8 @@
                 x: 450,
                 y: 300,
                 angle: 0,
-                radius: 110
+                radius: 130,
+                type: 'full'   // 'half'：半圓 180°；'full'：全圓 360°
             },
             selectedMirrorIndex: -1,
             
@@ -628,14 +645,14 @@
 
         function resetAll() {
             state.light = { type: 'single', x: 180, y: 180, angle: 35, density: 5 };
-            state.protractor = { x: 450, y: 300, angle: 0, radius: 110 };
+            state.protractor = { x: 450, y: 300, angle: 0, radius: 130, type: 'full' };
             state.drawings = [];
             state.currentDrawing = null;
             setTool('select');
             resetZoomPan();
             state.mirrors = [];
             state.selectedMirrorIndex = -1;
-            document.getElementById('chkShowProtractor').checked = true;
+            document.getElementById('chkShowProtractor').checked = false;
             document.getElementById('chkShowNormals').checked = false;
             document.getElementById('chkShowAngles').checked = true;
             document.getElementById('chkShowFocal').checked = false;
@@ -1906,55 +1923,108 @@
             ctx.restore();
         }
 
+        // 量角器的兩個手把（量角器自己的座標）：旋轉圓點在上方外側，縮放方塊在右側外側
+        const protRotHandle = p => ({ x: 0, y: -p.radius - 14 });
+        const protSizeHandle = p => ({ x: p.radius + 14, y: 0 });
+        function protToWorld(p, lx, ly) {
+            const a = degToRad(p.angle), c = Math.cos(a), s = Math.sin(a);
+            return { x: p.x + lx * c - ly * s, y: p.y + lx * s + ly * c };
+        }
+
         function drawProtractor() {
             const p = state.protractor;
+            const R = p.radius, full = p.type === 'full';
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(degToRad(p.angle));
 
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+            // 本體：全圓比較透明，避免擋住光線
+            ctx.fillStyle = full ? 'rgba(15, 23, 42, 0.5)' : 'rgba(15, 23, 42, 0.72)';
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 1.5;
-
             ctx.beginPath();
-            ctx.arc(0, 0, p.radius, Math.PI, 0, false);
-            ctx.closePath();
+            if (full) ctx.arc(0, 0, R, 0, Math.PI * 2);
+            else { ctx.arc(0, 0, R, Math.PI, 0, false); ctx.closePath(); }
             ctx.fill(); ctx.stroke();
 
-            ctx.fillStyle = '#94a3b8';
+            // 基準線（0°–180°），全圓再加一條 90°–270° 的十字線，方便對準法線
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-R, 0); ctx.lineTo(R, 0);
+            ctx.moveTo(0, -R); ctx.lineTo(0, full ? R : 0);
+            ctx.stroke();
+
+            // 刻度：半徑夠大才畫 1° 的細刻度；數字大小跟著半徑變
+            const fine = R * Math.PI / 180 >= 1.6;
+            const fontSize = Math.max(8, Math.min(14, R * 0.07));
+            const maxDeg = full ? 359 : 180;
             ctx.strokeStyle = '#94a3b8';
-            ctx.font = '8px sans-serif';
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = `${fontSize}px sans-serif`;
             ctx.textAlign = 'center';
-
-            for (let deg = 0; deg <= 180; deg += 5) {
-                const r = degToRad(180 - deg);
-                const isMajor = deg % 10 === 0;
-                const tickLen = isMajor ? 10 : 5;
-
-                const x1 = Math.cos(r) * p.radius;
-                const y1 = -Math.sin(r) * p.radius;
-                const x2 = Math.cos(r) * (p.radius - tickLen);
-                const y2 = -Math.sin(r) * (p.radius - tickLen);
-
-                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-
-                if (isMajor) {
-                    const tx = Math.cos(r) * (p.radius - 18);
-                    const ty = -Math.sin(r) * (p.radius - 18) + 3;
-                    ctx.fillText(`${deg}°`, tx, ty);
+            ctx.textBaseline = 'middle';
+            for (let deg = 0; deg <= maxDeg; deg += 1) {
+                const isTen = deg % 10 === 0, isFive = deg % 5 === 0;
+                if (!isFive && !fine) continue;
+                // 角度沿逆時針增加（0° 在右邊）；半圓量角器則從左邊 0° 經上方到右邊 180°
+                const a = full ? -degToRad(deg) : degToRad(180 + deg);
+                const len = isTen ? Math.max(10, R * 0.08) : (isFive ? Math.max(6, R * 0.05) : Math.max(3, R * 0.025));
+                ctx.lineWidth = isTen ? 1.2 : 0.8;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(a) * R, Math.sin(a) * R);
+                ctx.lineTo(Math.cos(a) * (R - len), Math.sin(a) * (R - len));
+                ctx.stroke();
+                const labelEvery = R < 110 ? (full ? 30 : 20) : 10;   // 小量角器的數字拉開，避免擠在一起
+                if (deg % labelEvery === 0) {
+                    const tr = R - len - fontSize * 0.9;
+                    ctx.fillText(`${deg}°`, Math.cos(a) * tr, Math.sin(a) * tr);
                 }
             }
 
+            // 中心十字
             ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.moveTo(-8, 0); ctx.lineTo(8, 0);
             ctx.moveTo(0, -8); ctx.lineTo(0, 8);
             ctx.stroke();
 
+            // 旋轉手把（圓點）
+            const rh = protRotHandle(p);
             ctx.fillStyle = '#00f0ff';
-            ctx.beginPath(); ctx.arc(0, -p.radius - 12, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(rh.x, rh.y, 6, 0, Math.PI * 2); ctx.fill();
+            // 縮放手把（方塊，內有雙向箭頭）
+            const sh = protSizeHandle(p);
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 1.5;
+            ctx.fillRect(sh.x - 7, sh.y - 7, 14, 14);
+            ctx.strokeRect(sh.x - 7, sh.y - 7, 14, 14);
+            ctx.beginPath();
+            ctx.moveTo(sh.x - 4, sh.y); ctx.lineTo(sh.x + 4, sh.y);
+            ctx.moveTo(sh.x - 4, sh.y); ctx.lineTo(sh.x - 2, sh.y - 2); ctx.moveTo(sh.x - 4, sh.y); ctx.lineTo(sh.x - 2, sh.y + 2);
+            ctx.moveTo(sh.x + 4, sh.y); ctx.lineTo(sh.x + 2, sh.y - 2); ctx.moveTo(sh.x + 4, sh.y); ctx.lineTo(sh.x + 2, sh.y + 2);
+            ctx.stroke();
 
             ctx.restore();
+        }
+
+        function setProtractorType(type) {
+            state.protractor.type = type;
+            syncProtractorUI();
+            draw();
+        }
+
+        function syncProtractorUI() {
+            const p = state.protractor;
+            const on = document.getElementById('chkShowProtractor').checked;
+            document.getElementById('protractorOptions').classList.toggle('hidden', !on);
+            const active = 'bg-cyan-600 text-white border-cyan-500', idle = 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
+            document.getElementById('protHalfBtn').className = `py-1 rounded border text-[11px] ${p.type === 'half' ? active : idle}`;
+            document.getElementById('protFullBtn').className = `py-1 rounded border text-[11px] ${p.type === 'full' ? active : idle}`;
+            document.getElementById('protSizeSlider').value = p.radius;
+            document.getElementById('protSizeVal').innerText = `${Math.round(p.radius)}px`;
         }
 
         function getMousePos(e) {
@@ -2074,16 +2144,20 @@
             // 3. Protractor Check
             if (document.getElementById('chkShowProtractor').checked) {
                 const p = state.protractor;
-                const protRotX = p.x + Math.sin(degToRad(p.angle)) * (p.radius + 12);
-                const protRotY = p.y - Math.cos(degToRad(p.angle)) * (p.radius + 12);
-                if (Math.hypot(pos.x - protRotX, pos.y - protRotY) < hr) {
+                const rh = protToWorld(p, protRotHandle(p).x, protRotHandle(p).y);
+                if (Math.hypot(pos.x - rh.x, pos.y - rh.y) < hr) {
                     state.draggedObject = 'protractor-rot';
                     return;
                 }
-                // 量角器只畫上半圓，所以只有點在半圓範圍內才算抓到
+                const sh = protToWorld(p, protSizeHandle(p).x, protSizeHandle(p).y);
+                if (Math.hypot(pos.x - sh.x, pos.y - sh.y) < hr) {
+                    state.draggedObject = 'protractor-size';
+                    return;
+                }
+                // 半圓量角器只有上半圓算本體；全圓則整個圓都可以拖
                 const pa = degToRad(p.angle), qx = pos.x - p.x, qy = pos.y - p.y;
                 const localY = -qx * Math.sin(pa) + qy * Math.cos(pa);
-                if (Math.hypot(qx, qy) < p.radius && localY <= 6 / state.zoom) {
+                if (Math.hypot(qx, qy) < p.radius && (p.type === 'full' || localY <= 6 / state.zoom)) {
                     state.draggedObject = 'protractor-body';
                     state.dragOffset = { x: pos.x - p.x, y: pos.y - p.y };
                     return;
@@ -2193,6 +2267,10 @@
                     angle = Math.round(angle / 5) * 5;
                 }
                 state.protractor.angle = angle;
+            } else if (state.draggedObject === 'protractor-size') {
+                const d = Math.hypot(pos.x - state.protractor.x, pos.y - state.protractor.y) - 14;
+                state.protractor.radius = Math.round(Math.min(400, Math.max(50, d)));
+                syncProtractorUI();
             } else if (state.draggedObject === 'mirror-center') {
                 const m = state.mirrors[state.dragMirrorIdx];
                 const snapPos = getSnapPos(pos.x - state.dragOffset.x, pos.y - state.dragOffset.y);
@@ -2434,7 +2512,7 @@
             setChk('chkShowFocal', false);
             setChk('chkShowExtensions', false);
             setChk('chkShowLight', true);
-            setChk('chkShowProtractor', true);
+            setChk('chkShowProtractor', false);
             // 成像預設：關掉雷射、打開網格與焦點；鏡心放在網格交點上，方便用格子量物距與像距
             const imaging = (opticType, opt, obj, scr) => {
                 setChk('chkShowLight', false);
@@ -2444,7 +2522,6 @@
                 addMirror('object', obj);
                 if (scr) addMirror('screen', scr);
                 protractorAt(900, 620);
-                document.getElementById('chkShowProtractor').checked = false;
             };
 
             if (presetKey === 'flatLaw') {
@@ -2524,6 +2601,7 @@
             }
             state.selectedMirrorIndex = -1;
             syncAngleToggle();
+            syncProtractorUI();
             updateInspectorUI();
             syncControlsFromState();
             draw();
@@ -2531,6 +2609,7 @@
 
         window.onload = function() {
             syncAngleToggle();
+            syncProtractorUI();
             resizeCanvas();
             loadPreset('flatLaw');
         };
