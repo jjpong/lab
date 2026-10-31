@@ -1978,7 +1978,12 @@
                 const labelEvery = R < 110 ? (full ? 30 : 20) : 10;   // 小量角器的數字拉開，避免擠在一起
                 if (deg % labelEvery === 0) {
                     const tr = R - len - fontSize * 0.9;
-                    ctx.fillText(`${deg}°`, Math.cos(a) * tr, Math.sin(a) * tr);
+                    // 數字位置跟著量角器轉，但字本身轉回來，永遠朝上
+                    ctx.save();
+                    ctx.translate(Math.cos(a) * tr, Math.sin(a) * tr);
+                    ctx.rotate(-degToRad(p.angle));
+                    ctx.fillText(`${deg}°`, 0, 0);
+                    ctx.restore();
                 }
             }
 
