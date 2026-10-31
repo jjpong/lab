@@ -388,7 +388,7 @@
                                 </div>
                                 <input type="range" id="protSizeSlider" min="50" max="400" step="5" value="130" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="state.protractor.radius = +this.value; syncProtractorUI(); draw()">
                             </div>
-                            <p class="text-[11px] text-slate-500">拖曳圓點旋轉，拖曳方形手把放大縮小</p>
+                            <p class="text-[11px] text-slate-500">拖曳刻度環或中心十字移動；拖曳圓點旋轉；拖曳方形手把放大縮小。圓內可以照常操作光學元件。</p>
                         </div>
                     </div>
                 </div>
@@ -2154,14 +2154,6 @@
                     state.draggedObject = 'protractor-size';
                     return;
                 }
-                // 半圓量角器只有上半圓算本體；全圓則整個圓都可以拖
-                const pa = degToRad(p.angle), qx = pos.x - p.x, qy = pos.y - p.y;
-                const localY = -qx * Math.sin(pa) + qy * Math.cos(pa);
-                if (Math.hypot(qx, qy) < p.radius && (p.type === 'full' || localY <= 6 / state.zoom)) {
-                    state.draggedObject = 'protractor-body';
-                    state.dragOffset = { x: pos.x - p.x, y: pos.y - p.y };
-                    return;
-                }
             }
 
             // 4. Mirrors Drag / Rotate / Resize Handles
@@ -2191,6 +2183,22 @@
                     state.selectedMirrorIndex = i;
                     state.dragOffset = { x: pos.x - m.x, y: pos.y - m.y };
                     updateInspectorUI();
+                    return;
+                }
+            }
+
+            // 5. 量角器本體：排在光學元件之後，而且只有刻度那一圈環或中心十字能拖，圓內其他地方點下去不會抓到量角器
+            if (document.getElementById('chkShowProtractor').checked) {
+                const p = state.protractor;
+                const pa = degToRad(p.angle), qx = pos.x - p.x, qy = pos.y - p.y;
+                const localY = -qx * Math.sin(pa) + qy * Math.cos(pa);
+                const d = Math.hypot(qx, qy);
+                const band = Math.max(18, p.radius * 0.16);   // 刻度環的寬度
+                const onRing = d <= p.radius + 6 / state.zoom && d >= p.radius - band && (p.type === 'full' || localY <= 0);
+                const onCenter = d <= Math.max(10 / state.zoom, hr * 0.6);
+                if (onRing || onCenter) {
+                    state.draggedObject = 'protractor-body';
+                    state.dragOffset = { x: pos.x - p.x, y: pos.y - p.y };
                     return;
                 }
             }
