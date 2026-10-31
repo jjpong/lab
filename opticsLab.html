@@ -404,6 +404,7 @@
                 <p>• <b>角度代號</b>：反射用 θi（入射角）、θr（反射角）；折射用 θ₁（入射角）、θ₂（折射角）。</p>
                 <p>• <b>真實透鏡</b>：焦距是薄透鏡近似值，實際交點會因透鏡厚度與球面像差而偏移。</p>
                 <p>• <b>成像</b>：物體會對最近的理想薄透鏡或面鏡成像；拖曳物體底端移動，拖曳頂端改變高度。實像畫實線，虛像畫虛線。打開座標網格（一格 40px）可量物距與像距。</p>
+                <p>• <b>移動畫面</b>：按住滑鼠<b>右鍵</b>拖曳（也可以按住滾輪拖曳，或按住空白鍵再用左鍵拖曳）；滾輪縮放；右上角「重置視角」回到原位。</p>
                 <p>• <b>觸控螢幕</b>：單指拖曳物件，兩指縮放、移動畫面。</p>
             </div>
         </aside>
@@ -2085,6 +2086,9 @@
             state.isPanning = false;
         }
 
+        // 畫布上按右鍵是用來移動畫面，不要跳出瀏覽器的右鍵選單
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
         canvas.addEventListener('pointerdown', e => {
             const pos = getMousePos(e);
             try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
@@ -2094,8 +2098,9 @@
             }
             const hr = (e.pointerType === 'touch' ? 28 : 16) / state.zoom;   // 觸控時手把的判定範圍放大
 
-            // Middle Click or Space + Left Click triggers Canvas Panning
-            if (e.button === 1 || (e.button === 0 && state.spacePressed)) {
+            // 移動畫面：滑鼠右鍵拖曳（主要方式）；也可以用中鍵拖曳，或按住空白鍵再用左鍵拖曳
+            if (e.button === 2 || e.button === 1 || (e.button === 0 && state.spacePressed)) {
+                e.preventDefault();
                 state.isPanning = true;
                 state.panStart = { x: pos.screenX - state.pan.x, y: pos.screenY - state.pan.y };
                 canvas.classList.add('cursor-grabbing');
