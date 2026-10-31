@@ -27,6 +27,7 @@
         canvas {
             touch-action: none;
         }
+        summary::-webkit-details-marker { display: none; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans h-full flex flex-col overflow-hidden select-none">
@@ -395,8 +396,12 @@
             </div>
 
             <!-- Operations Tip -->
-            <div class="p-4 mt-auto bg-slate-950/30 text-[11px] text-slate-400 border-t border-slate-800/60 space-y-1">
-                <p class="font-semibold text-slate-300 mb-1"><i class="fa-solid fa-circle-info text-cyan-400 me-1"></i> 操作技巧：</p>
+            <details class="group p-4 mt-auto bg-slate-950/30 text-[11px] text-slate-400 border-t border-slate-800/60">
+                <summary class="font-semibold text-slate-300 cursor-pointer select-none list-none flex items-center gap-1.5 hover:text-white">
+                    <i class="fa-solid fa-chevron-right text-[9px] text-slate-500 transition-transform group-open:rotate-90"></i>
+                    <i class="fa-solid fa-circle-info text-cyan-400"></i> 操作技巧
+                </summary>
+                <div class="space-y-1 mt-2">
                 <p>• <b>移動物件</b>：直接在畫面上拖曳光源、元件或量角器。</p>
                 <p>• <b>旋轉光源</b>：拖曳光源發射口前端的<b>藍色控制環</b>。</p>
                 <p>• <b>調整元件</b>：拖曳兩端手把可同時改變角度與長度；厚度、焦距、折射率在左側面板調整。</p>
@@ -404,9 +409,11 @@
                 <p>• <b>角度代號</b>：反射用 θi（入射角）、θr（反射角）；折射用 θ₁（入射角）、θ₂（折射角）。</p>
                 <p>• <b>真實透鏡</b>：焦距是薄透鏡近似值，實際交點會因透鏡厚度與球面像差而偏移。</p>
                 <p>• <b>成像</b>：物體會對最近的理想薄透鏡或面鏡成像；拖曳物體底端移動，拖曳頂端改變高度。實像畫實線，虛像畫虛線。打開座標網格（一格 40px）可量物距與像距。</p>
-                <p>• <b>移動畫面</b>：按住滑鼠<b>右鍵</b>拖曳（也可以按住滾輪拖曳，或按住空白鍵再用左鍵拖曳）；滾輪縮放；右上角「重置視角」回到原位。</p>
+                <p>• <b>移動畫面</b>：按住滑鼠<b>右鍵</b>拖曳（也可以按住滾輪拖曳，或按住空白鍵再用左鍵拖曳）。</p>
+                <p>• <b>縮放畫面</b>：用右上角的 <b>＋</b>、<b>－</b> 按鈕；「重置視角」回到原位。</p>
                 <p>• <b>觸控螢幕</b>：單指拖曳物件，兩指縮放、移動畫面。</p>
-            </div>
+                </div>
+            </details>
         </aside>
 
         <!-- Center Canvas Area -->
@@ -2062,12 +2069,6 @@
         });
 
         // Mouse Wheel Zoom
-        canvas.addEventListener('wheel', e => {
-            e.preventDefault();
-            const pos = getMousePos(e);
-            const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-            setZoom(state.zoom * zoomFactor, pos.screenX, pos.screenY);
-        }, { passive: false });
 
         // 觸控：兩指縮放與移動畫面
         const activeTouches = new Map();
