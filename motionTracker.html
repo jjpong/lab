@@ -12,7 +12,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<style>
+<style id="appStyle">
 /* Layout: 實驗工作台 — 左側影像舞台＋底下圖表，右側分步驟操作面板；影格時間軸像底片條橫在舞台下方 */
 :root{
   --bg:#eceff3; --panel:#ffffff; --sunken:#e2e6ec; --ink:#1a1f28; --muted:#5b6474; --line:#d2d7df;
@@ -102,6 +102,7 @@ label{display:inline-flex;align-items:center;gap:6px}
 .slider output{font-family:var(--font-num);font-size:12px;text-align:right;color:var(--muted)}
 .preset{padding:4px 8px;display:inline-flex;align-items:center;gap:4px}.preset .swatch{width:14px;height:14px}
 .swatch{width:18px;height:18px;border-radius:4px;border:1px solid var(--line);display:inline-block;vertical-align:middle}
+textarea{font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;resize:vertical;line-height:1.6}
 .tablewrap{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:6px}
 table{border-collapse:collapse;width:100%;font-family:var(--font-num);font-size:12px;font-variant-numeric:tabular-nums}
 th,td{padding:4px 7px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
@@ -126,6 +127,7 @@ tbody tr{cursor:pointer}
 @media (prefers-reduced-motion:no-preference){.progress i{transition:width .15s}}
 </style>
 
+<div id="appRoot">
 <header class="top">
   <h1>影格軌跡分析</h1>
   <span class="sub">錄影 → 逐格檢視 → 校正 → 追蹤 → 疊圖與 x–t、v–t 圖</span>
@@ -138,7 +140,7 @@ tbody tr{cursor:pointer}
         <canvas id="view" width="640" height="400"></canvas>
         <video id="live" playsinline muted hidden></video>
         <video id="impVid" playsinline muted hidden></video>
-        <div class="banner" id="demoBanner" hidden><span>示範資料：程式產生的模擬拋體（比例尺 100 cm 已設定，已自動追蹤）。</span><button id="demoClear" type="button">清除示範</button></div>
+        <div class="banner" id="demoBanner" hidden><span id="bannerText">示範資料：程式產生的模擬拋體（比例尺 100 cm 已設定，已自動追蹤）。</span><button id="demoClear" type="button">清除示範</button></div>
         <div class="rec-badge num" id="recBadge" hidden>● REC 0.0 s</div>
         <div class="countdown num" id="countdown" hidden></div>
         <div class="loupe" id="loupe" hidden><canvas id="loupeCv" width="132" height="132"></canvas></div>
@@ -408,12 +410,25 @@ tbody tr{cursor:pointer}
     <!-- 5 數據 -->
     <div class="pane" data-pane="data" hidden>
       <div class="group">
+        <h3>觀察與討論</h3>
+        <textarea id="notes" rows="5" placeholder="記錄實驗條件、觀察到的現象、想討論的問題……（會一起存進分析檔和 Excel）"></textarea>
+      </div>
+      <div class="group">
         <h3>速度計算</h3>
         <label>差分跨距 <select id="vSpan"><option value="1" selected>±1 個點</option><option value="2">±2 個點</option><option value="3">±3 個點</option></select></label>
         <p class="note">速度 = （後一點位置 − 前一點位置）÷（兩點時間差），用的是實際時間差。跨距越大越平滑，但會把快速變化抹平。</p>
       </div>
       <div class="group">
-        <h3>匯出</h3>
+        <h3>分析檔（HTML）</h3>
+        <div class="row">
+          <button id="saveHtmlBtn" class="primary" type="button">下載分析檔</button>
+          <label>影格畫質 <select id="saveQ"><option value="0.92">高</option><option value="0.82" selected>標準</option><option value="0.65">小檔</option></select></label>
+        </div>
+        <div class="row"><button id="openHtmlBtn" type="button">開啟分析檔</button><input type="file" id="openHtmlIn" accept=".html,.htm,text/html" hidden></div>
+        <p class="note" id="saveInfo">把影格、追蹤點、比例尺、座標軸、影像調整、疊圖、圖表設定和觀察紀錄存成一個 HTML 檔。用瀏覽器打開就能繼續逐格檢視、追蹤、作圖和匯出，不需要網路。iPad 不方便直接開本機 HTML 時，可以在這裡按「開啟分析檔」載入。</p>
+      </div>
+      <div class="group">
+        <h3>匯出數據</h3>
         <div class="row">
           <button id="xlsxBtn" class="primary" type="button">下載 Excel（含圖）</button>
           <button id="csvBtn" type="button">下載 CSV</button>
@@ -427,10 +442,12 @@ tbody tr{cursor:pointer}
 </div>
 <p class="kbd"><kbd>←</kbd><kbd>→</kbd> 逐格（加 <kbd>Shift</kbd> 跳 10 格）　<kbd>空白鍵</kbd> 播放／暫停，錄影中按下則停止錄影　<kbd>Home</kbd><kbd>End</kbd> 第一／最後一幀　<kbd>Delete</kbd> 刪除這一幀的點</p>
 <div class="toast" id="toast" hidden></div>
+</div>
 
-<script>
+<script id="appMain">
 (()=>{
 'use strict';
+const APP_MARKUP=document.getElementById('appRoot').innerHTML;   // 還沒被程式改動前的介面，存分析檔時用
 const $=id=>document.getElementById(id);
 const view=$('view'), vctx=view.getContext('2d');
 const live=$('live'), impVid=$('impVid');
@@ -515,7 +532,7 @@ function setFrames(frames,W,H,{demo=false}={}){
   S.tpl=null;S.color=null;S.pickMode=false;S.lowConf=null;S.overlay=null;S.showOverlay=false;S.isDemo=demo;
   view.width=W;view.height=H;
   if(!demo){S.scale.p1=S.scale.p2=null;S.axes.ox=S.axes.oy=null;S.axes.angle=0;$('axisAngle').value=0}
-  $('demoBanner').hidden=!demo;
+  $('demoBanner').hidden=!demo;if(demo){$('bannerText').textContent='示範資料：程式產生的模擬拋體（比例尺 100 cm 已設定，已自動追蹤）。';$('demoClear').textContent='清除示範'}
   $('ovFrom').value=1;$('ovTo').value=frames.length;$('ovFrom').max=$('ovTo').max=frames.length;
   $('ovToggle').disabled=$('ovSave').disabled=true;$('ovToggle').textContent='顯示疊圖';
   showStage('canvas');updateAll();
@@ -681,7 +698,7 @@ function updateHint(){
 function updateAll(){updateHint();updateControls();updateFrameUI();buildTable()}
 function updateControls(){
   const has=N()>0;
-  ['pickBtn','xlsxBtn','cutBefore','cutAfter','scaleTool','originTool','axisTool','alignTrack','flipX','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
+  ['pickBtn','xlsxBtn','saveHtmlBtn','cutBefore','cutAfter','scaleTool','originTool','axisTool','alignTrack','flipX','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
   $('trackStop').disabled=!S.tracking;
   $('resetBtn').disabled=!!S.rec;
   $('cropTool').disabled=!!S.rec||!(S.liveView||has);$('cropTool').classList.toggle('on',S.cropMode);
@@ -1023,7 +1040,7 @@ function resetAll(){
   $('maskPrev').checked=false;updateColorUI();
   $('trackMsg').className='note num';$('trackMsg').textContent='';
   $('ovMsg').textContent='「背景相減」需要物體有移動；自動背景用各幀的中位數，物體停在原地太久會被當成背景。';
-  $('impStart').value=0;$('impEnd').value='';
+  $('impStart').value=0;$('impEnd').value='';$('notes').value='';
   $('camInfo').textContent='錄影時程式會記下每一幀的實際拍攝時間。光線越充足，越不容易掉幀和糊掉。';
   if(S.stream)showStage('live');
   setTab('source');toast('已清除所有資料，可以重新錄影或匯入影片');
@@ -1348,8 +1365,9 @@ $('xlsxBtn').onclick=async()=>{
       ['影像調整',adjActive()?`亮度 ${S.adj.b}、對比 ${S.adj.c}、飽和度 ${S.adj.s}%`:'無'],
       [$('posKind').selectedOptions[0].text+' 擬合',plainFit(charts.pos)||'未擬合'],
       [$('velKind').selectedOptions[0].text+' 擬合',plainFit(charts.vel)||'未擬合'],
+      ['觀察與討論',$('notes').value.trim()||'（無）'],
     ];
-    info.forEach(r=>ws.addRow(r));
+    info.forEach(r=>ws.addRow(r));ws.getCell(info.length,2).alignment={wrapText:true,vertical:'top'};
     ws.getRow(1).font={bold:true,size:14};
     for(let r=2;r<=info.length;r++)ws.getCell(r,1).font={bold:true};
     ws.addRow([]);
@@ -1385,6 +1403,80 @@ $('copyBtn').onclick=()=>{const {head,d}=rows();if(!d.length){toast('還沒有�
   const fallback=()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'已複製，可貼到 Google 試算表或 Excel':'無法自動複製，請改用下載 CSV')};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('已複製，可貼到 Google 試算表或 Excel'),fallback);else fallback()};
 
+/* ---------------- 分析檔（HTML）存檔與讀取 ---------------- */
+const SAVE_KEYS_SEL=['posKind','posFit','velKind','velFit','vSpan','stepSel','ovMethod','ovEvery','ovBg','speed'];
+const SAVE_KEYS_RANGE=['radius','thr','hueTol','satMin','ovThr'];
+function canvasToDataURL(src,w,h,q){const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(src,0,0,w,h);return c.toDataURL('image/jpeg',q)}
+async function collectSession(q){
+  const frames=[];
+  for(let i=0;i<N();i++){frames.push({t:S.frames[i].t,img:canvasToDataURL(S.frames[i].bmp,S.W,S.H,q)});
+    if(i%10===0){$('saveHtmlBtn').textContent=`打包中 ${Math.round(i/N()*100)}%`;await nextTick()}}
+  const ui={};SAVE_KEYS_SEL.concat(SAVE_KEYS_RANGE).forEach(id=>ui[id]=$(id).value);
+  return {v:1,savedAt:new Date().toISOString(),W:S.W,H:S.H,cur:S.cur,frames,
+    track:S.track,scale:S.scale,axes:S.axes,timeMode:S.timeMode,fpsOverride:S.fpsOverride,adj:S.adj,
+    method:method(),color:S.color,tpl:S.tpl&&{w:S.tpl.w,h:S.tpl.h,g:Array.from(S.tpl.g,v=>Math.round(v*10)/10)},
+    overlay:S.overlay?S.overlay.toDataURL('image/jpeg',Math.max(q,0.85)):null,ovFrom:$('ovFrom').value,ovTo:$('ovTo').value,
+    ovPoints:$('ovPoints').checked,ovLabels:$('ovLabels').checked,maskPrev:$('maskPrev').checked,
+    ui,notes:$('notes').value};
+}
+function buildSavedHtml(data){
+  const esc=t=>t.replace(/<\/script/gi,'<\\/script');
+  const font=document.querySelector('link[href*="fonts.googleapis"]');
+  const json=JSON.stringify(data).replace(/</g,'\\u003c');
+  return '<!DOCTYPE html>\n<html lang="zh-Hant">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+    +'<title>影格軌跡分析（分析檔）</title>\n'+(font?`<link rel="stylesheet" href="${font.href}">\n`:'')
+    +'<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>\n'
+    +'<style id="appStyle">'+$('appStyle').textContent+'</style>\n</head>\n<body>\n<div id="appRoot">'+APP_MARKUP+'</div>\n'
+    +'<script type="application/json" id="savedSession">'+json+'<\/script>\n'
+    +'<script id="appMain">'+esc($('appMain').textContent)+'<\/script>\n</body>\n</html>\n';
+}
+$('saveHtmlBtn').onclick=async()=>{
+  if(!N()){toast('還沒有影格可以存');return}
+  const btn=$('saveHtmlBtn'),label=btn.textContent;btn.disabled=true;pause();
+  try{
+    const data=await collectSession(+$('saveQ').value);
+    const html=buildSavedHtml(data),mb=html.length/1048576;
+    const d=new Date(),z=n=>String(n).padStart(2,'0');
+    await saveFile(`影格軌跡分析_${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.html`,new Blob([html],{type:'text/html'}));
+    $('saveInfo').textContent=`分析檔約 ${mb.toFixed(1)} MB（${N()} 幀）。`+(mb>40?'檔案偏大，可以改用「小檔」畫質，或先刪掉前後不需要的影格、裁切範圍。':'用瀏覽器打開就能繼續分析。');
+  }catch(e){console.error(e);toast('存檔失敗：'+(e.message||e))}
+  finally{btn.textContent=label;btn.disabled=false}
+};
+$('openHtmlBtn').onclick=()=>$('openHtmlIn').click();
+$('openHtmlIn').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const doc=new DOMParser().parseFromString(await f.text(),'text/html');const el=doc.getElementById('savedSession');
+    if(!el){toast('這個檔案不是影格軌跡分析的分析檔');return}
+    stopCamera();await restoreSession(JSON.parse(el.textContent));}
+  catch(err){console.error(err);toast('讀取分析檔失敗：'+(err.message||err))}
+};
+async function restoreSession(d){
+  toast('載入分析檔中…');
+  const frames=await Promise.all(d.frames.map(async f=>{const img=new Image();img.src=f.img;await img.decode();return {bmp:await createImageBitmap(img),t:f.t}}));
+  setFrames(frames,d.W,d.H);
+  const ui=d.ui||{};
+  for(const id of SAVE_KEYS_SEL)if(ui[id]!=null)$(id).value=ui[id];
+  for(const id of SAVE_KEYS_RANGE)if(ui[id]!=null){$(id).value=ui[id];$(id).dispatchEvent(new Event('input'))}
+  S.track=frames.map((_,i)=>d.track[i]||null);
+  S.scale=d.scale;$('scaleLen').value=d.scale.len;$('scaleUnit').value=d.scale.unit;
+  S.axes=d.axes;$('axisAngle').value=d.axes.angle;$('axisOut').textContent=d.axes.angle+'°';$('yUp').checked=d.axes.yUp;
+  S.timeMode=d.timeMode;S.fpsOverride=d.fpsOverride;$('fpsOverride').value=d.fpsOverride;
+  document.querySelector(`input[name=timeMode][value=${d.timeMode}]`).checked=true;
+  S.adj=d.adj||{b:0,c:0,s:100};buildLut();syncAdjUI();workIdx=-1;
+  const mr=document.querySelector(`input[name=tmethod][value=${d.method}]`);if(mr)mr.checked=true;
+  S.color=d.color||null;updateColorUI();$('maskPrev').checked=!!d.maskPrev;
+  S.tpl=d.tpl?{w:d.tpl.w,h:d.tpl.h,g:Float32Array.from(d.tpl.g)}:null;
+  $('ovFrom').value=d.ovFrom||1;$('ovTo').value=d.ovTo||N();$('ovPoints').checked=d.ovPoints!==false;$('ovLabels').checked=!!d.ovLabels;
+  if(d.overlay){const img=new Image();img.src=d.overlay;await img.decode();const c=document.createElement('canvas');c.width=S.W;c.height=S.H;c.getContext('2d').drawImage(img,0,0);
+    S.overlay=c;$('ovToggle').disabled=$('ovSave').disabled=false;$('ovToggle').textContent='顯示疊圖';$('ovMsg').textContent='已載入存檔中的疊圖。'}
+  $('notes').value=d.notes||'';
+  S.cur=Math.min(d.cur||0,N()-1);
+  $('bannerText').textContent=`分析檔：存於 ${new Date(d.savedAt).toLocaleString('zh-TW')}，共 ${N()} 幀。可以繼續追蹤、調整與匯出。`;
+  $('demoClear').textContent='關閉';$('demoBanner').hidden=false;
+  $('camInfo').textContent='已載入分析檔。要重新錄影，按「開啟相機」。';
+  updateAll();toast(`已載入分析檔（${N()} 幀）`);
+}
+
 /* ---------------- demo clip ---------------- */
 async function loadDemo(){
   const W=640,H=400,bg=document.createElement('canvas');bg.width=W;bg.height=H;const b=bg.getContext('2d');
@@ -1411,12 +1503,15 @@ async function loadDemo(){
   updateAll();
 }
 $('demoBtn').onclick=()=>{stopCamera();loadDemo()};
-$('demoClear').onclick=resetAll;
+$('demoClear').onclick=()=>{if(S.isDemo)resetAll();else $('demoBanner').hidden=true};
 
 /* ---------------- boot ---------------- */
 updateColorUI();
 if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices)listCams();
-loadDemo().catch(e=>{console.error(e);updateAll()});
+const savedEl=document.getElementById('savedSession');
+if(savedEl){let d=null;try{d=JSON.parse(savedEl.textContent)}catch(e){}
+  (d?restoreSession(d):Promise.reject()).catch(e=>{console.error(e);toast('分析檔讀取失敗，改載入示範影片');loadDemo()})}
+else loadDemo().catch(e=>{console.error(e);updateAll()});
 window.__motionLab=S; // 方便除錯
 })();
 </script>
