@@ -270,13 +270,22 @@ tbody tr{cursor:pointer}
       </div>
       <div class="group">
         <h3>原點與座標軸</h3>
-        <div class="row"><button id="originTool" type="button">點選原點位置</button><button id="axesReset" type="button">重設</button></div>
-        <div class="slider"><span>x 軸角度</span><input type="range" id="axisAngle" min="-90" max="90" step="0.5" value="0"><output id="axisOut">0°</output></div>
         <div class="row">
-          <button id="alignAxis" type="button">x 軸對齊比例尺方向</button>
-          <label><input type="checkbox" id="yUp" checked> y 軸向上為正</label>
+          <button id="axisTool" type="button">沿運動方向畫 x 軸</button>
+          <button id="originTool" type="button">只移動原點</button>
         </div>
-        <p class="note">斜面實驗可把米尺沿斜面放，再按「x 軸對齊比例尺方向」，x 就是沿斜面的位移。未設定原點時，原點在畫面左下角。</p>
+        <div class="row">
+          <button id="alignTrack" type="button">x 軸對齊追蹤軌跡</button>
+          <button id="alignAxis" type="button">x 軸對齊比例尺</button>
+          <button id="flipX" type="button">反轉 x 方向</button>
+        </div>
+        <div class="slider"><span>x 軸角度</span><input type="range" id="axisAngle" min="-180" max="180" step="0.5" value="0"><output id="axisOut">0°</output></div>
+        <div class="row">
+          <label><input type="checkbox" id="yUp" checked> y 軸向上為正</label>
+          <button id="axesReset" type="button">重設座標軸</button>
+        </div>
+        <p class="note"><strong>斜坡實驗：</strong>按「沿運動方向畫 x 軸」，從斜坡起點拖曳到下滑的方向，x 軸就會貼著斜坡、原點在起點。追蹤完成後也可以按「x 軸對齊追蹤軌跡」，程式會用軌跡的直線方向自動對齊。對齊後只要看 x–t 與 vx–t 圖，y 應該都接近 0。</p>
+        <p class="note">未設定原點時，原點在畫面左下角。</p>
       </div>
     </div>
 
@@ -517,6 +526,8 @@ function drawCalib(L){
     const o=origin(),th=S.axes.angle*Math.PI/180,len=60*L;
     const ex={x:Math.cos(th),y:-Math.sin(th)},ey={x:-Math.sin(th)*(S.axes.yUp?1:-1),y:-Math.cos(th)*(S.axes.yUp?1:-1)};
     if(!showAll&&S.tab!=='calib'){vctx.globalAlpha=.55}
+    if(showAll){const D=S.W+S.H;vctx.save();vctx.strokeStyle='rgba(255,212,0,.55)';vctx.lineWidth=1.2*L;vctx.setLineDash([7*L,5*L]);
+      vctx.beginPath();vctx.moveTo(o.x-ex.x*D,o.y-ex.y*D);vctx.lineTo(o.x+ex.x*D,o.y+ex.y*D);vctx.stroke();vctx.restore()}
     arrow(o,ex,len,'#ffd400',L,'x');arrow(o,ey,len,'#ffd400',L,'y');
     vctx.globalAlpha=1;
   }
@@ -596,6 +607,7 @@ function updateHint(){
   else if(!N())h='先到「影像」開啟相機錄影，或匯入一段影片。';
   else if(t==='scale')h='<strong>比例尺：</strong>在畫面上從已知長度物體（例如米尺）的一端拖曳到另一端，再在右側填入實際長度。可拖曳兩端圓點微調。';
   else if(t==='origin')h='<strong>原點：</strong>點一下畫面設定座標原點，可以拖曳移動。';
+  else if(t==='axis')h='<strong>畫 x 軸：</strong>在物體出發的位置按下，沿著運動方向（例如順著斜坡往下）拖曳後放開。按下處是原點，拖曳方向是 +x。';
   else if(t==='manual')h='<strong>手動點選：</strong>在每一幀點物體的中心。放大鏡可以幫你對準。';
   else if(t==='auto')h=(S.lowConf?`<strong>第 ${S.lowConf.i+1} 幀信心不足（${S.lowConf.conf.toFixed(2)}）。</strong>請在畫面上點一下物體正確的位置（或重新框選），再按繼續追蹤。`:
     S.pickMode?'<strong>取色：</strong>在畫面上點一下物體顏色最鮮明的地方。':
@@ -610,9 +622,9 @@ function updateHint(){
 function updateAll(){updateHint();updateControls();updateFrameUI();buildTable()}
 function updateControls(){
   const has=N()>0;
-  ['pickBtn','cutBefore','cutAfter','scaleTool','originTool','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
+  ['pickBtn','cutBefore','cutAfter','scaleTool','originTool','axisTool','alignTrack','flipX','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
   $('trackStop').disabled=!S.tracking;
-  $('scaleTool').classList.toggle('on',S.calibTool==='scale');$('originTool').classList.toggle('on',S.calibTool==='origin');
+  $('scaleTool').classList.toggle('on',S.calibTool==='scale');$('originTool').classList.toggle('on',S.calibTool==='origin');$('axisTool').classList.toggle('on',S.calibTool==='axis');
   const m=method();
   $('autoGroup').hidden=m==='manual';$('manualGroup').hidden=m!=='manual';
   $('colorOpts').hidden=m!=='color';$('tplUpdRow').hidden=m!=='ncc';
@@ -640,6 +652,7 @@ view.addEventListener('pointerdown',e=>{
     else if(s.p2&&Math.hypot(p.x-s.p2.x,p.y-s.p2.y)<14*L)drag={kind:'h2'};
     else{s.p1={...p};s.p2={...p};drag={kind:'h2',fresh:true}}
   }else if(t==='origin'){S.axes.ox=p.x;S.axes.oy=p.y;drag={kind:'origin'}}
+  else if(t==='axis'){S.axes.ox=p.x;S.axes.oy=p.y;drag={kind:'axis',a:p,b:p}}
   else if(t==='manual'){setPoint(S.cur,p,'manual');if($('autoAdv').checked)goto(S.cur+(+$('stepSel').value));drag=null}
   else if(t==='auto'){drag={kind:'box',a:p,b:p}}
   render();
@@ -649,6 +662,7 @@ view.addEventListener('pointermove',e=>{
   if(!drag)return;
   if(drag.kind==='h1')S.scale.p1=p;else if(drag.kind==='h2')S.scale.p2=p;
   else if(drag.kind==='origin'){S.axes.ox=p.x;S.axes.oy=p.y}
+  else if(drag.kind==='axis'){drag.b=p;if(Math.hypot(p.x-drag.a.x,p.y-drag.a.y)>8*lw())setAngle(Math.atan2(-(p.y-drag.a.y),p.x-drag.a.x)*180/Math.PI,false)}
   else if(drag.kind==='box')drag.b=p;
   render();
 });
@@ -659,6 +673,7 @@ view.addEventListener('pointerup',e=>{
     if(r.w<6*lw()&&r.h<6*lw())correctAt(p);else boxSelect(r);
   }else if(d.kind==='h2'||d.kind==='h1'){const s=S.scale;if(Math.hypot(s.p2.x-s.p1.x,s.p2.y-s.p1.y)<4){s.p1=s.p2=null}dataChanged()}
   else if(d.kind==='origin')dataChanged();
+  else if(d.kind==='axis'){dataChanged();if(Math.hypot(p.x-d.a.x,p.y-d.a.y)>8*lw()){axisAligned();toast(`x 軸已設為 ${S.axes.angle}°`)}}
   render();
 });
 view.addEventListener('pointerleave',()=>{$('loupe').hidden=true});
@@ -870,9 +885,25 @@ $('originTool').onclick=()=>{S.calibTool='origin';updateAll()};
 $('scaleLen').oninput=()=>{S.scale.len=+$('scaleLen').value;dataChanged()};
 $('scaleUnit').onchange=()=>{S.scale.unit=$('scaleUnit').value;dataChanged()};
 $('scaleClear').onclick=()=>{S.scale.p1=S.scale.p2=null;dataChanged()};
-$('axisAngle').oninput=()=>{S.axes.angle=+$('axisAngle').value;$('axisOut').textContent=S.axes.angle+'°';dataChanged()};
+function setAngle(a,commit=true){a=((a+180)%360+360)%360-180;S.axes.angle=Math.round(a*2)/2;if(S.axes.angle===-180)S.axes.angle=180;$('axisAngle').value=S.axes.angle;$('axisOut').textContent=S.axes.angle+'°';if(commit)dataChanged()}
+// 座標軸轉成沿運動方向後，把圖表換成 x–t 與 vx–t
+function axisAligned(){$('posKind').value='xt';$('velKind').value='vxt';if($('posFit').value==='none')$('posFit').value='2';if($('velFit').value==='none')$('velFit').value='1';drawCharts()}
+$('axisAngle').oninput=()=>setAngle(+$('axisAngle').value);
+$('axisTool').onclick=()=>{S.calibTool='axis';updateAll()};
+$('flipX').onclick=()=>setAngle(S.axes.angle+180);
+$('alignTrack').onclick=()=>{
+  const pts=S.track.filter(Boolean);if(pts.length<3){toast('至少要有 3 個追蹤點，請先到「追蹤」取點');return}
+  let mx=0,my=0;for(const p of pts){mx+=p.x;my+=p.y}mx/=pts.length;my/=pts.length;
+  let sxx=0,syy=0,sxy=0;for(const p of pts){const dx=p.x-mx,dy=-(p.y-my);sxx+=dx*dx;syy+=dy*dy;sxy+=dx*dy}
+  let th=0.5*Math.atan2(2*sxy,sxx-syy);   // 主軸方向（最小平方直線）
+  const f=pts[0],l=pts[pts.length-1];
+  if(Math.cos(th)*(l.x-f.x)+Math.sin(th)*(-(l.y-f.y))<0)th+=Math.PI;   // 讓 +x 指向運動方向
+  S.axes.ox=f.x;S.axes.oy=f.y;setAngle(th*180/Math.PI,false);dataChanged();axisAligned();
+  const hm=(sxx+syy)/2,dd=Math.sqrt(((sxx-syy)/2)**2+sxy*sxy),lin=Math.sqrt(Math.max(0,hm-dd)/Math.max(hm+dd,1e-9));   // 垂直方向散布 ÷ 沿軌跡散布
+  toast(`x 軸已對齊軌跡（${S.axes.angle}°），原點設在第一個追蹤點`+(lin>0.15?'。軌跡不太像直線，y 方向仍有明顯位移':''));
+};
 $('alignAxis').onclick=()=>{const s=S.scale;if(!s.p1||!s.p2){toast('請先畫比例尺');return}
-  let a=Math.atan2(-(s.p2.y-s.p1.y),s.p2.x-s.p1.x)*180/Math.PI;if(a>90)a-=180;if(a<-90)a+=180;S.axes.angle=Math.round(a*2)/2;$('axisAngle').value=S.axes.angle;$('axisOut').textContent=S.axes.angle+'°';dataChanged()};
+  let a=Math.atan2(-(s.p2.y-s.p1.y),s.p2.x-s.p1.x)*180/Math.PI;if(a>90)a-=180;if(a<-90)a+=180;setAngle(a);axisAligned()};
 $('yUp').onchange=()=>{S.axes.yUp=$('yUp').checked;dataChanged()};
 $('axesReset').onclick=()=>{S.axes={ox:null,oy:null,angle:0,yUp:true};$('axisAngle').value=0;$('axisOut').textContent='0°';$('yUp').checked=true;dataChanged()};
 
