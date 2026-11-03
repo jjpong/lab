@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="用攝影機錄影或匯入手機影片，逐格檢視物體運動；設定比例尺後自動追蹤物體（外觀比對或顏色追蹤），產生頻閃疊圖與 x–t、v–t 圖，可匯出 CSV。">
+<meta name="category" content="實驗工具">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>影格軌跡分析</title>
+</head>
+<body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: 實驗工作台 — 左側影像舞台＋底下圖表，右側分步驟操作面板；影格時間軸像底片條橫在舞台下方 */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --sunken:#e2e6ec; --ink:#1a1f28; --muted:#5b6474; --line:#d2d7df;
+  --accent:#2c52cf; --accent-ink:#ffffff; --track:#e0306f; --warn:#b05306; --ok:#17845a; --stage:#0e1014;
+  --font-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",system-ui,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111419; --panel:#191d25; --sunken:#222732; --ink:#e6e9ef; --muted:#97a0b0; --line:#2c323e;
+    --accent:#7f98ff; --accent-ink:#0d1120; --track:#ff5b98; --warn:#f2a256; --ok:#4cc58a; --stage:#06070a; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111419; --panel:#191d25; --sunken:#222732; --ink:#e6e9ef; --muted:#97a0b0; --line:#2c323e;
+  --accent:#7f98ff; --accent-ink:#0d1120; --track:#ff5b98; --warn:#f2a256; --ok:#4cc58a; --stage:#06070a; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 32px}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin:0 auto 12px;max-width:1440px}
+header.top h1{font-size:20px;margin:0;letter-spacing:.02em}
+header.top .sub{color:var(--muted);font-size:13px}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 370px;grid-template-rows:auto 1fr;grid-template-areas:"stage panel" "charts panel";gap:16px;max-width:1440px;margin:0 auto;align-items:start}
+.stagecol{grid-area:stage}.panel{grid-area:panel}.charts{grid-area:charts}
+@media (max-width:960px){.work{grid-template-columns:minmax(0,1fr);grid-template-rows:auto;grid-template-areas:"stage" "panel" "charts"}}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+
+/* stage */
+.stage{background:var(--stage);border-radius:var(--r);overflow:hidden;position:relative}
+.viewport{position:relative;line-height:0;display:flex;justify-content:center;background:var(--stage)}
+.viewport canvas#view,.viewport video{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain}
+.viewport canvas#view{touch-action:pan-y}
+.viewport canvas#view.tool{touch-action:none;cursor:crosshair}
+.banner{position:absolute;left:10px;top:10px;right:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;line-height:1.4;
+  background:color-mix(in srgb,var(--panel) 88%,transparent);color:var(--ink);padding:6px 10px;border-radius:6px;font-size:12.5px;width:fit-content;max-width:calc(100% - 20px)}
+.banner button{font-size:12px;padding:2px 8px}
+.rec-badge{position:absolute;right:12px;top:12px;line-height:1.3;background:#c8202f;color:#fff;font-weight:700;padding:4px 10px;border-radius:20px;font-size:13px}
+.countdown{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:96px;font-weight:700;color:#fff;text-shadow:0 2px 12px #000;line-height:1}
+.loupe{position:absolute;width:132px;height:132px;border-radius:50%;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;line-height:0}
+.loupe canvas{width:100%;height:100%}
+.transport{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 12px;background:var(--panel);border-top:1px solid var(--line)}
+.transport input[type=range]{flex:1 1 220px;min-width:0}
+.transport .readout{font-size:12.5px;color:var(--muted);flex:1 1 100%;display:flex;flex-wrap:wrap;gap:4px 18px}
+.transport .readout b{color:var(--ink);font-weight:500}
+.hint{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;font-size:13px;color:var(--muted)}
+.hint strong{color:var(--ink)}
+
+/* buttons & inputs */
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 11px;cursor:pointer;line-height:1.3}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+button.on{background:color-mix(in srgb,var(--accent) 16%,var(--panel));border-color:var(--accent)}
+button.danger[data-armed]{background:var(--warn);color:#fff;border-color:var(--warn)}
+button.icon{min-width:36px;font-family:var(--font-num)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select,input[type=number],input[type=text]{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 7px;max-width:100%}
+input[type=number]{width:78px}
+input[type=range]{accent-color:var(--accent)}
+label{display:inline-flex;align-items:center;gap:6px}
+
+/* panel */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{flex:1 0 auto;border:0;border-radius:0;background:transparent;padding:10px 8px 9px;color:var(--muted);border-bottom:2px solid transparent;font-size:13.5px}
+.tabs button .n{font-family:var(--font-num);font-size:11px;margin-right:4px;opacity:.8}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.pane{padding:14px 16px 18px;display:flex;flex-direction:column;gap:14px}
+.pane h3{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:700}
+.group{display:flex;flex-direction:column;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.group:last-child{border-bottom:0;padding-bottom:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.note.warn{color:var(--warn)}
+.note.ok{color:var(--ok)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;justify-content:center;padding:6px 4px;cursor:pointer;font-size:13px;gap:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink);font-weight:500}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.slider{display:grid;grid-template-columns:5.5em minmax(0,1fr) 3.4em;gap:8px;align-items:center;font-size:13px}
+.slider output{font-family:var(--font-num);font-size:12px;text-align:right;color:var(--muted)}
+.preset{padding:4px 8px;display:inline-flex;align-items:center;gap:4px}.preset .swatch{width:14px;height:14px}
+.swatch{width:18px;height:18px;border-radius:4px;border:1px solid var(--line);display:inline-block;vertical-align:middle}
+.tablewrap{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-family:var(--font-num);font-size:12px;font-variant-numeric:tabular-nums}
+th,td{padding:4px 7px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--sunken);font-weight:500;font-family:var(--font-body)}
+tr.cur td{background:color-mix(in srgb,var(--track) 14%,transparent)}
+tbody tr{cursor:pointer}
+.progress{height:6px;background:var(--sunken);border-radius:3px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0}
+
+/* charts */
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.charts{grid-template-columns:minmax(0,1fr)}}
+.chart{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.chart .head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.chart .head strong{font-size:13px}
+.chart canvas{width:100%;height:230px;display:block;cursor:pointer}
+.chart .fitout{font-size:12.5px;color:var(--muted);min-height:1.5em}
+.chart .fitout b{color:var(--ink);font-weight:500}
+.kbd{font-size:12px;color:var(--muted);max-width:1440px;margin:12px auto 0}
+.kbd kbd{font-family:var(--font-num);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--panel);color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.progress i{transition:width .15s}}
+</style>
+
+<header class="top">
+  <h1>影格軌跡分析</h1>
+  <span class="sub">錄影 → 逐格檢視 → 校正 → 追蹤 → 疊圖與 x–t、v–t 圖</span>
+</header>
+
+<div class="work">
+  <div class="col stagecol">
+    <section class="stage" aria-label="影像">
+      <div class="viewport" id="viewport">
+        <canvas id="view" width="640" height="400"></canvas>
+        <video id="live" playsinline muted hidden></video>
+        <video id="impVid" playsinline muted hidden></video>
+        <div class="banner" id="demoBanner" hidden><span>示範資料：程式產生的模擬拋體（比例尺 100 cm 已設定，已自動追蹤）。</span><button id="demoClear" type="button">清除示範</button></div>
+        <div class="rec-badge num" id="recBadge" hidden>● REC 0.0 s</div>
+        <div class="countdown num" id="countdown" hidden></div>
+        <div class="loupe" id="loupe" hidden><canvas id="loupeCv" width="132" height="132"></canvas></div>
+      </div>
+      <div class="transport">
+        <button class="icon" id="bFirst" title="第一幀 (Home)" type="button">|◀</button>
+        <button class="icon" id="bPrev" title="上一幀 (←)" type="button">◀</button>
+        <button class="icon primary" id="bPlay" title="播放／暫停 (空白鍵)" type="button">▶</button>
+        <button class="icon" id="bNext" title="下一幀 (→)" type="button">▶|</button>
+        <button class="icon" id="bLast" title="最後一幀 (End)" type="button">▶▶|</button>
+        <select id="speed" title="播放速度" aria-label="播放速度">
+          <option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25" selected>0.25×</option><option value="0.1">0.1×</option>
+        </select>
+        <input type="range" id="scrub" min="0" max="0" value="0" aria-label="影格位置">
+        <div class="readout num" id="readout"></div>
+      </div>
+    </section>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="charts">
+      <div class="chart">
+        <div class="head">
+          <select id="posKind" aria-label="位置圖種類">
+            <option value="xt">x–t 圖</option><option value="yt">y–t 圖</option><option value="yx">y–x 軌跡</option>
+          </select>
+          <select id="posFit" aria-label="位置圖擬合">
+            <option value="none">不擬合</option><option value="1">直線（等速）</option><option value="2">二次曲線（等加速）</option>
+          </select>
+        </div>
+        <canvas id="cPos" aria-label="位置圖"></canvas>
+        <div class="fitout" id="posOut"></div>
+      </div>
+      <div class="chart">
+        <div class="head">
+          <select id="velKind" aria-label="速度圖種類">
+            <option value="vxt">vx–t 圖</option><option value="vyt">vy–t 圖</option><option value="vt">速率 v–t 圖</option>
+          </select>
+          <select id="velFit" aria-label="速度圖擬合">
+            <option value="none">不擬合</option><option value="1">直線（求加速度）</option>
+          </select>
+        </div>
+        <canvas id="cVel" aria-label="速度圖"></canvas>
+        <div class="fitout" id="velOut"></div>
+      </div>
+  </div>
+
+  <aside class="panel" aria-label="操作面板">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="source" aria-selected="true" type="button"><span class="n">1</span>影像</button>
+      <button role="tab" data-tab="calib" aria-selected="false" type="button"><span class="n">2</span>校正</button>
+      <button role="tab" data-tab="track" aria-selected="false" type="button"><span class="n">3</span>追蹤</button>
+      <button role="tab" data-tab="overlay" aria-selected="false" type="button"><span class="n">4</span>疊圖</button>
+      <button role="tab" data-tab="data" aria-selected="false" type="button"><span class="n">5</span>數據</button>
+    </div>
+
+    <!-- 1 影像 -->
+    <div class="pane" data-pane="source">
+      <div class="group">
+        <h3>相機錄影</h3>
+        <div class="row">
+          <select id="camSel" aria-label="相機"><option value="">預設相機</option></select>
+          <select id="resSel" aria-label="解析度">
+            <option value="320x240">320×240</option><option value="640x480" selected>640×480</option><option value="1280x720">1280×720</option>
+          </select>
+          <select id="fpsSel" aria-label="幀率"><option value="30" selected>30 fps</option><option value="60">60 fps</option></select>
+        </div>
+        <div class="row">
+          <label>倒數 <select id="cdSel"><option value="0">不倒數</option><option value="3" selected>3 秒</option><option value="5">5 秒</option></select></label>
+          <label>最長 <select id="durSel"><option value="5">5 秒</option><option value="10" selected>10 秒</option><option value="15">15 秒</option><option value="20">20 秒</option></select></label>
+        </div>
+        <div class="row">
+          <button id="camBtn" type="button">開啟相機</button>
+          <button id="recBtn" class="primary" type="button" disabled>● 開始錄影</button>
+        </div>
+        <div class="row" id="expRow" hidden>
+          <label><input type="checkbox" id="expManual"> 手動曝光</label>
+          <input type="range" id="expRange" min="0" max="100" value="30" disabled aria-label="曝光時間" style="flex:1 1 120px;min-width:0">
+          <output id="expOut" class="num" style="font-size:12px"></output>
+        </div>
+        <p class="note" id="camInfo">錄影時程式會記下每一幀的實際拍攝時間。光線越充足，越不容易掉幀和糊掉。</p>
+      </div>
+
+      <div class="group">
+        <h3>匯入影片（手機錄影、慢動作）</h3>
+        <input type="file" id="fileIn" accept="video/*" aria-label="選擇影片檔">
+        <div class="row">
+          <label>從 <input type="number" id="impStart" min="0" step="0.1" value="0"> 秒</label>
+          <label>到 <input type="number" id="impEnd" min="0" step="0.1" placeholder="結尾"> 秒</label>
+        </div>
+        <div class="row">
+          <label>寬度上限 <select id="impMax"><option value="640" selected>640 px</option><option value="960">960 px</option><option value="1280">1280 px</option></select></label>
+          <label>抽幀速度 <select id="impRate"><option value="1">1×</option><option value="0.5" selected>0.5×</option><option value="0.25">0.25×（最不易漏幀）</option></select></label>
+        </div>
+        <div id="impBox" hidden>
+          <div class="progress"><i id="impBar"></i></div>
+          <div class="row" style="margin-top:6px"><span class="note num" id="impProg"></span><button id="impCancel" type="button">停止抽取</button></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>時間基準</h3>
+        <label><input type="radio" name="timeMode" value="stamp" checked> 使用每幀的實際時間戳（建議）</label>
+        <label><input type="radio" name="timeMode" value="fps"> 固定幀率 <input type="number" id="fpsOverride" value="240" min="1" step="1"> fps</label>
+        <p class="note">手機慢動作影片常以 30 fps 播放，但實際是 120／240 fps 拍攝，這時請選固定幀率並填入拍攝幀率。</p>
+        <p class="note num" id="timeStats"></p>
+      </div>
+
+      <div class="group">
+        <h3>裁切影格</h3>
+        <div class="row">
+          <button id="cutBefore" class="danger" type="button">刪除目前幀之前</button>
+          <button id="cutAfter" class="danger" type="button">刪除目前幀之後</button>
+        </div>
+        <p class="note">先移到要保留的第一幀（或最後一幀）再按。</p>
+      </div>
+      <div class="row"><button id="demoBtn" type="button">載入示範影片</button></div>
+    </div>
+
+    <!-- 2 校正 -->
+    <div class="pane" data-pane="calib" hidden>
+      <div class="group">
+        <h3>比例尺</h3>
+        <div class="row"><button id="scaleTool" type="button">在畫面上拖曳畫出比例尺</button></div>
+        <div class="row">
+          <label>實際長度 <input type="number" id="scaleLen" value="100" min="0" step="any"></label>
+          <select id="scaleUnit" aria-label="長度單位"><option value="cm" selected>cm</option><option value="m">m</option></select>
+          <button id="scaleClear" type="button">清除</button>
+        </div>
+        <p class="note" id="scaleInfo"></p>
+        <p class="note">比例尺要放在物體運動的同一個平面上，例如貼在軌道旁的米尺。</p>
+      </div>
+      <div class="group">
+        <h3>原點與座標軸</h3>
+        <div class="row"><button id="originTool" type="button">點選原點位置</button><button id="axesReset" type="button">重設</button></div>
+        <div class="slider"><span>x 軸角度</span><input type="range" id="axisAngle" min="-90" max="90" step="0.5" value="0"><output id="axisOut">0°</output></div>
+        <div class="row">
+          <button id="alignAxis" type="button">x 軸對齊比例尺方向</button>
+          <label><input type="checkbox" id="yUp" checked> y 軸向上為正</label>
+        </div>
+        <p class="note">斜面實驗可把米尺沿斜面放，再按「x 軸對齊比例尺方向」，x 就是沿斜面的位移。未設定原點時，原點在畫面左下角。</p>
+      </div>
+    </div>
+
+    <!-- 3 追蹤 -->
+    <div class="pane" data-pane="track" hidden>
+      <div class="group">
+        <h3>方法</h3>
+        <div class="seg" role="radiogroup" aria-label="追蹤方法">
+          <label><input type="radio" name="tmethod" value="ncc" checked>外觀比對</label>
+          <label><input type="radio" name="tmethod" value="color">顏色追蹤</label>
+          <label><input type="radio" name="tmethod" value="manual">手動點選</label>
+        </div>
+        <p class="note" id="methodNote"></p>
+        <label>取點間隔 <select id="stepSel"><option value="1" selected>每 1 幀</option><option value="2">每 2 幀</option><option value="3">每 3 幀</option><option value="5">每 5 幀</option></select></label>
+      </div>
+
+      <div class="group" id="autoGroup">
+        <h3>自動追蹤設定</h3>
+        <div class="slider"><span>搜尋範圍</span><input type="range" id="radius" min="8" max="160" value="40"><output id="radiusOut"></output></div>
+        <div class="slider"><span>信心門檻</span><input type="range" id="thr" min="0.3" max="0.95" step="0.01" value="0.6"><output id="thrOut"></output></div>
+        <label id="tplUpdRow"><input type="checkbox" id="tplUpdate" checked> 信心高時慢慢更新外觀（物體會轉動時有幫助）</label>
+        <div id="colorOpts" hidden style="display:flex;flex-direction:column;gap:8px">
+          <div class="row">目標顏色 <span class="swatch" id="swatch"></span> <span id="hueInfo" class="note num"></span></div>
+          <div class="row">
+            <button id="pickBtn" type="button">從畫面取色</button>
+            <label class="note">或自選 <input type="color" id="colorPick" value="#ff6a1a" aria-label="自選顏色" style="width:40px;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;background:none"></label>
+          </div>
+          <div class="row" id="presetRow" role="group" aria-label="常用顏色">
+            <button type="button" class="preset" data-hex="#e8262a" title="紅"><span class="swatch" style="background:#e8262a"></span> 紅</button>
+            <button type="button" class="preset" data-hex="#ff7a1a" title="橙"><span class="swatch" style="background:#ff7a1a"></span> 橙</button>
+            <button type="button" class="preset" data-hex="#f2d40c" title="黃"><span class="swatch" style="background:#f2d40c"></span> 黃</button>
+            <button type="button" class="preset" data-hex="#22b33c" title="綠"><span class="swatch" style="background:#22b33c"></span> 綠</button>
+            <button type="button" class="preset" data-hex="#1f6fe0" title="藍"><span class="swatch" style="background:#1f6fe0"></span> 藍</button>
+            <button type="button" class="preset" data-hex="#e0307e" title="粉紅"><span class="swatch" style="background:#e0307e"></span> 粉紅</button>
+          </div>
+          <p class="note">選好顏色後，在畫面上<strong>點一下物體</strong>，程式會找出那一團同色區域當作起點。也可以直接拖曳框出物體，讓程式自動判斷顏色。</p>
+          <div class="slider"><span>色相容許</span><input type="range" id="hueTol" min="4" max="60" value="18"><output id="hueTolOut"></output></div>
+          <div class="slider"><span>最低飽和度</span><input type="range" id="satMin" min="0.05" max="0.9" step="0.01" value="0.3"><output id="satMinOut"></output></div>
+          <label><input type="checkbox" id="maskPrev"> 在畫面上預覽符合顏色的區域</label>
+        </div>
+        <div class="row">
+          <button id="trackBack" type="button">◀ 往前追蹤</button>
+          <button id="trackFwd" class="primary" type="button">往後追蹤 ▶</button>
+          <button id="trackStop" type="button" disabled>停止</button>
+        </div>
+      </div>
+
+      <div class="group" id="manualGroup" hidden>
+        <h3>手動點選</h3>
+        <label><input type="checkbox" id="autoAdv" checked> 點完自動跳到下一個取點幀</label>
+      </div>
+
+      <div class="group">
+        <p class="note num" id="trackMsg"></p>
+        <div class="row">
+          <button id="delPoint" type="button">刪除這一幀的點</button>
+          <button id="clearTrack" class="danger" type="button">清除全部軌跡</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 疊圖 -->
+    <div class="pane" data-pane="overlay" hidden>
+      <div class="group">
+        <h3>頻閃疊圖</h3>
+        <label>方法 <select id="ovMethod">
+          <option value="diff" selected>背景相減（一般背景）</option>
+          <option value="track">只貼追蹤到的物體（最乾淨）</option>
+          <option value="lighten">取最亮（亮物體＋暗背景）</option>
+          <option value="darken">取最暗（暗物體＋亮背景）</option>
+        </select></label>
+        <div class="row">
+          <label>每隔 <select id="ovEvery"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>10</option></select> 幀</label>
+          <span class="note num" id="ovEveryNote"></span>
+        </div>
+        <div class="row">
+          <label>從第 <input type="number" id="ovFrom" min="1" value="1"> 幀</label>
+          <label>到第 <input type="number" id="ovTo" min="1" value="1"> 幀</label>
+        </div>
+        <label id="ovBgRow">背景 <select id="ovBg"><option value="median" selected>自動（各幀中位數）</option><option value="current">使用目前這一幀</option></select></label>
+        <div class="slider" id="ovThrRow"><span>差異門檻</span><input type="range" id="ovThr" min="8" max="140" value="45"><output id="ovThrOut"></output></div>
+        <div class="row">
+          <label><input type="checkbox" id="ovPoints" checked> 標示追蹤點</label>
+          <label><input type="checkbox" id="ovLabels"> 標示時間</label>
+        </div>
+        <div class="row">
+          <button id="ovBuild" class="primary" type="button">產生疊圖</button>
+          <button id="ovToggle" type="button" disabled>顯示疊圖</button>
+          <button id="ovSave" type="button" disabled>下載 PNG</button>
+        </div>
+        <p class="note" id="ovMsg">「背景相減」需要物體有移動；自動背景用各幀的中位數，物體停在原地太久會被當成背景。</p>
+      </div>
+    </div>
+
+    <!-- 5 數據 -->
+    <div class="pane" data-pane="data" hidden>
+      <div class="group">
+        <h3>速度計算</h3>
+        <label>差分跨距 <select id="vSpan"><option value="1" selected>±1 個點</option><option value="2">±2 個點</option><option value="3">±3 個點</option></select></label>
+        <p class="note">速度 = （後一點位置 − 前一點位置）÷（兩點時間差），用的是實際時間差。跨距越大越平滑，但會把快速變化抹平。</p>
+      </div>
+      <div class="group">
+        <h3>匯出</h3>
+        <div class="row">
+          <button id="csvBtn" type="button">下載 CSV</button>
+          <button id="copyBtn" type="button">複製表格（貼到試算表）</button>
+        </div>
+        <div class="tablewrap"><table id="dataTable"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </aside>
+</div>
+<p class="kbd"><kbd>←</kbd><kbd>→</kbd> 逐格（加 <kbd>Shift</kbd> 跳 10 格）　<kbd>空白鍵</kbd> 播放／暫停，錄影中按下則停止錄影　<kbd>Home</kbd><kbd>End</kbd> 第一／最後一幀　<kbd>Delete</kbd> 刪除這一幀的點</p>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const view=$('view'), vctx=view.getContext('2d');
+const live=$('live'), impVid=$('impVid');
+
+/* ---------------- state ---------------- */
+const S={
+  frames:[],           // {bmp, t(秒)}
+  track:[],            // 與 frames 對齊：null 或 {x,y,conf,src}
+  W:640,H:400,cur:0,
+  timeMode:'stamp', fpsOverride:240,
+  scale:{p1:null,p2:null,len:100,unit:'cm'},
+  axes:{ox:null,oy:null,angle:0,yUp:true},
+  tab:'source', calibTool:'scale',
+  tpl:null, color:null, lastDir:1,
+  tracking:false, lowConf:null,
+  overlay:null, showOverlay:false,
+  playing:false, isDemo:false,
+  stream:null, rec:null, importing:null,
+};
+
+/* ---------------- helpers ---------------- */
+let toastTimer;
+function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,2600)}
+function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim()}
+function fmt(v,d=4){if(v==null||!isFinite(v))return '—';if(v===0)return '0';const a=Math.abs(v);if(a>=1e5||a<1e-3)return v.toExponential(2);return String(+v.toPrecision(d))}
+function fix(v,d){return v==null||!isFinite(v)?'':v.toFixed(d)}
+const nextTick=()=>new Promise(r=>setTimeout(r,0));
+function armed(btn,fn){let tm;btn.addEventListener('click',()=>{if(btn.disabled)return;
+  if(btn.dataset.armed){delete btn.dataset.armed;btn.textContent=btn.dataset.label;clearTimeout(tm);fn()}
+  else{btn.dataset.label=btn.textContent;btn.dataset.armed='1';btn.textContent='再按一次確認';tm=setTimeout(()=>{delete btn.dataset.armed;btn.textContent=btn.dataset.label},3000)}})}
+async function saveFile(filename,blob){
+  try{
+    if(window.claude&&typeof window.claude.use==='function'){
+      const d=await window.claude.use('downloads');
+      if(d){try{await d.save({filename,data:blob});toast('已儲存 '+filename)}catch(e){if(e&&e.code!=='declined')toast('無法儲存：'+(e.message||e.code))}return}
+    }
+  }catch(e){}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+}
+const N=()=>S.frames.length;
+function tOf(i){if(!N())return 0;if(S.timeMode==='fps')return i/(S.fpsOverride||30);return S.frames[i].t-S.frames[0].t}
+function unit(){return scaleK()?S.scale.unit:'px'}
+function scaleK(){const s=S.scale;if(!s.p1||!s.p2||!(s.len>0))return 0;const d=Math.hypot(s.p2.x-s.p1.x,s.p2.y-s.p1.y);return d>1?s.len/d:0}
+function origin(){return S.axes.ox==null?{x:0,y:S.H}:{x:S.axes.ox,y:S.axes.oy}}
+function toWorld(p){
+  const o=origin();const X=p.x-o.x,Y=-(p.y-o.y);
+  const th=S.axes.angle*Math.PI/180,c=Math.cos(th),s=Math.sin(th);
+  let xr=X*c+Y*s,yr=-X*s+Y*c; if(!S.axes.yUp)yr=-yr;
+  const k=scaleK()||1;return {x:xr*k,y:yr*k};
+}
+
+/* ---------------- frame pixel access ---------------- */
+const work=document.createElement('canvas');const wctx=work.getContext('2d',{willReadFrequently:true});let workIdx=-1;
+function frameCtx(i){
+  if(work.width!==S.W||work.height!==S.H){work.width=S.W;work.height=S.H;workIdx=-1}
+  if(workIdx!==i){wctx.drawImage(S.frames[i].bmp,0,0,S.W,S.H);workIdx=i}
+  return wctx;
+}
+function clampRect(x,y,w,h){x=Math.round(x);y=Math.round(y);w=Math.round(w);h=Math.round(h);
+  if(x<0){w+=x;x=0}if(y<0){h+=y;y=0}if(x+w>S.W)w=S.W-x;if(y+h>S.H)h=S.H-y;return {x,y,w:Math.max(0,w),h:Math.max(0,h)}}
+function grayRegion(i,r){const d=frameCtx(i).getImageData(r.x,r.y,r.w,r.h).data,g=new Float32Array(r.w*r.h);
+  for(let k=0,j=0;k<g.length;k++,j+=4)g[k]=0.299*d[j]+0.587*d[j+1]+0.114*d[j+2];return g}
+
+/* ---------------- frames management ---------------- */
+function setFrames(frames,W,H,{demo=false}={}){
+  for(const f of S.frames)f.bmp&&f.bmp.close&&f.bmp.close();
+  S.frames=frames;S.W=W;S.H=H;S.track=new Array(frames.length).fill(null);S.cur=0;workIdx=-1;
+  S.tpl=null;S.color=null;S.pickMode=false;S.lowConf=null;S.overlay=null;S.showOverlay=false;S.isDemo=demo;
+  view.width=W;view.height=H;
+  if(!demo){S.scale.p1=S.scale.p2=null;S.axes.ox=S.axes.oy=null;S.axes.angle=0;$('axisAngle').value=0}
+  $('demoBanner').hidden=!demo;
+  $('ovFrom').value=1;$('ovTo').value=frames.length;$('ovFrom').max=$('ovTo').max=frames.length;
+  $('ovToggle').disabled=$('ovSave').disabled=true;$('ovToggle').textContent='顯示疊圖';
+  showStage('canvas');updateAll();
+}
+function timeStats(){
+  if(N()<2)return '';
+  let mx=0,mn=1e9;for(let i=1;i<N();i++){const d=S.frames[i].t-S.frames[i-1].t;mx=Math.max(mx,d);mn=Math.min(mn,d)}
+  const dur=S.frames[N()-1].t-S.frames[0].t;
+  return `時間戳：共 ${N()} 幀，${dur.toFixed(3)} s，平均 ${((N()-1)/dur).toFixed(1)} fps，間隔 ${(mn*1000).toFixed(1)}～${(mx*1000).toFixed(1)} ms`;
+}
+function showStage(which){
+  view.hidden=which!=='canvas';live.hidden=which!=='live';impVid.hidden=which!=='import';
+}
+
+/* ---------------- rendering ---------------- */
+// 畫布用 object-fit:contain 顯示，高度受限時左右會留黑邊，所以要算出影像實際顯示的區域
+function contentRect(){const r=view.getBoundingClientRect(),k=Math.min(r.width/S.W,r.height/S.H)||1,w=S.W*k,h=S.H*k;return {left:r.left+(r.width-w)/2,top:r.top+(r.height-h)/2,width:w,height:h}}
+function lw(){return S.W/Math.max(1,contentRect().width)}
+function render(){
+  if(view.hidden)return;
+  vctx.setTransform(1,0,0,1,0,0);
+  vctx.fillStyle='#000';vctx.fillRect(0,0,S.W,S.H);
+  if(!N()){vctx.fillStyle='#888';vctx.font='20px sans-serif';vctx.textAlign='center';vctx.fillText('開啟相機錄影，或匯入影片',S.W/2,S.H/2);return}
+  if(S.showOverlay&&S.overlay)vctx.drawImage(S.overlay,0,0);
+  else vctx.drawImage(S.frames[S.cur].bmp,0,0,S.W,S.H);
+  if(S.tab==='track'&&method()==='color'&&S.color&&$('maskPrev').checked&&!S.showOverlay)drawMask();
+  const L=lw();
+  drawCalib(L);drawTrack(L);
+  if(drag&&drag.kind==='box'){const r=normRect(drag.a,drag.b);vctx.setLineDash([6*L,4*L]);vctx.strokeStyle='#ffd400';vctx.lineWidth=2*L;vctx.strokeRect(r.x,r.y,r.w,r.h);vctx.setLineDash([])}
+}
+function drawMask(){
+  const img=frameCtx(S.cur).getImageData(0,0,S.W,S.H),d=img.data,c=S.color;
+  const out=vctx.getImageData(0,0,S.W,S.H),o=out.data;
+  for(let j=0;j<d.length;j+=4)if(colorMatch(d[j],d[j+1],d[j+2],c)){o[j]=255;o[j+1]=o[j+1]*.3;o[j+2]=255}
+  vctx.putImageData(out,0,0);
+}
+function drawCalib(L){
+  const showAll=S.tab==='calib';
+  const s=S.scale;
+  if(s.p1&&s.p2&&(showAll||S.tab==='source')){
+    vctx.strokeStyle='#38d6ff';vctx.lineWidth=2.5*L;vctx.beginPath();vctx.moveTo(s.p1.x,s.p1.y);vctx.lineTo(s.p2.x,s.p2.y);vctx.stroke();
+    const ang=Math.atan2(s.p2.y-s.p1.y,s.p2.x-s.p1.x)+Math.PI/2,tk=8*L;
+    for(const p of [s.p1,s.p2]){vctx.beginPath();vctx.moveTo(p.x+Math.cos(ang)*tk,p.y+Math.sin(ang)*tk);vctx.lineTo(p.x-Math.cos(ang)*tk,p.y-Math.sin(ang)*tk);vctx.stroke()}
+    if(showAll){for(const p of [s.p1,s.p2]){vctx.beginPath();vctx.arc(p.x,p.y,6*L,0,7);vctx.stroke()}}
+    label(`${fmt(s.len)} ${s.unit}`,(s.p1.x+s.p2.x)/2,(s.p1.y+s.p2.y)/2-12*L,'#38d6ff',L);
+  }
+  if(showAll||S.axes.ox!=null){
+    const o=origin(),th=S.axes.angle*Math.PI/180,len=60*L;
+    const ex={x:Math.cos(th),y:-Math.sin(th)},ey={x:-Math.sin(th)*(S.axes.yUp?1:-1),y:-Math.cos(th)*(S.axes.yUp?1:-1)};
+    if(!showAll&&S.tab!=='calib'){vctx.globalAlpha=.55}
+    arrow(o,ex,len,'#ffd400',L,'x');arrow(o,ey,len,'#ffd400',L,'y');
+    vctx.globalAlpha=1;
+  }
+}
+function arrow(o,e,len,col,L,txt){
+  const x2=o.x+e.x*len,y2=o.y+e.y*len;vctx.strokeStyle=col;vctx.fillStyle=col;vctx.lineWidth=2*L;
+  vctx.beginPath();vctx.moveTo(o.x,o.y);vctx.lineTo(x2,y2);vctx.stroke();
+  const a=Math.atan2(e.y,e.x),h=9*L;vctx.beginPath();vctx.moveTo(x2,y2);vctx.lineTo(x2-h*Math.cos(a-0.4),y2-h*Math.sin(a-0.4));vctx.lineTo(x2-h*Math.cos(a+0.4),y2-h*Math.sin(a+0.4));vctx.fill();
+  vctx.font=`bold ${13*L}px sans-serif`;vctx.textAlign='center';vctx.textBaseline='middle';vctx.fillText(txt,x2+e.x*12*L,y2+e.y*12*L);
+}
+function label(txt,x,y,col,L){vctx.font=`${12*L}px ${css('--font-num')||'monospace'}`;vctx.textAlign='center';vctx.textBaseline='middle';
+  const w=vctx.measureText(txt).width+8*L;vctx.fillStyle='rgba(0,0,0,.6)';vctx.fillRect(x-w/2,y-9*L,w,18*L);vctx.fillStyle=col;vctx.fillText(txt,x,y)}
+function drawTrack(L){
+  const col=css('--track')||'#e0306f';
+  const pts=[];for(let i=0;i<N();i++)if(S.track[i])pts.push([i,S.track[i]]);
+  const ovMode=S.showOverlay;
+  if(ovMode&&!$('ovPoints').checked)return;
+  let list=pts;
+  if(ovMode){const ev=+$('ovEvery').value,a=+$('ovFrom').value-1,b=+$('ovTo').value-1;list=pts.filter(([i])=>i>=a&&i<=b&&(i-a)%ev===0)}
+  if(list.length>1&&!ovMode){vctx.strokeStyle=col;vctx.globalAlpha=.45;vctx.lineWidth=1.5*L;vctx.beginPath();list.forEach(([,p],k)=>k?vctx.lineTo(p.x,p.y):vctx.moveTo(p.x,p.y));vctx.stroke();vctx.globalAlpha=1}
+  for(const [i,p] of list){vctx.fillStyle=p.src==='manual'?'#ffd400':col;vctx.beginPath();vctx.arc(p.x,p.y,(ovMode?4:3)*L,0,7);vctx.fill();
+    if(ovMode&&$('ovLabels').checked)label(tOf(i).toFixed(2)+'s',p.x,p.y-16*L,'#fff',L)}
+  const cp=S.track[S.cur];
+  if(cp&&!ovMode){vctx.strokeStyle='#fff';vctx.lineWidth=2*L;vctx.beginPath();vctx.arc(cp.x,cp.y,8*L,0,7);vctx.stroke();
+    vctx.strokeStyle=col;vctx.lineWidth=1*L;vctx.beginPath();vctx.moveTo(cp.x-14*L,cp.y);vctx.lineTo(cp.x+14*L,cp.y);vctx.moveTo(cp.x,cp.y-14*L);vctx.lineTo(cp.x,cp.y+14*L);vctx.stroke();
+    if(S.tab==='track'&&method()!=='manual'){const b=boxSize();if(b){vctx.strokeStyle='rgba(255,255,255,.7)';vctx.setLineDash([4*L,3*L]);vctx.strokeRect(cp.x-b.w/2,cp.y-b.h/2,b.w,b.h);vctx.setLineDash([])}}}
+  if(S.lowConf&&S.lowConf.i===S.cur&&!ovMode){const r=S.lowConf.rect;vctx.strokeStyle=css('--warn')||'#f2a256';vctx.lineWidth=2*L;vctx.setLineDash([8*L,5*L]);vctx.strokeRect(r.x,r.y,r.w,r.h);vctx.setLineDash([])}
+}
+function boxSize(){return method()==='color'?(S.color&&{w:S.color.bw,h:S.color.bh}):(S.tpl&&{w:S.tpl.w,h:S.tpl.h})}
+
+/* ---------------- transport ---------------- */
+function goto(i){if(!N())return;S.cur=Math.max(0,Math.min(N()-1,i));if(S.showOverlay&&!S.playing){}updateFrameUI()}
+function updateFrameUI(){
+  $('scrub').max=Math.max(0,N()-1);$('scrub').value=S.cur;
+  const ro=$('readout');
+  if(!N()){ro.textContent='尚無影格';render();return}
+  const dt=S.cur>0?(tOf(S.cur)-tOf(S.cur-1))*1000:null;
+  const p=S.track[S.cur];let ptxt='這一幀尚未取點';
+  if(p){const w=toWorld(p);ptxt=`x = <b>${fmt(w.x)}</b> ${unit()}　y = <b>${fmt(w.y)}</b> ${unit()}${p.src==='auto'?`　信心 ${p.conf.toFixed(2)}`:'　手動'}`}
+  ro.innerHTML=`<span>幀 <b>${S.cur+1}</b> / ${N()}</span><span>t = <b>${tOf(S.cur).toFixed(3)}</b> s</span><span>Δt = ${dt==null?'—':dt.toFixed(1)+' ms'}</span><span>${ptxt}</span>`;
+  render();drawCharts();highlightRow();
+}
+let playTimer=null;
+function play(){if(!N())return;if(S.cur>=N()-1)S.cur=0;S.playing=true;$('bPlay').textContent='❚❚';step()}
+function step(){if(!S.playing)return;updateFrameUI();if(S.cur>=N()-1){pause();return}
+  const dt=Math.max(0.001,tOf(S.cur+1)-tOf(S.cur));playTimer=setTimeout(()=>{S.cur++;step()},dt*1000/(+$('speed').value))}
+function pause(){S.playing=false;clearTimeout(playTimer);$('bPlay').textContent='▶'}
+$('bPlay').onclick=()=>S.playing?pause():play();
+$('bFirst').onclick=()=>{pause();goto(0)};$('bLast').onclick=()=>{pause();goto(N()-1)};
+$('bPrev').onclick=()=>{pause();goto(S.cur-1)};$('bNext').onclick=()=>{pause();goto(S.cur+1)};
+$('scrub').oninput=e=>{pause();goto(+e.target.value)};
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(e.key===' '&&S.rec){e.preventDefault();stopRecording();return}
+  if(['input','select','textarea'].includes(tag)&&e.target.type!=='range'&&e.target.type!=='checkbox'&&e.target.type!=='radio')return;
+  if(e.key==='ArrowRight'){e.preventDefault();pause();goto(S.cur+(e.shiftKey?10:1))}
+  else if(e.key==='ArrowLeft'){e.preventDefault();pause();goto(S.cur-(e.shiftKey?10:1))}
+  else if(e.key===' '){e.preventDefault();S.playing?pause():play()}
+  else if(e.key==='Home'){e.preventDefault();goto(0)}else if(e.key==='End'){e.preventDefault();goto(N()-1)}
+  else if(e.key==='Delete'||e.key==='Backspace'){if(S.track[S.cur]){S.track[S.cur]=null;dataChanged()}}
+});
+
+/* ---------------- tabs & hints ---------------- */
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+function setTab(t){S.tab=t;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  document.querySelectorAll('.pane').forEach(p=>p.hidden=p.dataset.pane!==t);updateAll()}
+function method(){return document.querySelector('input[name=tmethod]:checked').value}
+function tool(){
+  if(!N()||view.hidden)return null;
+  if(S.tab==='calib')return S.calibTool;
+  if(S.tab==='track')return method()==='manual'?'manual':'auto';
+  return null;
+}
+function updateHint(){
+  const t=tool();let h='';
+  if(S.rec)h='<strong>錄影中</strong>，按「停止錄影」或空白鍵結束。';
+  else if(!N())h='先到「影像」開啟相機錄影，或匯入一段影片。';
+  else if(t==='scale')h='<strong>比例尺：</strong>在畫面上從已知長度物體（例如米尺）的一端拖曳到另一端，再在右側填入實際長度。可拖曳兩端圓點微調。';
+  else if(t==='origin')h='<strong>原點：</strong>點一下畫面設定座標原點，可以拖曳移動。';
+  else if(t==='manual')h='<strong>手動點選：</strong>在每一幀點物體的中心。放大鏡可以幫你對準。';
+  else if(t==='auto')h=(S.lowConf?`<strong>第 ${S.lowConf.i+1} 幀信心不足（${S.lowConf.conf.toFixed(2)}）。</strong>請在畫面上點一下物體正確的位置（或重新框選），再按繼續追蹤。`:
+    S.pickMode?'<strong>取色：</strong>在畫面上點一下物體顏色最鮮明的地方。':
+    method()==='color'?'<strong>顏色追蹤：</strong>先選目標顏色（從畫面取色或右側色塊），再<strong>點一下物體</strong>；也可以直接拖曳框出物體。之後按「往後追蹤」。':
+    '<strong>自動追蹤：</strong>在任一幀<strong>拖曳框出物體</strong>（框緊一點，含一點邊緣），再按「往後追蹤」。追蹤中途信心不足會停下來讓你修正。');
+  else if(S.tab==='overlay')h='<strong>疊圖：</strong>選好方法與間隔後按「產生疊圖」。每隔幾幀疊一次，就像頻閃照片，可以直接比較相同時間間隔內的位移。';
+  else if(S.tab==='data')h='點表格的任一列，或點圖上的點，就會跳到那一幀。';
+  else h='用 ◀ ▶ 或方向鍵逐格檢視。錄好之後到「校正」設定比例尺，沒有設定時單位用 px。';
+  $('hint').innerHTML=h;
+  view.classList.toggle('tool',!!t);
+}
+function updateAll(){updateHint();updateControls();updateFrameUI();buildTable()}
+function updateControls(){
+  const has=N()>0;
+  ['pickBtn','cutBefore','cutAfter','scaleTool','originTool','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
+  $('trackStop').disabled=!S.tracking;
+  $('scaleTool').classList.toggle('on',S.calibTool==='scale');$('originTool').classList.toggle('on',S.calibTool==='origin');
+  const m=method();
+  $('autoGroup').hidden=m==='manual';$('manualGroup').hidden=m!=='manual';
+  $('colorOpts').hidden=m!=='color';$('tplUpdRow').hidden=m!=='ncc';
+  $('methodNote').textContent={ncc:'比對框內影像的明暗紋理，適合外觀不太變的物體（滑車、木塊）。',color:'找出跟目標顏色相同的區域，適合會滾動的彩色球；在物體貼螢光貼紙最穩。顏色可以從畫面取色、自選，或框選物體自動判斷。',manual:'每一幀自己點，最可靠，也適合讓學生練習。'}[m];
+  const rk=scaleK();$('scaleInfo').textContent=rk?`1 px = ${fmt(rk)} ${S.scale.unit}（比例尺長 ${fmt(Math.hypot(S.scale.p2.x-S.scale.p1.x,S.scale.p2.y-S.scale.p1.y),4)} px）`:'尚未設定，單位使用 px。';
+  $('scaleInfo').className='note'+(rk?' ok':'');
+  $('timeStats').textContent=timeStats();
+  const ev=+$('ovEvery').value;$('ovEveryNote').textContent=N()>1?`約每 ${(ev*(tOf(N()-1)/(N()-1))*1000).toFixed(0)} ms 一張`:'';
+  const ovm=$('ovMethod').value;$('ovBgRow').hidden=$('ovThrRow').hidden=!(ovm==='diff'||ovm==='track');
+  let n=0;for(const p of S.track)if(p)n++;
+  if(!S.tracking&&!S.lowConf)$('trackMsg').textContent=has?`已取點 ${n} / ${N()} 幀`:'';
+}
+
+/* ---------------- canvas pointer interaction ---------------- */
+let drag=null;
+function evPt(e){const r=contentRect();return {x:(e.clientX-r.left)*S.W/r.width,y:(e.clientY-r.top)*S.H/r.height}}
+function normRect(a,b){return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)}}
+view.addEventListener('pointerdown',e=>{
+  const t=tool();if(!t||S.tracking)return;
+  e.preventDefault();view.setPointerCapture(e.pointerId);pause();
+  const p=evPt(e),L=lw();
+  if(t==='scale'){
+    const s=S.scale;
+    if(s.p1&&Math.hypot(p.x-s.p1.x,p.y-s.p1.y)<14*L)drag={kind:'h1'};
+    else if(s.p2&&Math.hypot(p.x-s.p2.x,p.y-s.p2.y)<14*L)drag={kind:'h2'};
+    else{s.p1={...p};s.p2={...p};drag={kind:'h2',fresh:true}}
+  }else if(t==='origin'){S.axes.ox=p.x;S.axes.oy=p.y;drag={kind:'origin'}}
+  else if(t==='manual'){setPoint(S.cur,p,'manual');if($('autoAdv').checked)goto(S.cur+(+$('stepSel').value));drag=null}
+  else if(t==='auto'){drag={kind:'box',a:p,b:p}}
+  render();
+});
+view.addEventListener('pointermove',e=>{
+  const p=evPt(e);showLoupe(e,p);
+  if(!drag)return;
+  if(drag.kind==='h1')S.scale.p1=p;else if(drag.kind==='h2')S.scale.p2=p;
+  else if(drag.kind==='origin'){S.axes.ox=p.x;S.axes.oy=p.y}
+  else if(drag.kind==='box')drag.b=p;
+  render();
+});
+view.addEventListener('pointerup',e=>{
+  if(!drag)return;const d=drag;drag=null;const p=evPt(e);
+  if(d.kind==='box'){
+    const r=normRect(d.a,p);
+    if(r.w<6*lw()&&r.h<6*lw())correctAt(p);else boxSelect(r);
+  }else if(d.kind==='h2'||d.kind==='h1'){const s=S.scale;if(Math.hypot(s.p2.x-s.p1.x,s.p2.y-s.p1.y)<4){s.p1=s.p2=null}dataChanged()}
+  else if(d.kind==='origin')dataChanged();
+  render();
+});
+view.addEventListener('pointerleave',()=>{$('loupe').hidden=true});
+view.addEventListener('pointercancel',()=>{drag=null;render()});
+function showLoupe(e,p){
+  const lp=$('loupe');if(!tool()||e.pointerType==='touch'&&!drag){lp.hidden=true;return}
+  const vp=$('viewport').getBoundingClientRect(),r=contentRect();
+  const sx=e.clientX-vp.left,sy=e.clientY-vp.top;
+  lp.hidden=false;let lx=sx+24,ly=sy-156;if(ly<4)ly=sy+24;if(lx+136>vp.width)lx=sx-160;lp.style.left=lx+'px';lp.style.top=ly+'px';
+  const c=$('loupeCv').getContext('2d'),zoom=4*S.W/r.width,sz=132/zoom;
+  c.imageSmoothingEnabled=false;c.fillStyle='#000';c.fillRect(0,0,132,132);
+  c.drawImage(view,p.x-sz/2,p.y-sz/2,sz,sz,0,0,132,132);
+  c.strokeStyle='rgba(255,255,255,.9)';c.lineWidth=1;c.beginPath();c.moveTo(66,52);c.lineTo(66,80);c.moveTo(52,66);c.lineTo(80,66);c.stroke();
+}
+
+/* ---------------- points & data ---------------- */
+function setPoint(i,p,src,conf=1){S.track[i]={x:p.x,y:p.y,conf,src};if(S.lowConf&&S.lowConf.i===i)S.lowConf=null;dataChanged()}
+function dataChanged(){updateControls();updateFrameUI();buildTable()}
+$('delPoint').onclick=()=>{S.track[S.cur]=null;dataChanged()};
+armed($('clearTrack'),()=>{S.track.fill(null);S.lowConf=null;dataChanged()});
+
+/* ---------------- tracking: templates ---------------- */
+function boxSelect(r){
+  if(r.w<6||r.h<6){toast('框太小了，請框大一點');return}
+  const rr=clampRect(r.x,r.y,r.w,r.h);
+  let c={x:rr.x+rr.w/2,y:rr.y+rr.h/2};
+  if(method()==='color'){const m=buildColorModel(S.cur,rr);if(!m){toast('框內找不到明顯的顏色，請改用外觀比對，或在物體貼彩色貼紙');return}S.color=m;updateColorUI();c=colorCentroid(S.cur,rr,m)||c}
+  else{const t=buildTemplate(S.cur,rr);if(!t)return;S.tpl=t}
+  S.lowConf=null;setPoint(S.cur,c,'manual');updateHint();
+  $('trackMsg').textContent=`已在第 ${S.cur+1} 幀框選物體，按「往後追蹤」開始。`;
+}
+function buildTemplate(i,r){
+  const g=grayRegion(i,r);let m=0;for(const v of g)m+=v;m/=g.length;let sd=0;for(const v of g)sd+=(v-m)**2;sd=Math.sqrt(sd/g.length);
+  if(sd<4){toast('框內的明暗變化太少，比對會不準。請框選有明顯邊緣或花紋的物體，或改用顏色追蹤。');return null}
+  return {g,w:r.w,h:r.h};
+}
+function correctAt(p){
+  if(method()==='color')return colorClick(p);
+  if(!S.tpl){toast('請先拖曳框出物體');return}
+  if(S.tpl){const r=clampRect(p.x-S.tpl.w/2,p.y-S.tpl.h/2,S.tpl.w,S.tpl.h);if(r.w===S.tpl.w&&r.h===S.tpl.h){const t=buildTemplate(S.cur,r);if(t)S.tpl=t}}
+  setPoint(S.cur,p,'manual');updateHint();$('trackMsg').textContent=`已修正第 ${S.cur+1} 幀，可繼續追蹤。`;
+}
+
+/* NCC 正規化互相關 */
+function nccMap(tpl,tw,th,img,iw,ih){
+  const n=tw*th,mw=iw-tw+1,mh=ih-th+1;if(mw<1||mh<1)return null;
+  let tm=0;for(let k=0;k<n;k++)tm+=tpl[k];tm/=n;
+  const t0=new Float32Array(n);let tn=0;for(let k=0;k<n;k++){t0[k]=tpl[k]-tm;tn+=t0[k]*t0[k]}tn=Math.sqrt(tn);
+  const W1=iw+1,I1=new Float64Array(W1*(ih+1)),I2=new Float64Array(W1*(ih+1));
+  for(let y=0;y<ih;y++){let s=0,s2=0;for(let x=0;x<iw;x++){const v=img[y*iw+x];s+=v;s2+=v*v;I1[(y+1)*W1+x+1]=I1[y*W1+x+1]+s;I2[(y+1)*W1+x+1]=I2[y*W1+x+1]+s2}}
+  const map=new Float32Array(mw*mh);let best=-2,bx=0,by=0;
+  for(let y=0;y<mh;y++)for(let x=0;x<mw;x++){
+    let s=0;for(let j=0;j<th;j++){const ro=(y+j)*iw+x,to=j*tw;for(let i=0;i<tw;i++)s+=t0[to+i]*img[ro+i]}
+    const a=y*W1+x,b=a+tw,c=(y+th)*W1+x,d=c+tw;
+    const s1=I1[d]-I1[b]-I1[c]+I1[a],s2=I2[d]-I2[b]-I2[c]+I2[a],v=s2-s1*s1/n;
+    const sc=(v>1e-3&&tn>1e-3)?s/(tn*Math.sqrt(v)):0;map[y*mw+x]=sc;if(sc>best){best=sc;bx=x;by=y}
+  }
+  return {map,mw,mh,best,bx,by};
+}
+function down(img,w,h,k){const dw=Math.floor(w/k),dh=Math.floor(h/k),d=new Float32Array(dw*dh);
+  for(let y=0;y<dh;y++)for(let x=0;x<dw;x++){let s=0;for(let j=0;j<k;j++)for(let i=0;i<k;i++)s+=img[(y*k+j)*w+x*k+i];d[y*dw+x]=s/(k*k)}return {d,w:dw,h:dh}}
+function crop(img,w,x,y,cw,ch){const d=new Float32Array(cw*ch);for(let j=0;j<ch;j++)d.set(img.subarray((y+j)*w+x,(y+j)*w+x+cw),j*cw);return d}
+function subpix(m,bx,by){
+  const at=(x,y)=>m.map[y*m.mw+x];let dx=0,dy=0;
+  if(bx>0&&bx<m.mw-1){const l=at(bx-1,by),c=at(bx,by),r=at(bx+1,by),den=l-2*c+r;if(den<0)dx=Math.max(-.5,Math.min(.5,(l-r)/(2*den)))}
+  if(by>0&&by<m.mh-1){const u=at(bx,by-1),c=at(bx,by),d=at(bx,by+1),den=u-2*c+d;if(den<0)dy=Math.max(-.5,Math.min(.5,(u-d)/(2*den)))}
+  return {dx,dy};
+}
+function predict(from,to){
+  const p=S.track[from],q=S.track[from-(to-from)];
+  if(q)return {x:p.x+(p.x-q.x),y:p.y+(p.y-q.y)};return {x:p.x,y:p.y};
+}
+function nccStep(from,to){
+  const T=S.tpl,R=+$('radius').value,pr=predict(from,to);
+  const rect=clampRect(pr.x-T.w/2-R,pr.y-T.h/2-R,T.w+2*R,T.h+2*R);
+  if(rect.w<T.w||rect.h<T.h)return {conf:0,rect};
+  const img=grayRegion(to,rect);
+  const k=Math.max(1,Math.floor(Math.sqrt(T.w*T.h/400)));
+  let m,ox=0,oy=0;
+  if(k>1){
+    const Td=down(T.g,T.w,T.h,k),Id=down(img,rect.w,rect.h,k),mc=nccMap(Td.d,Td.w,Td.h,Id.d,Id.w,Id.h);
+    if(!mc)return {conf:0,rect};
+    const cx=mc.bx*k,cy=mc.by*k;
+    ox=Math.max(0,cx-k-1);oy=Math.max(0,cy-k-1);
+    const ex=Math.min(rect.w-T.w,cx+k+1),ey=Math.min(rect.h-T.h,cy+k+1);
+    const cw=ex-ox+T.w,ch=ey-oy+T.h;
+    m=nccMap(T.g,T.w,T.h,crop(img,rect.w,ox,oy,cw,ch),cw,ch);
+  }else m=nccMap(T.g,T.w,T.h,img,rect.w,rect.h);
+  if(!m)return {conf:0,rect};
+  const sp=subpix(m,m.bx,m.by);
+  const bx=ox+m.bx,by=oy+m.by;
+  if($('tplUpdate').checked&&m.best>0.85){const ng=crop(img,rect.w,bx,by,T.w,T.h);for(let i=0;i<T.g.length;i++)T.g[i]=0.85*T.g[i]+0.15*ng[i]}
+  return {conf:m.best,x:rect.x+bx+sp.dx+T.w/2,y:rect.y+by+sp.dy+T.h/2,rect};
+}
+
+/* 顏色追蹤 */
+function hsv(r,g,b){const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0;
+  if(d>0){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360}
+  return [h,mx?d/mx:0,mx/255]}
+function colorMatch(r,g,b,c){const [h,s,v]=hsv(r,g,b);if(s<c.sMin||v<0.15)return false;let dh=Math.abs(h-c.h0);if(dh>180)dh=360-dh;return dh<=c.tol}
+function buildColorModel(i,r){
+  const d=frameCtx(i).getImageData(r.x,r.y,r.w,r.h).data;const bins=new Float64Array(36),sMin=+$('satMin').value;
+  const hs=[];for(let j=0;j<d.length;j+=4){const [h,s,v]=hsv(d[j],d[j+1],d[j+2]);if(s>=sMin&&v>=0.15){bins[Math.floor(h/10)%36]+=s;hs.push(h)}}
+  if(hs.length<6)return null;
+  let bi=0;for(let k=1;k<36;k++)if(bins[k]>bins[bi])bi=k;
+  let sx=0,sy=0;for(const h of hs){let dh=h-(bi*10+5);if(dh>180)dh-=360;if(dh<-180)dh+=360;if(Math.abs(dh)<=15){sx+=Math.cos(h*Math.PI/180);sy+=Math.sin(h*Math.PI/180)}}
+  let h0=Math.atan2(sy,sx)*180/Math.PI;if(h0<0)h0+=360;
+  const c={h0,tol:+$('hueTol').value,sMin,bw:r.w,bh:r.h,n0:0};
+  for(let j=0;j<d.length;j+=4)if(colorMatch(d[j],d[j+1],d[j+2],c))c.n0++;
+  return c.n0>=6?c:null;
+}
+function colorCentroid(i,r,c){const d=frameCtx(i).getImageData(r.x,r.y,r.w,r.h).data;let sx=0,sy=0,n=0;
+  for(let y=0,j=0;y<r.h;y++)for(let x=0;x<r.w;x++,j+=4)if(colorMatch(d[j],d[j+1],d[j+2],c)){sx+=x;sy+=y;n++}
+  return n?{x:r.x+sx/n+0.5,y:r.y+sy/n+0.5}:null}
+function hexHue(hex){const n=parseInt(hex.slice(1),16);return hsv(n>>16&255,n>>8&255,n&255)}
+function setTargetHue(h0,src){
+  const c=S.color||{};c.bw=c.bh=null;c.n0=0;c.h0=h0;c.tol=+$('hueTol').value;c.sMin=+$('satMin').value;S.color=c;
+  $('maskPrev').checked=true;updateColorUI();render();
+  if(N()&&!c.bw){$('trackMsg').className='note num';$('trackMsg').textContent=`已選定顏色（${src}）。請在畫面上點一下物體。`}
+}
+function sampleHue(i,p){
+  const r=clampRect(p.x-3,p.y-3,7,7);if(!r.w||!r.h)return null;const d=frameCtx(i).getImageData(r.x,r.y,r.w,r.h).data;
+  let sx=0,sy=0,ss=0,n=0;for(let j=0;j<d.length;j+=4){const [h,sat,v]=hsv(d[j],d[j+1],d[j+2]);if(sat<0.12||v<0.12)continue;sx+=Math.cos(h*Math.PI/180)*sat;sy+=Math.sin(h*Math.PI/180)*sat;ss+=sat;n++}
+  if(n<5)return null;let h=Math.atan2(sy,sx)*180/Math.PI;if(h<0)h+=360;return {h,s:ss/n};
+}
+// 從點選處找出相連的同色區域：回傳範圍、像素數與中心
+function detectBlob(i,p,c){
+  const R=clampRect(p.x-160,p.y-160,320,320);if(R.w<2||R.h<2)return null;
+  const d=frameCtx(i).getImageData(R.x,R.y,R.w,R.h).data,m=new Uint8Array(R.w*R.h);
+  for(let k=0,j=0;k<m.length;k++,j+=4)m[k]=colorMatch(d[j],d[j+1],d[j+2],c)?1:0;
+  const px=Math.round(p.x-R.x),py=Math.round(p.y-R.y);let seed=-1,bd=1e9;
+  for(let y=Math.max(0,py-8);y<=Math.min(R.h-1,py+8);y++)for(let x=Math.max(0,px-8);x<=Math.min(R.w-1,px+8);x++){const k=y*R.w+x;if(m[k]){const dd=(x-px)**2+(y-py)**2;if(dd<bd){bd=dd;seed=k}}}
+  if(seed<0)return null;
+  const q=[seed];m[seed]=2;let n=0,sx=0,sy=0,x0=1e9,y0=1e9,x1=-1,y1=-1;
+  while(q.length){const k=q.pop(),x=k%R.w,y=(k/R.w)|0;n++;sx+=x;sy+=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=R.w||ny>=R.h)continue;const nk=ny*R.w+nx;if(m[nk]===1){m[nk]=2;q.push(nk)}}}
+  if(n<6)return null;
+  return {n,x:R.x+sx/n+0.5,y:R.y+sy/n+0.5,w:Math.max(8,x1-x0+1),h:Math.max(8,y1-y0+1)};
+}
+function colorClick(p){
+  if(S.pickMode){
+    const sm=sampleHue(S.cur,p);S.pickMode=false;$('pickBtn').classList.remove('on');updateHint();
+    if(!sm){toast('這裡的顏色太灰或太暗，請點在物體顏色鮮明的地方');return}
+    if(sm.s<+$('satMin').value){const v=Math.max(0.08,+(sm.s*0.6).toFixed(2));$('satMin').value=v;$('satMinOut').textContent=v.toFixed(2)}
+    setTargetHue(sm.h,'取自畫面');
+  }
+  if(!S.color){toast('請先選擇目標顏色：按「從畫面取色」、點選常用顏色，或直接拖曳框出物體');return}
+  const b=detectBlob(S.cur,p,S.color);
+  if(!b){toast('點的位置附近找不到符合的顏色。可以放寬「色相容許」或降低「最低飽和度」，紫色遮罩會顯示目前符合的區域。');render();return}
+  Object.assign(S.color,{bw:b.w,bh:b.h,n0:b.n});
+  setPoint(S.cur,{x:b.x,y:b.y},'manual');S.lowConf=null;updateHint();
+  $('trackMsg').className='note num';$('trackMsg').textContent=`已在第 ${S.cur+1} 幀找到物體（${b.w}×${b.h} px，${b.n} 個像素），按「往後追蹤」開始。`;
+}
+function updateColorUI(){const c=S.color;if(!c){$('hueInfo').textContent='尚未選擇';$('swatch').style.background='transparent';return}
+  $('swatch').style.background=`hsl(${c.h0.toFixed(0)} 85% 55%)`;$('hueInfo').textContent=`色相 ${c.h0.toFixed(0)}°`}
+function colorStep(from,to){
+  if(!S.color.bw)return {conf:0,rect:{x:0,y:0,w:0,h:0}};
+  const c=S.color,R=+$('radius').value,pr=predict(from,to);
+  const rect=clampRect(pr.x-c.bw/2-R,pr.y-c.bh/2-R,c.bw+2*R,c.bh+2*R);
+  if(rect.w<2||rect.h<2)return {conf:0,rect};
+  const d=frameCtx(to).getImageData(rect.x,rect.y,rect.w,rect.h).data;const xs=[],ys=[];
+  for(let y=0,j=0;y<rect.h;y++)for(let x=0;x<rect.w;x++,j+=4)if(colorMatch(d[j],d[j+1],d[j+2],c)){xs.push(x);ys.push(y)}
+  if(xs.length<4)return {conf:0,rect};
+  // 從預測點附近開始做 mean-shift，避免被搜尋框裡其他同色物體拉走
+  let cx=pr.x-rect.x,cy=pr.y-rect.y,n=0;const hw=c.bw*0.75,hh=c.bh*0.75;
+  for(let it=0;it<8;it++){let sx=0,sy=0;n=0;for(let k=0;k<xs.length;k++)if(Math.abs(xs[k]-cx)<=hw&&Math.abs(ys[k]-cy)<=hh){sx+=xs[k];sy+=ys[k];n++}
+    if(!n)break;const nx=sx/n,ny=sy/n;const mv=Math.hypot(nx-cx,ny-cy);cx=nx;cy=ny;if(mv<0.05)break}
+  if(!n)return {conf:0,rect};
+  const conf=Math.min(n,c.n0)/Math.max(n,c.n0);
+  return {conf,x:rect.x+cx+0.5,y:rect.y+cy+0.5,rect};
+}
+
+/* 追蹤主迴圈 */
+async function runTrack(dir,{silent=false}={}){
+  const m=method();if(m==='manual')return;
+  if(m==='ncc'&&!S.tpl){toast('請先在畫面上拖曳框出物體');return}
+  if(m==='color'&&!(S.color&&S.color.bw)){toast(S.color?'請在畫面上點一下物體，讓程式知道起點':'請先選擇目標顏色，再點一下物體');return}
+  let i=S.cur;
+  if(!S.track[i]){toast('這一幀沒有物體位置。請框選物體，或先移到已有追蹤點的幀。');return}
+  const stepN=+$('stepSel').value,thr=+$('thr').value;S.lastDir=dir;S.tracking=true;S.lowConf=null;pause();updateControls();
+  let cnt=0,stopped=null,lastUi=0;
+  while(S.tracking){
+    const j=i+dir*stepN;if(j<0||j>=N())break;
+    const r=m==='ncc'?nccStep(i,j):colorStep(i,j);
+    if(!(r.conf>=thr)){stopped={i:j,conf:r.conf||0,rect:r.rect};break}
+    S.track[j]={x:r.x,y:r.y,conf:r.conf,src:'auto'};i=j;S.cur=j;cnt++;
+    if(!silent&&performance.now()-lastUi>60){lastUi=performance.now();updateFrameUI();$('trackMsg').className='note num';$('trackMsg').textContent=`追蹤中… 第 ${j+1} 幀，信心 ${r.conf.toFixed(2)}`;await nextTick()}
+  }
+  S.tracking=false;
+  if(stopped){S.lowConf=stopped;S.cur=stopped.i;$('trackMsg').innerHTML=`<span class="note warn">第 ${stopped.i+1} 幀信心 ${stopped.conf.toFixed(2)}，低於門檻 ${thr}。請點選物體正確位置後繼續，或降低門檻、加大搜尋範圍。</span>`;$('trackMsg').className='note warn'}
+  else{$('trackMsg').className='note num';$('trackMsg').textContent=`完成，新增 ${cnt} 個點。`}
+  if(!silent){updateHint();updateControls();updateFrameUI();buildTable()}
+}
+$('trackFwd').onclick=()=>runTrack(1);$('trackBack').onclick=()=>runTrack(-1);
+$('trackStop').onclick=()=>{S.tracking=false};
+document.querySelectorAll('input[name=tmethod]').forEach(r=>r.onchange=()=>{S.lowConf=null;updateAll()});
+[['radius','radiusOut',v=>v+' px'],['thr','thrOut',v=>(+v).toFixed(2)],['hueTol','hueTolOut',v=>'±'+v+'°'],['satMin','satMinOut',v=>(+v).toFixed(2)],['ovThr','ovThrOut',v=>v]].forEach(([a,b,f])=>{const u=()=>$(b).textContent=f($(a).value);$(a).addEventListener('input',u);u()});
+$('hueTol').addEventListener('input',()=>{if(S.color){S.color.tol=+$('hueTol').value;render()}});
+$('satMin').addEventListener('input',()=>{if(S.color){S.color.sMin=+$('satMin').value;render()}});
+$('maskPrev').onchange=render;
+$('pickBtn').onclick=()=>{if(!N())return;S.pickMode=!S.pickMode;$('pickBtn').classList.toggle('on',S.pickMode);updateHint()};
+$('colorPick').addEventListener('input',e=>setTargetHue(hexHue(e.target.value)[0],'自選'));
+document.querySelectorAll('.preset').forEach(b=>b.onclick=()=>{$('colorPick').value=b.dataset.hex;setTargetHue(hexHue(b.dataset.hex)[0],b.title)});
+$('stepSel').onchange=updateControls;
+
+/* ---------------- calibration controls ---------------- */
+$('scaleTool').onclick=()=>{S.calibTool='scale';updateAll()};
+$('originTool').onclick=()=>{S.calibTool='origin';updateAll()};
+$('scaleLen').oninput=()=>{S.scale.len=+$('scaleLen').value;dataChanged()};
+$('scaleUnit').onchange=()=>{S.scale.unit=$('scaleUnit').value;dataChanged()};
+$('scaleClear').onclick=()=>{S.scale.p1=S.scale.p2=null;dataChanged()};
+$('axisAngle').oninput=()=>{S.axes.angle=+$('axisAngle').value;$('axisOut').textContent=S.axes.angle+'°';dataChanged()};
+$('alignAxis').onclick=()=>{const s=S.scale;if(!s.p1||!s.p2){toast('請先畫比例尺');return}
+  let a=Math.atan2(-(s.p2.y-s.p1.y),s.p2.x-s.p1.x)*180/Math.PI;if(a>90)a-=180;if(a<-90)a+=180;S.axes.angle=Math.round(a*2)/2;$('axisAngle').value=S.axes.angle;$('axisOut').textContent=S.axes.angle+'°';dataChanged()};
+$('yUp').onchange=()=>{S.axes.yUp=$('yUp').checked;dataChanged()};
+$('axesReset').onclick=()=>{S.axes={ox:null,oy:null,angle:0,yUp:true};$('axisAngle').value=0;$('axisOut').textContent='0°';$('yUp').checked=true;dataChanged()};
+
+/* ---------------- time & trim ---------------- */
+document.querySelectorAll('input[name=timeMode]').forEach(r=>r.onchange=()=>{S.timeMode=document.querySelector('input[name=timeMode]:checked').value;dataChanged()});
+$('fpsOverride').oninput=()=>{S.fpsOverride=+$('fpsOverride').value||30;dataChanged()};
+armed($('cutBefore'),()=>trim(S.cur,N()-1));armed($('cutAfter'),()=>trim(0,S.cur));
+function trim(a,b){
+  if(a===0&&b===N()-1)return;
+  S.frames.forEach((f,i)=>{if(i<a||i>b)f.bmp.close&&f.bmp.close()});
+  S.frames=S.frames.slice(a,b+1);S.track=S.track.slice(a,b+1);S.cur=Math.min(Math.max(0,S.cur-a),N()-1);workIdx=-1;S.lowConf=null;S.overlay=null;S.showOverlay=false;
+  $('ovFrom').value=1;$('ovTo').value=N();$('ovToggle').disabled=$('ovSave').disabled=true;$('ovToggle').textContent='顯示疊圖';
+  toast(`剩下 ${N()} 幀`);updateAll();
+}
+
+/* ---------------- camera ---------------- */
+async function listCams(){
+  try{const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');const sel=$('camSel'),cur=sel.value;
+    sel.innerHTML='<option value="">預設相機</option>'+devs.map((d,i)=>`<option value="${d.deviceId}">${(d.label||('相機 '+(i+1))).replace(/[<>&"]/g,'')}</option>`).join('');
+    if([...sel.options].some(o=>o.value===cur))sel.value=cur}catch(e){}
+}
+async function startCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$('camInfo').innerHTML='<span class="note warn">這個瀏覽器或網址無法使用相機。網頁必須以 https、localhost 或本機檔案開啟，請改用 Chrome、Edge 或 Safari 的最新版本。</span>';return}
+  stopCamera();
+  const [w,h]=$('resSel').value.split('x').map(Number);
+  const v={width:{ideal:w},height:{ideal:h},frameRate:{ideal:+$('fpsSel').value}};
+  if($('camSel').value)v.deviceId={exact:$('camSel').value};else v.facingMode={ideal:'environment'};
+  try{S.stream=await navigator.mediaDevices.getUserMedia({video:v,audio:false})}
+  catch(e){
+    const msg=e.name==='NotAllowedError'?'相機權限被拒絕。請點網址列左側的圖示允許使用相機，再重新整理頁面。':e.name==='NotFoundError'?'找不到相機。':e.name==='NotReadableError'?'相機正被其他程式使用（例如視訊會議），請先關閉它。':'無法開啟相機：'+e.message;
+    $('camInfo').innerHTML=`<span class="note warn">${msg}</span>`;return}
+  live.srcObject=S.stream;try{await live.play()}catch(e){}
+  pause();showStage('live');$('demoBanner').hidden=true;
+  $('camBtn').textContent='關閉相機';$('recBtn').disabled=false;
+  const tr=S.stream.getVideoTracks()[0],st=tr.getSettings();
+  $('camInfo').textContent=`相機回報：${st.width}×${st.height}，${st.frameRate?Math.round(st.frameRate)+' fps':'幀率未知'}。實際幀率會在錄影後顯示。畫面不做鏡像，左右方向與實際相同。`;
+  setupExposure(tr);listCams();updateHint();
+}
+function setupExposure(tr){
+  const cap=tr.getCapabilities?tr.getCapabilities():{};const row=$('expRow');
+  if(!cap.exposureMode||!cap.exposureMode.includes('manual')||!cap.exposureTime){row.hidden=true;return}
+  row.hidden=false;const r=$('expRange'),{min,max}=cap.exposureTime;
+  const val=()=>min*Math.pow(max/min,+r.value/100);
+  const show=()=>$('expOut').textContent=$('expManual').checked?val().toFixed(0):'自動';
+  $('expManual').onchange=async()=>{r.disabled=!$('expManual').checked;try{await tr.applyConstraints({advanced:[$('expManual').checked?{exposureMode:'manual',exposureTime:val()}:{exposureMode:'continuous'}]})}catch(e){toast('這台相機不接受手動曝光設定')}show()};
+  r.oninput=async()=>{try{await tr.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:val()}]})}catch(e){}show()};show();
+}
+function stopCamera(){if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}live.srcObject=null;$('camBtn').textContent='開啟相機';$('recBtn').disabled=true;$('expRow').hidden=true}
+$('camBtn').onclick=()=>{if(S.stream){stopCamera();showStage('canvas');updateAll()}else startCamera()};
+$('resSel').onchange=$('fpsSel').onchange=$('camSel').onchange=()=>{if(S.stream)startCamera()};
+$('recBtn').onclick=()=>{if(S.rec)stopRecording();else beginRecording()};
+async function beginRecording(){
+  if(!S.stream)return;
+  showStage('live');pause();
+  const cd=+$('cdSel').value;$('recBtn').disabled=true;
+  for(let k=cd;k>0;k--){$('countdown').hidden=false;$('countdown').textContent=k;await new Promise(r=>setTimeout(r,1000))}
+  $('countdown').hidden=true;$('recBtn').disabled=false;showStage('live');$('recBtn').textContent='■ 停止錄影';
+  const vw=live.videoWidth,vh=live.videoHeight;
+  S.rec={frames:[],promises:[],maxDur:+$('durSel').value,t0:null,src:null,W:vw,H:vh,maxFrames:Math.floor(1.6e9/(vw*vh*4))};
+  $('recBadge').hidden=false;updateHint();
+  if('requestVideoFrameCallback' in HTMLVideoElement.prototype)live.requestVideoFrameCallback(onRecFrame);
+  else{S.rec.fallback=setInterval(()=>grab(performance.now()/1000),1000/(+$('fpsSel').value));S.rec.noRVFC=true}
+}
+function grab(t){
+  const R=S.rec;if(!R)return;if(R.t0==null)R.t0=t;
+  const idx=R.frames.length;R.frames.push({bmp:null,t});
+  R.promises.push(createImageBitmap(live).then(b=>R.frames[idx].bmp=b).catch(()=>{}));
+  const el=t-R.t0;$('recBadge').textContent=`● REC ${el.toFixed(1)} s · ${idx+1} 幀`;
+  if(el>=R.maxDur||idx+1>=R.maxFrames)stopRecording();
+}
+function onRecFrame(now,md){
+  const R=S.rec;if(!R)return;
+  if(!R.src)R.src=md.captureTime>0?'capture':(md.mediaTime!=null?'media':'now');
+  const t=R.src==='capture'?md.captureTime/1000:R.src==='media'?md.mediaTime:now/1000;
+  if(R.frames.length&&t<=R.frames[R.frames.length-1].t)return live.requestVideoFrameCallback(onRecFrame);
+  grab(t);if(S.rec)live.requestVideoFrameCallback(onRecFrame);
+}
+async function stopRecording(){
+  const R=S.rec;if(!R)return;S.rec=null;clearInterval(R.fallback);
+  $('recBadge').hidden=true;$('recBtn').textContent='● 開始錄影';
+  await Promise.all(R.promises);
+  const fr=R.frames.filter(f=>f.bmp);
+  if(fr.length<2){toast('錄到的影格太少');updateHint();return}
+  setFrames(fr,R.W,R.H);
+  const dur=fr[fr.length-1].t-fr[0].t,fps=(fr.length-1)/dur;
+  $('camInfo').innerHTML=`錄到 <b>${fr.length}</b> 幀，${dur.toFixed(2)} s，實際平均 <b>${fps.toFixed(1)} fps</b>${fps<+$('fpsSel').value*0.8?'。<span class="note warn">比設定的幀率低很多，通常是光線不足讓相機自動拉長曝光，請加強照明。</span>':'。'}${R.noRVFC?'（此瀏覽器不支援逐幀回呼，時間戳為近似值）':''}`;
+  toast(`錄影完成：${fr.length} 幀`);
+}
+
+/* ---------------- import video ---------------- */
+$('fileIn').onchange=e=>{const f=e.target.files[0];if(f)importVideo(f);e.target.value=''};
+$('impCancel').onclick=()=>{if(S.importing)S.importing.cancel=true};
+async function importVideo(file){
+  if(S.importing)return;stopCamera();pause();
+  const job={cancel:false};S.importing=job;
+  const url=URL.createObjectURL(file);const v=impVid;v.src=url;v.muted=true;v.playsInline=true;
+  $('impBox').hidden=false;$('impBar').style.width='0';$('impProg').textContent='讀取影片中…';showStage('import');$('demoBanner').hidden=true;
+  try{await new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=()=>rej(new Error('瀏覽器無法解碼這個影片格式'))})}
+  catch(e){$('impProg').textContent=e.message+'（iPhone 的 HEVC 影片可在手機設定改成「最相容」格式再錄）';S.importing=null;showStage('canvas');return}
+  const vw=v.videoWidth,vh=v.videoHeight,maxW=+$('impMax').value,sc=Math.min(1,maxW/vw),W=Math.round(vw*sc),H=Math.round(vh*sc);
+  const start=Math.max(0,+$('impStart').value||0),endIn=parseFloat($('impEnd').value),end=isFinite(endIn)&&endIn>start?Math.min(endIn,v.duration):v.duration;
+  const maxFrames=Math.min(1800,Math.floor(1.6e9/(W*H*4)));
+  const frames=[],proms=[];let lastPF=null,dropped=0;
+  const opts=sc<1?{resizeWidth:W,resizeHeight:H,resizeQuality:'high'}:undefined;
+  const snap=t=>{const idx=frames.length;frames.push({bmp:null,t});proms.push((opts?createImageBitmap(v,opts):createImageBitmap(v)).then(b=>frames[idx].bmp=b).catch(()=>{}))};
+  const prog=t=>{const p=Math.min(1,(t-start)/Math.max(0.001,end-start));$('impBar').style.width=(p*100).toFixed(1)+'%';$('impProg').textContent=`抽取中 ${(p*100).toFixed(0)}%　已取 ${frames.length} 幀${dropped?`，漏 ${dropped} 幀（可改用較慢的抽幀速度）`:''}`};
+  v.currentTime=start;await new Promise(r=>v.onseeked=r);
+  await new Promise(r=>setTimeout(r,120));snap(v.currentTime);
+  if('requestVideoFrameCallback' in HTMLVideoElement.prototype){
+    await new Promise(resolve=>{
+      let done=false;const fin=()=>{if(done)return;done=true;v.pause();resolve()};
+      const cb=(now,md)=>{
+        if(done)return;
+        if(md.mediaTime>end+1e-4||job.cancel||frames.length>=maxFrames){fin();return}
+        if(lastPF!=null&&md.presentedFrames-lastPF>1)dropped+=md.presentedFrames-lastPF-1;lastPF=md.presentedFrames;
+        if(!frames.length||md.mediaTime>frames[frames.length-1].t+1e-5)snap(md.mediaTime);
+        prog(md.mediaTime);v.requestVideoFrameCallback(cb);
+      };
+      v.requestVideoFrameCallback(cb);v.onended=()=>setTimeout(fin,300);
+      v.playbackRate=+$('impRate').value;v.play().catch(()=>fin());
+    });
+  }else{
+    const dt=1/30;for(let t=start;t<=end&&!job.cancel&&frames.length<maxFrames;t+=dt){v.currentTime=t;await new Promise(r=>v.onseeked=r);snap(v.currentTime);prog(t)}
+  }
+  await Promise.all(proms);
+  const fr=frames.filter(f=>f.bmp);
+  S.importing=null;$('impBox').hidden=true;URL.revokeObjectURL(url);v.removeAttribute('src');v.load();
+  if(fr.length<2){toast('抽不到影格，請換一個影片或縮小時間範圍');showStage('canvas');updateAll();return}
+  setFrames(fr,W,H);
+  toast(`已匯入 ${fr.length} 幀${dropped?`，漏 ${dropped} 幀`:''}${frames.length>=maxFrames?'（已達幀數上限）':''}`);
+}
+
+/* ---------------- overlay ---------------- */
+$('ovMethod').onchange=updateControls;$('ovEvery').onchange=()=>{updateControls();if(S.showOverlay)render()};
+$('ovPoints').onchange=$('ovLabels').onchange=render;
+$('ovToggle').onclick=()=>{S.showOverlay=!S.showOverlay;$('ovToggle').textContent=S.showOverlay?'回到原始影格':'顯示疊圖';render()};
+$('ovBuild').onclick=buildOverlay;
+async function medianBg(idx){
+  const m=idx.length,datas=idx.map(i=>frameCtx(i).getImageData(0,0,S.W,S.H).data);
+  const out=new Uint8ClampedArray(S.W*S.H*4),vals=new Uint8Array(m),mid=m>>1;
+  for(let p=0;p<out.length;p+=4){for(let ch=0;ch<3;ch++){for(let k=0;k<m;k++)vals[k]=datas[k][p+ch];vals.sort();out[p+ch]=vals[mid]}out[p+3]=255;
+    if(p%(S.W*4*40)===0)await nextTick()}
+  return out;
+}
+async function buildOverlay(){
+  if(!N())return;const meth=$('ovMethod').value,ev=+$('ovEvery').value;
+  const a=Math.max(0,Math.min(N()-1,+$('ovFrom').value-1)),b=Math.max(a,Math.min(N()-1,+$('ovTo').value-1));
+  const idx=[];for(let i=a;i<=b;i+=ev)idx.push(i);
+  if(meth==='track'&&!S.track.some(Boolean)){toast('還沒有追蹤點，請先追蹤或改用其他方法');return}
+  $('ovBuild').disabled=true;$('ovMsg').textContent='計算中…';await nextTick();
+  const len=S.W*S.H*4;let out;
+  if(meth==='lighten'||meth==='darken'){
+    out=new Uint8ClampedArray(frameCtx(idx[0]).getImageData(0,0,S.W,S.H).data);
+    for(const i of idx.slice(1)){const d=frameCtx(i).getImageData(0,0,S.W,S.H).data;
+      if(meth==='lighten'){for(let p=0;p<len;p++)if(d[p]>out[p])out[p]=d[p]}else{for(let p=0;p<len;p++)if(d[p]<out[p])out[p]=d[p]}await nextTick()}
+  }else{
+    let bg;
+    if($('ovBg').value==='current')bg=new Uint8ClampedArray(frameCtx(S.cur).getImageData(0,0,S.W,S.H).data);
+    else{const m=Math.min(15,N()),sel=[];for(let k=0;k<m;k++)sel.push(Math.round(k*(N()-1)/Math.max(1,m-1)));$('ovMsg').textContent='計算背景（中位數）…';await nextTick();bg=await medianBg(sel)}
+    out=new Uint8ClampedArray(bg);const thr=+$('ovThr').value;
+    for(const i of idx){
+      let box=null;
+      if(meth==='track'){const p=S.track[i];if(!p)continue;const bs=boxSize()||{w:40,h:40};box=clampRect(p.x-bs.w*0.8,p.y-bs.h*0.8,bs.w*1.6,bs.h*1.6)}
+      const d=frameCtx(i).getImageData(0,0,S.W,S.H).data;
+      const x0=box?box.x:0,y0=box?box.y:0,x1=box?box.x+box.w:S.W,y1=box?box.y+box.h:S.H;
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const p=(y*S.W+x)*4;if(Math.abs(d[p]-bg[p])+Math.abs(d[p+1]-bg[p+1])+Math.abs(d[p+2]-bg[p+2])>thr){out[p]=d[p];out[p+1]=d[p+1];out[p+2]=d[p+2]}}
+      await nextTick();
+    }
+  }
+  const c=document.createElement('canvas');c.width=S.W;c.height=S.H;c.getContext('2d').putImageData(new ImageData(out,S.W,S.H),0,0);
+  S.overlay=c;S.showOverlay=true;$('ovToggle').disabled=$('ovSave').disabled=false;$('ovToggle').textContent='回到原始影格';$('ovBuild').disabled=false;
+  $('ovMsg').textContent=`已疊合 ${idx.length} 張（第 ${a+1}～${b+1} 幀，每 ${ev} 幀一張）。`;render();
+}
+$('ovSave').onclick=()=>{if(!S.overlay)return;const was=S.showOverlay;S.showOverlay=true;render();const cp=document.createElement('canvas');cp.width=S.W;cp.height=S.H;cp.getContext('2d').drawImage(view,0,0);S.showOverlay=was;render();cp.toBlob(b=>{if(b)saveFile('疊圖.png',b)},'image/png')};
+
+/* ---------------- data series ---------------- */
+function series(){
+  const pts=[];for(let i=0;i<N();i++){const p=S.track[i];if(p){const w=toWorld(p);pts.push({i,t:tOf(i),x:w.x,y:w.y,conf:p.conf,src:p.src})}}
+  const k=+$('vSpan').value;
+  for(let m=0;m<pts.length;m++){const a=Math.max(0,m-k),b=Math.min(pts.length-1,m+k);if(a===b)continue;const dt=pts[b].t-pts[a].t;if(dt<=0)continue;
+    pts[m].vx=(pts[b].x-pts[a].x)/dt;pts[m].vy=(pts[b].y-pts[a].y)/dt;pts[m].v=Math.hypot(pts[m].vx,pts[m].vy)}
+  return pts;
+}
+function polyfit(xs,ys,deg){
+  const n=deg+1,A=Array.from({length:n},()=>new Array(n+1).fill(0));
+  for(let k=0;k<xs.length;k++){const pw=[1];for(let d=1;d<=2*deg;d++)pw.push(pw[d-1]*xs[k]);for(let r=0;r<n;r++){for(let c=0;c<n;c++)A[r][c]+=pw[r+c];A[r][n]+=pw[r]*ys[k]}}
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;[A[c],A[p]]=[A[p],A[c]];if(Math.abs(A[c][c])<1e-12)return null;
+    for(let r=0;r<n;r++)if(r!==c){const f=A[r][c]/A[c][c];for(let k=c;k<=n;k++)A[r][k]-=f*A[c][k]}}
+  const co=A.map((r,i)=>r[n]/r[i]);// co[0]+co[1]x+co[2]x²
+  const my=ys.reduce((s,v)=>s+v,0)/ys.length;let sr=0,st=0;
+  for(let k=0;k<xs.length;k++){let f=0;for(let d=0;d<n;d++)f+=co[d]*xs[k]**d;sr+=(ys[k]-f)**2;st+=(ys[k]-my)**2}
+  return {co,r2:st>0?1-sr/st:1};
+}
+
+/* ---------------- charts ---------------- */
+const charts={pos:{cv:$('cPos'),kind:$('posKind'),fit:$('posFit'),out:$('posOut'),hit:[]},vel:{cv:$('cVel'),kind:$('velKind'),fit:$('velFit'),out:$('velOut'),hit:[]}};
+function niceTicks(lo,hi,n=5){if(lo===hi){lo-=1;hi+=1}const span=hi-lo,raw=span/n,mag=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/mag;
+  const st=(f<1.5?1:f<3?2:f<7?5:10)*mag;const ticks=[];for(let v=Math.ceil(lo/st)*st;v<=hi+st*1e-9;v+=st)ticks.push(+v.toPrecision(10));return {ticks,st}}
+function drawCharts(){for(const k in charts)drawChart(charts[k],k)}
+function drawChart(ch,which){
+  const cv=ch.cv,dpr=window.devicePixelRatio||1,cw=cv.clientWidth,chh=cv.clientHeight;if(!cw)return;
+  cv.width=Math.round(cw*dpr);cv.height=Math.round(chh*dpr);const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
+  const ink=css('--ink'),muted=css('--muted'),line=css('--line'),acc=css('--accent'),trk=css('--track'),num=css('--font-num');
+  c.clearRect(0,0,cw,chh);
+  const pts=series(),u=unit(),kind=ch.kind.value;
+  let X,Y,xl,yl;
+  const map={xt:['t','x','t (s)',`x (${u})`],yt:['t','y','t (s)',`y (${u})`],yx:['x','y',`x (${u})`,`y (${u})`],vxt:['t','vx','t (s)',`vx (${u}/s)`],vyt:['t','vy','t (s)',`vy (${u}/s)`],vt:['t','v','t (s)',`v (${u}/s)`]}[kind];
+  [X,Y,xl,yl]=map;
+  const P=pts.filter(p=>p[X]!=null&&p[Y]!=null&&isFinite(p[Y]));
+  ch.hit=[];
+  const ml=58,mr=14,mt=12,mb=36,pw=cw-ml-mr,ph=chh-mt-mb;
+  c.font=`11px ${num}`;c.fillStyle=muted;
+  if(P.length<2){c.textAlign='center';c.textBaseline='middle';c.font='13px sans-serif';c.fillText(N()?'需要至少兩個追蹤點（先到「追蹤」取點）':'尚無資料',cw/2,chh/2);ch.out.textContent='';return}
+  let x0=Math.min(...P.map(p=>p[X])),x1=Math.max(...P.map(p=>p[X])),y0=Math.min(...P.map(p=>p[Y])),y1=Math.max(...P.map(p=>p[Y]));
+  if(which==='vel'&&kind!=='vt'){y0=Math.min(y0,0);y1=Math.max(y1,0)}
+  const py=(y1-y0)*0.08||1,px=(x1-x0)*0.04||0.1;y0-=py;y1+=py;x0-=px;x1+=px;
+  if(X==='t'&&x0>-px&&x0<0)x0=Math.min(0,x0);
+  const tx=niceTicks(x0,x1,Math.max(3,Math.round(pw/80))),ty=niceTicks(y0,y1,5);
+  const sx=v=>ml+(v-x0)/(x1-x0)*pw,sy=v=>mt+(1-(v-y0)/(y1-y0))*ph;
+  c.strokeStyle=line;c.lineWidth=1;c.textAlign='right';c.textBaseline='middle';
+  for(const v of ty.ticks){if(v<y0||v>y1)continue;const y=Math.round(sy(v))+.5;c.beginPath();c.moveTo(ml,y);c.lineTo(ml+pw,y);c.stroke();c.fillText(fmt(v,4),ml-6,y)}
+  c.textAlign='center';c.textBaseline='top';
+  for(const v of tx.ticks){if(v<x0||v>x1)continue;const x=Math.round(sx(v))+.5;c.beginPath();c.moveTo(x,mt);c.lineTo(x,mt+ph);c.stroke();c.fillText(fmt(v,4),x,mt+ph+5)}
+  if(y0<0&&y1>0){c.strokeStyle=muted;c.beginPath();const y=Math.round(sy(0))+.5;c.moveTo(ml,y);c.lineTo(ml+pw,y);c.stroke()}
+  c.fillStyle=muted;c.font='12px sans-serif';c.textAlign='right';c.textBaseline='bottom';c.fillText(xl,ml+pw,chh-2);
+  c.save();c.translate(12,mt+ph/2);c.rotate(-Math.PI/2);c.textAlign='center';c.textBaseline='middle';c.fillText(yl,0,0);c.restore();
+  // fit
+  const deg=ch.fit.value==='none'?0:+ch.fit.value;let fitTxt='';
+  if(deg&&P.length>deg+1){
+    const f=polyfit(P.map(p=>p[X]),P.map(p=>p[Y]),deg);
+    if(f){c.strokeStyle=acc;c.lineWidth=2;c.setLineDash([6,4]);c.beginPath();
+      for(let k=0;k<=80;k++){const xv=x0+(x1-x0)*k/80;let yv=0;for(let d=0;d<=deg;d++)yv+=f.co[d]*xv**d;const yy=sy(yv);k?c.lineTo(sx(xv),yy):c.moveTo(sx(xv),yy)}
+      const clipP=new Path2D();clipP.rect(ml,mt,pw,ph);c.save();c.clip(clipP);c.stroke();c.restore();c.setLineDash([]);
+      fitTxt=fitText(kind,deg,f,u);}
+  }
+  ch.out.innerHTML=fitTxt||(deg?'點太少，無法擬合':'');
+  // points
+  c.strokeStyle=trk;c.globalAlpha=.35;c.lineWidth=1.2;c.beginPath();P.forEach((p,k)=>k?c.lineTo(sx(p[X]),sy(p[Y])):c.moveTo(sx(p[X]),sy(p[Y])));c.stroke();c.globalAlpha=1;
+  for(const p of P){const x=sx(p[X]),y=sy(p[Y]);c.fillStyle=trk;c.beginPath();c.arc(x,y,p.i===S.cur?5:3,0,7);c.fill();if(p.i===S.cur){c.strokeStyle=ink;c.lineWidth=1.5;c.beginPath();c.arc(x,y,7,0,7);c.stroke()}ch.hit.push({x,y,i:p.i,xv:p[X],yv:p[Y]})}
+  ch.box={ml,mt,pw,ph};
+}
+function fitText(kind,deg,f,u){
+  const [c0,c1,c2]=f.co,r2=`R² = ${f.r2.toFixed(4)}`;
+  const vn={xt:'x',yt:'y',yx:'y',vxt:'vx',vyt:'vy',vt:'v'}[kind],iv=kind==='yx'?'x':'t';
+  const sg=v=>(v<0?' − ':' + ')+fmt(Math.abs(v));
+  if(deg===2){
+    let s=`<b>${vn} = ${fmt(c2)} ${iv}²${sg(c1)} ${iv}${sg(c0)}</b>　${r2}`;
+    if(kind==='xt'||kind==='yt')s+=`<br>加速度 a = 2 × ${fmt(c2)} = <b>${fmt(2*c2)} ${u}/s²</b>，t = 0 時速度 ${fmt(c1)} ${u}/s`;
+    return s;
+  }
+  let s=`<b>${vn} = ${fmt(c1)} ${iv}${sg(c0)}</b>　${r2}`;
+  if(kind==='xt'||kind==='yt')s+=`<br>速度（斜率）= <b>${fmt(c1)} ${u}/s</b>`;
+  else if(kind!=='yx')s+=`<br>加速度（斜率）= <b>${fmt(c1)} ${u}/s²</b>`;
+  return s;
+}
+for(const k in charts){const ch=charts[k];
+  ch.kind.onchange=ch.fit.onchange=()=>drawChart(ch,k);
+  ch.cv.addEventListener('click',e=>{const r=ch.cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let best=null,bd=400;
+    for(const h of ch.hit){const d=(h.x-mx)**2+(h.y-my)**2;if(d<bd){bd=d;best=h}}if(best){pause();goto(best.i)}});
+  ch.cv.addEventListener('mousemove',e=>{const r=ch.cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let best=null,bd=400;
+    for(const h of ch.hit){const d=(h.x-mx)**2+(h.y-my)**2;if(d<bd){bd=d;best=h}}ch.cv.title=best?`幀 ${best.i+1}：(${fmt(best.xv)}, ${fmt(best.yv)})`:''});
+}
+$('vSpan').onchange=()=>{drawCharts();buildTable()};
+let rzT;window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{drawCharts();render()},120)});
+if(window.matchMedia)window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',drawCharts);
+
+/* ---------------- table & export ---------------- */
+function rows(){const u=unit(),pts=series();
+  const head=['幀','t (s)',`x (${u})`,`y (${u})`,`vx (${u}/s)`,`vy (${u}/s)`,`v (${u}/s)`,'信心','來源'];
+  const d=pts.map(p=>[p.i+1,fix(p.t,4),fix(p.x,u==='px'?1:3),fix(p.y,u==='px'?1:3),fix(p.vx,3),fix(p.vy,3),fix(p.v,3),p.conf.toFixed(3),p.src==='auto'?'自動':'手動']);
+  return {head,d,pts};}
+function buildTable(){const {head,d,pts}=rows();const t=$('dataTable');
+  t.tHead.innerHTML='<tr>'+head.slice(0,7).map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  t.tBodies[0].innerHTML=d.length?d.map((r,k)=>`<tr data-i="${pts[k].i}">`+r.slice(0,7).map(v=>`<td>${v}</td>`).join('')+'</tr>').join(''):'<tr><td colspan="7" style="text-align:center;font-family:var(--font-body)">尚無追蹤點</td></tr>';
+  highlightRow();}
+function highlightRow(){const tb=$('dataTable').tBodies[0];for(const tr of tb.rows)tr.classList.toggle('cur',+tr.dataset.i===S.cur)}
+$('dataTable').tBodies[0].addEventListener('click',e=>{const tr=e.target.closest('tr');if(tr&&tr.dataset.i!=null){pause();goto(+tr.dataset.i)}});
+$('csvBtn').onclick=()=>{const {head,d}=rows();if(!d.length){toast('還沒有追蹤點');return}
+  const q=v=>/[",\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v;
+  const txt='﻿'+[head,...d].map(r=>r.map(q).join(',')).join('\r\n');saveFile('運動數據.csv',new Blob([txt],{type:'text/csv'}))};
+$('copyBtn').onclick=()=>{const {head,d}=rows();if(!d.length){toast('還沒有追蹤點');return}
+  const txt=[head,...d].map(r=>r.join('\t')).join('\n');
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'已複製，可貼到 Google 試算表或 Excel':'無法自動複製，請改用下載 CSV')};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('已複製，可貼到 Google 試算表或 Excel'),fallback);else fallback()};
+
+/* ---------------- demo clip ---------------- */
+async function loadDemo(){
+  const W=640,H=400,bg=document.createElement('canvas');bg.width=W;bg.height=H;const b=bg.getContext('2d');
+  const gr=b.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#d9dee6');gr.addColorStop(1,'#bfc6d1');b.fillStyle=gr;b.fillRect(0,0,W,H);
+  let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  for(let k=0;k<5000;k++){b.fillStyle=`rgba(${rnd()<.5?0:255},${rnd()<.5?0:255},${rnd()<.5?0:255},${0.05+rnd()*0.06})`;b.fillRect(rnd()*W,rnd()*H,1+rnd()*2,1+rnd()*2)}
+  b.strokeStyle='rgba(60,70,90,.18)';b.lineWidth=1;for(let x=0;x<=W;x+=50){b.beginPath();b.moveTo(x+.5,0);b.lineTo(x+.5,H);b.stroke()}for(let y=0;y<=H;y+=50){b.beginPath();b.moveTo(0,y+.5);b.lineTo(W,y+.5);b.stroke()}
+  b.fillStyle='#4a5160';b.fillRect(0,385,W,15);
+  b.fillStyle='#e8c66a';b.fillRect(92,352,266,24);b.strokeStyle='#8a6a1c';b.strokeRect(92.5,352.5,266,24);
+  b.fillStyle='#3a2c08';b.font='9px sans-serif';b.textAlign='center';
+  for(let cm=0;cm<=100;cm++){const x=100+cm*2.5;const h=cm%10===0?11:cm%5===0?7:4;b.fillRect(x-.4,352,0.8,h);if(cm%10===0)b.fillText(cm,x,372)}
+  const frames=[],cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');
+  for(let i=0;i<=20;i++){const t=i/30,x=120+350*t,y=300-750*t+1225*t*t;
+    c.drawImage(bg,0,0);const g=c.createRadialGradient(x-4,y-5,2,x,y,13);g.addColorStop(0,'#ffc68a');g.addColorStop(1,'#e2621b');
+    c.fillStyle=g;c.beginPath();c.arc(x,y,13,0,7);c.fill();
+    frames.push({bmp:await createImageBitmap(cv),t});}
+  setFrames(frames,W,H,{demo:true});
+  S.scale={p1:{x:100,y:364},p2:{x:350,y:364},len:100,unit:'cm'};$('scaleLen').value=100;$('scaleUnit').value='cm';
+  S.axes={ox:120,oy:300,angle:0,yUp:true};$('axisAngle').value=0;$('axisOut').textContent='0°';$('yUp').checked=true;
+  document.querySelector('input[name=tmethod][value=color]').checked=true;
+  const r=clampRect(104,284,32,32);S.color=buildColorModel(0,r);updateColorUI();S.track[0]={x:120,y:300,conf:1,src:'manual'};S.cur=0;
+  await runTrack(1,{silent:true});S.cur=0;S.lowConf=null;
+  $('posKind').value='yt';$('posFit').value='2';$('velKind').value='vyt';$('velFit').value='1';
+  updateAll();
+}
+$('demoBtn').onclick=()=>{stopCamera();loadDemo()};
+$('demoClear').onclick=()=>{setFrames([],640,400);$('posFit').value='none';$('velFit').value='none';$('trackMsg').textContent='';updateAll()};
+
+/* ---------------- boot ---------------- */
+updateColorUI();
+if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices)listCams();
+loadDemo().catch(e=>{console.error(e);updateAll()});
+window.__motionLab=S; // 方便除錯
+})();
+</script>
+
+</body>
+</html>
