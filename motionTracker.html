@@ -865,6 +865,7 @@ async function runTrack(dir,{silent=false}={}){
   S.tracking=false;
   if(stopped){S.lowConf=stopped;S.cur=stopped.i;$('trackMsg').innerHTML=`<span class="note warn">第 ${stopped.i+1} 幀信心 ${stopped.conf.toFixed(2)}，低於門檻 ${thr}。請點選物體正確位置後繼續，或降低門檻、加大搜尋範圍。</span>`;$('trackMsg').className='note warn'}
   else{$('trackMsg').className='note num';$('trackMsg').textContent=`完成，新增 ${cnt} 個點。`}
+  if(!silent&&cnt)autoAxisCharts();
   if(!silent){updateHint();updateControls();updateFrameUI();buildTable()}
 }
 $('trackFwd').onclick=()=>runTrack(1);$('trackBack').onclick=()=>runTrack(-1);
@@ -1096,6 +1097,19 @@ function polyfit(xs,ys,deg){
   const my=ys.reduce((s,v)=>s+v,0)/ys.length;let sr=0,st=0;
   for(let k=0;k<xs.length;k++){let f=0;for(let d=0;d<n;d++)f+=co[d]*xs[k]**d;sr+=(ys[k]-f)**2;st+=(ys[k]-my)**2}
   return {co,r2:st>0?1-sr/st:1};
+}
+
+/* 追蹤完成後，圖表自動切到移動量較大的方向（例如自由落體是 y） */
+function autoAxisCharts(){
+  const pts=S.track.filter(Boolean).map(toWorld);if(pts.length<3)return;
+  const rng=k=>Math.max(...pts.map(p=>p[k]))-Math.min(...pts.map(p=>p[k]));
+  const useY=rng('y')>rng('x');
+  const pk=$('posKind').value,vk=$('velKind').value;
+  if(!['xt','yt'].includes(pk)||!['vxt','vyt'].includes(vk))return;
+  const want=useY?'yt':'xt';if(pk===want&&vk===(useY?'vyt':'vxt'))return;
+  $('posKind').value=want;$('velKind').value=useY?'vyt':'vxt';
+  if($('posFit').value==='none')$('posFit').value='2';if($('velFit').value==='none')$('velFit').value='1';
+  drawCharts();toast(`物體主要沿 ${useY?'y':'x'} 方向移動，圖表已切換到 ${useY?'y–t 與 vy–t':'x–t 與 vx–t'}`);
 }
 
 /* ---------------- charts ---------------- */
