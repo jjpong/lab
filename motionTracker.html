@@ -103,6 +103,10 @@ label{display:inline-flex;align-items:center;gap:6px}
 .preset{padding:4px 8px;display:inline-flex;align-items:center;gap:4px}.preset .swatch{width:14px;height:14px}
 .swatch{width:18px;height:18px;border-radius:4px;border:1px solid var(--line);display:inline-block;vertical-align:middle}
 textarea{font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;resize:vertical;line-height:1.6}
+.camctl{display:flex;flex-direction:column;gap:8px;padding:10px 12px;background:var(--sunken);border-radius:6px}
+.camctl .subhead{font-size:12.5px;font-weight:700}
+.camctl-body{display:flex;flex-direction:column;gap:8px}
+.camctl .slider{grid-template-columns:4.5em minmax(0,1fr) 10.5em}
 .tablewrap{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:6px}
 table{border-collapse:collapse;width:100%;font-family:var(--font-num);font-size:12px;font-variant-numeric:tabular-nums}
 th,td{padding:4px 7px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
@@ -218,13 +222,33 @@ tbody tr{cursor:pointer}
           <button id="camBtn" type="button">開啟相機</button>
           <button id="recBtn" class="primary" type="button" disabled>● 開始錄影</button>
         </div>
-        <div class="row" id="expRow" hidden>
-          <label><input type="checkbox" id="expManual"> 手動曝光</label>
-          <input type="range" id="expRange" min="0" max="100" value="30" disabled aria-label="曝光時間" style="flex:1 1 120px;min-width:0">
-          <output id="expOut" class="num" style="font-size:12px"></output>
+        <div class="camctl" id="camCtl" hidden>
+          <div class="subhead">相機設定（直接控制相機硬體）</div>
+          <div id="camCtlBody" class="camctl-body"></div>
+          <p class="note" id="camCtlNote"></p>
         </div>
         <p class="note" id="camInfo">錄影時程式會記下每一幀的實際拍攝時間。光線越充足，越不容易掉幀和糊掉。</p>
-        <p class="note">開啟相機後，可以先在下方「裁切範圍」框出要錄的區域，只錄這一塊。</p>
+        <p class="note">開啟相機後，可以先在下方框出錄影範圍、做影像調整，預覽畫面會直接顯示效果。</p>
+      </div>
+
+      <div class="group">
+        <h3>裁切範圍</h3>
+        <div class="row">
+          <button id="cropTool" type="button">框選範圍</button>
+          <button id="cropApply" class="primary" type="button">套用裁切</button>
+          <button id="cropClear" type="button">取消範圍</button>
+        </div>
+        <p class="note" id="cropInfo"></p>
+      </div>
+
+      <div class="group">
+        <h3>影像調整</h3>
+        <div class="slider"><span>增益</span><input type="range" id="adjG" min="1" max="4" step="0.1" value="1"><output id="adjGOut" class="num">1.0×</output></div>
+        <div class="slider"><span>亮度</span><input type="range" id="adjB" min="-100" max="100" value="0"><output id="adjBOut" class="num">0</output></div>
+        <div class="slider"><span>對比</span><input type="range" id="adjC" min="-100" max="100" value="0"><output id="adjCOut" class="num">0</output></div>
+        <div class="slider"><span>飽和度</span><input type="range" id="adjS" min="0" max="300" step="5" value="100"><output id="adjSOut" class="num">100%</output></div>
+        <div class="row"><button id="adjReset" type="button">還原影像</button></div>
+        <p class="note">相機開著時，預覽畫面會直接套用這些調整，錄下的影格也沿用同一組設定。調整會用在顯示、追蹤與疊圖上，原始影格不會被改動，錄完還可以再改或還原。增益是把亮度乘上倍率，適合快門調快、畫面變暗時使用。調整之後，請重新框選要追蹤的物體。</p>
       </div>
 
       <div class="group">
@@ -242,25 +266,6 @@ tbody tr{cursor:pointer}
           <div class="progress"><i id="impBar"></i></div>
           <div class="row" style="margin-top:6px"><span class="note num" id="impProg"></span><button id="impCancel" type="button">停止抽取</button></div>
         </div>
-      </div>
-
-      <div class="group">
-        <h3>裁切範圍</h3>
-        <div class="row">
-          <button id="cropTool" type="button">框選範圍</button>
-          <button id="cropApply" class="primary" type="button">套用裁切</button>
-          <button id="cropClear" type="button">取消範圍</button>
-        </div>
-        <p class="note" id="cropInfo"></p>
-      </div>
-
-      <div class="group">
-        <h3>影像調整</h3>
-        <div class="slider"><span>亮度</span><input type="range" id="adjB" min="-100" max="100" value="0"><output id="adjBOut" class="num">0</output></div>
-        <div class="slider"><span>對比</span><input type="range" id="adjC" min="-100" max="100" value="0"><output id="adjCOut" class="num">0</output></div>
-        <div class="slider"><span>飽和度</span><input type="range" id="adjS" min="0" max="300" step="5" value="100"><output id="adjSOut" class="num">100%</output></div>
-        <div class="row"><button id="adjReset" type="button">還原影像</button></div>
-        <p class="note">調整會套用在顯示、追蹤與疊圖上，原始影格不會被改動，可以隨時還原。調整之後，請重新框選要追蹤的物體。</p>
       </div>
 
       <div class="group">
@@ -467,7 +472,7 @@ const S={
   playing:false, isDemo:false,
   stream:null, rec:null, importing:null,
   liveView:false, crop:null, cropMode:false,
-  adj:{b:0,c:0,s:100},
+  adj:{b:0,c:0,s:100,g:1},
 };
 
 /* ---------------- helpers ---------------- */
@@ -511,8 +516,8 @@ function frameCtx(i){
 }
 /* 影像調整：亮度、對比用查表，飽和度用與灰階的混合 */
 let LUT=null;
-function adjActive(){const a=S.adj;return a.b!==0||a.c!==0||a.s!==100}
-function buildLut(){const C=S.adj.c*2.55,f=259*(C+255)/(255*(259-C)),B=S.adj.b*2.55;LUT=new Uint8ClampedArray(256);for(let v=0;v<256;v++)LUT[v]=f*(v-128)+128+B}
+function adjActive(){const a=S.adj;return a.b!==0||a.c!==0||a.s!==100||(a.g||1)!==1}
+function buildLut(){const C=S.adj.c*2.55,f=259*(C+255)/(255*(259-C)),B=S.adj.b*2.55,G=S.adj.g||1;LUT=new Uint8ClampedArray(256);for(let v=0;v<256;v++)LUT[v]=f*(v*G-128)+128+B}
 function applyAdj(ctx,w,h){
   if(!LUT)buildLut();const img=ctx.getImageData(0,0,w,h),d=img.data,sf=S.adj.s/100;
   for(let j=0;j<d.length;j+=4){let r=LUT[d[j]],g=LUT[d[j+1]],b=LUT[d[j+2]];
@@ -547,7 +552,8 @@ function showStage(which){
   const was=S.stage;S.stage=which;S.liveView=which==='live';
   if(was!==which){S.crop=null;S.cropMode=false}
   view.hidden=which==='import';live.hidden=which!=='live';impVid.hidden=which!=='import';
-  view.classList.toggle('over',S.liveView);   // 即時畫面時，畫布疊在影片上方，只用來畫裁切框
+  view.classList.toggle('over',S.liveView);   // 即時畫面時，畫布疊在影片上方：畫裁切框，有影像調整時也畫調整後的預覽
+  if(S.liveView)ensureLiveLoop();
 }
 function dims(){return S.liveView?{w:live.videoWidth||640,h:live.videoHeight||480}:{w:S.W,h:S.H}}
 function clampTo(r,d){let {x,y,w,h}=r;x=Math.round(Math.max(0,x));y=Math.round(Math.max(0,y));w=Math.round(Math.min(d.w-x,w));h=Math.round(Math.min(d.h-y,h));return {x,y,w:Math.max(0,w),h:Math.max(0,h)}}
@@ -560,7 +566,12 @@ function render(){
   if(view.hidden)return;
   const D=dims();if(view.width!==D.w||view.height!==D.h){view.width=D.w;view.height=D.h}
   vctx.setTransform(1,0,0,1,0,0);
-  if(S.liveView){vctx.clearRect(0,0,D.w,D.h);drawCropBox(lw());return}
+  if(S.liveView){
+    if(adjActive()&&live.readyState>=2){   // 錄影前就套用影像調整的預覽
+      if(lcv.width!==D.w||lcv.height!==D.h){lcv.width=D.w;lcv.height=D.h}
+      lctx.drawImage(live,0,0,D.w,D.h);applyAdj(lctx,D.w,D.h);vctx.drawImage(lcv,0,0);
+    }else vctx.clearRect(0,0,D.w,D.h);
+    drawCropBox(lw());return}
   vctx.fillStyle='#000';vctx.fillRect(0,0,S.W,S.H);
   if(!N()){vctx.fillStyle='#888';vctx.font='20px sans-serif';vctx.textAlign='center';vctx.fillText('開啟相機錄影，或匯入影片',S.W/2,S.H/2);return}
   if(S.showOverlay&&S.overlay)vctx.drawImage(S.overlay,0,0);
@@ -571,6 +582,12 @@ function render(){
   drawCalib(L);drawTrack(L);
   if(S.tab==='source')drawCropBox(L);
   if(drag&&drag.kind==='box'){const r=normRect(drag.a,drag.b);vctx.setLineDash([6*L,4*L]);vctx.strokeStyle='#ffd400';vctx.lineWidth=2*L;vctx.strokeRect(r.x,r.y,r.w,r.h);vctx.setLineDash([])}
+}
+const lcv=document.createElement('canvas'),lctx=lcv.getContext('2d',{willReadFrequently:true});let liveLoopOn=false;
+function ensureLiveLoop(){
+  if(liveLoopOn||!S.liveView||!adjActive())return;liveLoopOn=true;
+  const step=()=>{if(!S.liveView||!adjActive()){liveLoopOn=false;render();return}render();requestAnimationFrame(step)};
+  requestAnimationFrame(step);
 }
 function drawCropBox(L){
   const r=S.crop;if(!r||!r.w||!r.h)return;const D=dims();
@@ -1024,16 +1041,16 @@ $('cropApply').onclick=async()=>{
 };
 
 /* ---------------- image adjustment ---------------- */
-function syncAdjUI(){$('adjB').value=S.adj.b;$('adjC').value=S.adj.c;$('adjS').value=S.adj.s;
+function syncAdjUI(){$('adjG').value=S.adj.g||1;$('adjGOut').textContent=(+(S.adj.g||1)).toFixed(1)+'×';$('adjB').value=S.adj.b;$('adjC').value=S.adj.c;$('adjS').value=S.adj.s;
   $('adjBOut').textContent=S.adj.b;$('adjCOut').textContent=S.adj.c;$('adjSOut').textContent=S.adj.s+'%'}
-['adjB','adjC','adjS'].forEach(id=>$(id).addEventListener('input',()=>{
-  S.adj={b:+$('adjB').value,c:+$('adjC').value,s:+$('adjS').value};buildLut();workIdx=-1;syncAdjUI();render()}));
-$('adjReset').onclick=()=>{S.adj={b:0,c:0,s:100};buildLut();workIdx=-1;syncAdjUI();render()};
+['adjG','adjB','adjC','adjS'].forEach(id=>$(id).addEventListener('input',()=>{
+  S.adj={g:+$('adjG').value,b:+$('adjB').value,c:+$('adjC').value,s:+$('adjS').value};buildLut();workIdx=-1;syncAdjUI();render();ensureLiveLoop()}));
+$('adjReset').onclick=()=>{S.adj={b:0,c:0,s:100,g:1};buildLut();workIdx=-1;syncAdjUI();render()};
 
 /* ---------------- start over ---------------- */
 function resetAll(){
   pause();S.tracking=false;S.importing&&(S.importing.cancel=true);
-  S.adj={b:0,c:0,s:100};buildLut();syncAdjUI();
+  S.adj={b:0,c:0,s:100,g:1};buildLut();syncAdjUI();
   setFrames([],640,400);
   S.calibTool='scale';$('scaleLen').value=100;$('scaleUnit').value='cm';S.scale.len=100;S.scale.unit='cm';$('yUp').checked=true;S.axes.yUp=true;$('axisOut').textContent='0°';
   $('posKind').value='xt';$('posFit').value='none';$('velKind').value='vxt';$('velFit').value='none';
@@ -1068,18 +1085,61 @@ async function startCamera(){
   $('camBtn').textContent='關閉相機';$('recBtn').disabled=false;
   const tr=S.stream.getVideoTracks()[0],st=tr.getSettings();
   $('camInfo').textContent=`相機回報：${st.width}×${st.height}，${st.frameRate?Math.round(st.frameRate)+' fps':'幀率未知'}。實際幀率會在錄影後顯示。畫面不做鏡像，左右方向與實際相同。`;
-  setupExposure(tr);listCams();updateAll();
+  setupCameraControls(tr);listCams();updateAll();
 }
-function setupExposure(tr){
-  const cap=tr.getCapabilities?tr.getCapabilities():{};const row=$('expRow');
-  if(!cap.exposureMode||!cap.exposureMode.includes('manual')||!cap.exposureTime){row.hidden=true;return}
-  row.hidden=false;const r=$('expRange'),{min,max}=cap.exposureTime;
-  const val=()=>min*Math.pow(max/min,+r.value/100);
-  const show=()=>$('expOut').textContent=$('expManual').checked?val().toFixed(0):'自動';
-  $('expManual').onchange=async()=>{r.disabled=!$('expManual').checked;try{await tr.applyConstraints({advanced:[$('expManual').checked?{exposureMode:'manual',exposureTime:val()}:{exposureMode:'continuous'}]})}catch(e){toast('這台相機不接受手動曝光設定')}show()};
-  r.oninput=async()=>{try{await tr.applyConstraints({advanced:[{exposureMode:'manual',exposureTime:val()}]})}catch(e){}show()};show();
+// 相機硬體控制：只顯示這台相機與瀏覽器真的支援的項目
+function camSlider(label,min,max,step,val,fmtFn,onInput){
+  const row=document.createElement('div');row.className='slider';
+  const sp=document.createElement('span');sp.textContent=label;
+  const r=document.createElement('input');r.type='range';r.min=min;r.max=max;r.step=step;r.value=val;r.setAttribute('aria-label',label);
+  const o=document.createElement('output');o.className='num';o.textContent=fmtFn(+r.value);
+  r.addEventListener('input',()=>{o.textContent=fmtFn(+r.value);onInput(+r.value)});
+  row.append(sp,r,o);return {row,r,o};
 }
-function stopCamera(){if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}live.srcObject=null;$('camBtn').textContent='開啟相機';$('recBtn').disabled=true;$('expRow').hidden=true}
+function camCheck(label,checked,onChange){
+  const l=document.createElement('label');const c=document.createElement('input');c.type='checkbox';c.checked=checked;
+  c.addEventListener('change',()=>onChange(c.checked));l.append(c,document.createTextNode(' '+label));return {l,c};
+}
+function setupCameraControls(tr){
+  const box=$('camCtlBody');box.innerHTML='';$('camCtl').hidden=false;
+  let cap={},st={};try{cap=tr.getCapabilities?tr.getCapabilities():{};st=tr.getSettings?tr.getSettings():{}}catch(e){}
+  let busy=Promise.resolve();
+  const apply=c=>busy=busy.then(()=>tr.applyConstraints({advanced:[c]})).catch(e=>toast('相機不接受這個設定'+(e&&e.name?`（${e.name}）`:'')));
+  const fps=+$('fpsSel').value;let n=0;
+  // 1. 快門（曝光時間），規格單位是 100 微秒
+  if(cap.exposureMode&&cap.exposureMode.includes('manual')&&cap.exposureTime&&cap.exposureTime.max>cap.exposureTime.min){
+    const lo=Math.max(cap.exposureTime.min,1),hi=cap.exposureTime.max;
+    const toV=p=>lo*Math.pow(hi/lo,p/1000),toP=v=>Math.round(1000*Math.log(Math.max(v,lo)/lo)/Math.log(hi/lo));
+    const fmtS=p=>{const sec=toV(p)/10000;return `1/${Math.round(1/sec)} s（${+(sec*1000).toFixed(sec<0.01?2:1)}ms）`};
+    const warn=document.createElement('p');warn.className='note warn';warn.hidden=true;
+    const chk=()=>{const sec=toV(+sl.r.value)/10000;warn.hidden=!(man.c.checked&&sec>1/fps*1.05);warn.textContent=`快門 ${(sec*1000).toFixed(0)} ms 比每幀時間（${(1000/fps).toFixed(0)} ms）還長，幀率會掉到約 ${Math.floor(1/sec)} fps。`};
+    const init=st.exposureTime?toP(st.exposureTime):toP(Math.min(hi,100));   // 預設約 1/100 s
+    const sl=camSlider('快門',0,1000,1,init,fmtS,()=>{if(man.c.checked)apply({exposureMode:'manual',exposureTime:toV(+sl.r.value)});chk()});
+    const man=camCheck('手動曝光（固定快門）',st.exposureMode==='manual',on=>{sl.r.disabled=!on;
+      apply(on?{exposureMode:'manual',exposureTime:toV(+sl.r.value)}:{exposureMode:cap.exposureMode.includes('continuous')?'continuous':cap.exposureMode[0]});chk()});
+    sl.r.disabled=!man.c.checked;box.append(man.l,sl.row,warn);chk();n++;
+  }
+  // 2. 曝光補償（自動曝光時調整明暗）
+  if(cap.exposureCompensation&&cap.exposureCompensation.max>cap.exposureCompensation.min){
+    const c=cap.exposureCompensation;const sl=camSlider('曝光補償',c.min,c.max,c.step||0.1,st.exposureCompensation??0,v=>(v>0?'+':'')+(+v).toFixed(1),v=>apply({exposureCompensation:v}));
+    box.append(sl.row);n++;
+  }
+  // 3. ISO（感光度）
+  if(cap.iso&&cap.iso.max>cap.iso.min){
+    const c=cap.iso;const sl=camSlider('ISO',c.min,c.max,c.step||1,st.iso??c.min,v=>String(Math.round(v)),v=>apply({iso:v}));box.append(sl.row);n++;
+  }
+  // 4. 手動對焦（避免拍攝中自動對焦跑掉）
+  if(cap.focusMode&&cap.focusMode.includes('manual')&&cap.focusDistance&&cap.focusDistance.max>cap.focusDistance.min){
+    const c=cap.focusDistance;
+    const sl=camSlider('對焦距離',c.min,c.max,c.step||0.01,st.focusDistance??c.min,v=>(+v).toFixed(2),v=>{if(mf.c.checked)apply({focusMode:'manual',focusDistance:v})});
+    const mf=camCheck('手動對焦（鎖定焦距）',st.focusMode==='manual',on=>{sl.r.disabled=!on;apply(on?{focusMode:'manual',focusDistance:+sl.r.value}:{focusMode:cap.focusMode.includes('continuous')?'continuous':cap.focusMode[0]})});
+    sl.r.disabled=!mf.c.checked;box.append(mf.l,sl.row);n++;
+  }
+  $('camCtlNote').textContent=n
+    ?'快門越快越不會糊，但畫面越暗；暗了可以用下方「影像調整」的增益提亮。快門要短於每幀時間（30 fps 約 33 ms），否則幀率會下降。'
+    :'這台相機或這個瀏覽器沒有開放手動曝光控制。Safari（含 iPad、iPhone）和部分 Mac 內建鏡頭都不支援；在 Windows 或 Chromebook 上用 Chrome、Edge 搭配 USB 攝影機比較常可以調。光線不足時，可以加強照明，或用下方「影像調整」的增益提亮。';
+}
+function stopCamera(){if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}live.srcObject=null;$('camBtn').textContent='開啟相機';$('recBtn').disabled=true;$('camCtl').hidden=true}
 $('camBtn').onclick=()=>{if(S.stream){stopCamera();showStage('canvas');updateAll()}else startCamera()};
 live.addEventListener('loadedmetadata',()=>{if(S.liveView)updateAll()});
 $('resSel').onchange=$('fpsSel').onchange=$('camSel').onchange=()=>{if(S.stream)startCamera()};
@@ -1362,7 +1422,7 @@ $('xlsxBtn').onclick=async()=>{
       ['y 軸方向',S.axes.yUp?'向上為正':'向下為正'],
       ['追蹤方法',{ncc:'外觀比對',color:'顏色追蹤',manual:'手動點選'}[method()]],
       ['速度計算',`中央差分，跨距 ±${$('vSpan').value} 個點`],
-      ['影像調整',adjActive()?`亮度 ${S.adj.b}、對比 ${S.adj.c}、飽和度 ${S.adj.s}%`:'無'],
+      ['影像調整',adjActive()?`增益 ${(S.adj.g||1).toFixed(1)}×、亮度 ${S.adj.b}、對比 ${S.adj.c}、飽和度 ${S.adj.s}%`:'無'],
       [$('posKind').selectedOptions[0].text+' 擬合',plainFit(charts.pos)||'未擬合'],
       [$('velKind').selectedOptions[0].text+' 擬合',plainFit(charts.vel)||'未擬合'],
       ['觀察與討論',$('notes').value.trim()||'（無）'],
@@ -1462,7 +1522,7 @@ async function restoreSession(d){
   S.axes=d.axes;$('axisAngle').value=d.axes.angle;$('axisOut').textContent=d.axes.angle+'°';$('yUp').checked=d.axes.yUp;
   S.timeMode=d.timeMode;S.fpsOverride=d.fpsOverride;$('fpsOverride').value=d.fpsOverride;
   document.querySelector(`input[name=timeMode][value=${d.timeMode}]`).checked=true;
-  S.adj=d.adj||{b:0,c:0,s:100};buildLut();syncAdjUI();workIdx=-1;
+  S.adj={b:0,c:0,s:100,g:1,...(d.adj||{})};buildLut();syncAdjUI();workIdx=-1;
   const mr=document.querySelector(`input[name=tmethod][value=${d.method}]`);if(mr)mr.checked=true;
   S.color=d.color||null;updateColorUI();$('maskPrev').checked=!!d.maskPrev;
   S.tpl=d.tpl?{w:d.tpl.w,h:d.tpl.h,g:Float32Array.from(d.tpl.g)}:null;
