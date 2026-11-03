@@ -48,6 +48,8 @@ header.top .sub{color:var(--muted);font-size:13px}
 .viewport{position:relative;line-height:0;display:flex;justify-content:center;background:var(--stage)}
 .viewport canvas#view,.viewport video{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain}
 .viewport canvas#view{touch-action:pan-y}
+.viewport canvas#view.over{position:absolute;inset:0;width:100%;height:100%;max-height:none;background:transparent;z-index:1}
+.banner,.rec-badge,.countdown,.loupe{z-index:2}
 .viewport canvas#view.tool{touch-action:none;cursor:crosshair}
 .banner{position:absolute;left:10px;top:10px;right:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;line-height:1.4;
   background:color-mix(in srgb,var(--panel) 88%,transparent);color:var(--ink);padding:6px 10px;border-radius:6px;font-size:12.5px;width:fit-content;max-width:calc(100% - 20px)}
@@ -195,6 +197,9 @@ tbody tr{cursor:pointer}
     <!-- 1 影像 -->
     <div class="pane" data-pane="source">
       <div class="group">
+        <div class="row"><button id="resetBtn" class="danger" type="button">重新開始</button><span class="note">清除影格、追蹤點、比例尺、座標軸、疊圖、裁切與影像調整。相機會保持開啟，可以直接重錄。</span></div>
+      </div>
+      <div class="group">
         <h3>相機錄影</h3>
         <div class="row">
           <select id="camSel" aria-label="相機"><option value="">預設相機</option></select>
@@ -217,6 +222,7 @@ tbody tr{cursor:pointer}
           <output id="expOut" class="num" style="font-size:12px"></output>
         </div>
         <p class="note" id="camInfo">錄影時程式會記下每一幀的實際拍攝時間。光線越充足，越不容易掉幀和糊掉。</p>
+        <p class="note">開啟相機後，可以先在下方「裁切範圍」框出要錄的區域，只錄這一塊。</p>
       </div>
 
       <div class="group">
@@ -237,6 +243,25 @@ tbody tr{cursor:pointer}
       </div>
 
       <div class="group">
+        <h3>裁切範圍</h3>
+        <div class="row">
+          <button id="cropTool" type="button">框選範圍</button>
+          <button id="cropApply" class="primary" type="button">套用裁切</button>
+          <button id="cropClear" type="button">取消範圍</button>
+        </div>
+        <p class="note" id="cropInfo"></p>
+      </div>
+
+      <div class="group">
+        <h3>影像調整</h3>
+        <div class="slider"><span>亮度</span><input type="range" id="adjB" min="-100" max="100" value="0"><output id="adjBOut" class="num">0</output></div>
+        <div class="slider"><span>對比</span><input type="range" id="adjC" min="-100" max="100" value="0"><output id="adjCOut" class="num">0</output></div>
+        <div class="slider"><span>飽和度</span><input type="range" id="adjS" min="0" max="300" step="5" value="100"><output id="adjSOut" class="num">100%</output></div>
+        <div class="row"><button id="adjReset" type="button">還原影像</button></div>
+        <p class="note">調整會套用在顯示、追蹤與疊圖上，原始影格不會被改動，可以隨時還原。調整之後，請重新框選要追蹤的物體。</p>
+      </div>
+
+      <div class="group">
         <h3>時間基準</h3>
         <label><input type="radio" name="timeMode" value="stamp" checked> 使用每幀的實際時間戳（建議）</label>
         <label><input type="radio" name="timeMode" value="fps"> 固定幀率 <input type="number" id="fpsOverride" value="240" min="1" step="1"> fps</label>
@@ -245,7 +270,7 @@ tbody tr{cursor:pointer}
       </div>
 
       <div class="group">
-        <h3>裁切影格</h3>
+        <h3>保留片段</h3>
         <div class="row">
           <button id="cutBefore" class="danger" type="button">刪除目前幀之前</button>
           <button id="cutAfter" class="danger" type="button">刪除目前幀之後</button>
@@ -390,9 +415,11 @@ tbody tr{cursor:pointer}
       <div class="group">
         <h3>匯出</h3>
         <div class="row">
+          <button id="xlsxBtn" class="primary" type="button">下載 Excel（含圖）</button>
           <button id="csvBtn" type="button">下載 CSV</button>
           <button id="copyBtn" type="button">複製表格（貼到試算表）</button>
         </div>
+        <p class="note">Excel 檔有兩個工作表：「運動數據」放實驗設定、擬合結果與每一點的數據；「圖像」放軌跡圖、頻閃疊圖（有產生才會放）與目前選擇的位置圖、速度圖。要用 Google 試算表，可把檔案上傳到 Google 雲端硬碟再開啟。</p>
         <div class="tablewrap"><table id="dataTable"><thead></thead><tbody></tbody></table></div>
       </div>
     </div>
@@ -422,6 +449,8 @@ const S={
   overlay:null, showOverlay:false,
   playing:false, isDemo:false,
   stream:null, rec:null, importing:null,
+  liveView:false, crop:null, cropMode:false,
+  adj:{b:0,c:0,s:100},
 };
 
 /* ---------------- helpers ---------------- */
@@ -460,8 +489,19 @@ function toWorld(p){
 const work=document.createElement('canvas');const wctx=work.getContext('2d',{willReadFrequently:true});let workIdx=-1;
 function frameCtx(i){
   if(work.width!==S.W||work.height!==S.H){work.width=S.W;work.height=S.H;workIdx=-1}
-  if(workIdx!==i){wctx.drawImage(S.frames[i].bmp,0,0,S.W,S.H);workIdx=i}
+  if(workIdx!==i){wctx.drawImage(S.frames[i].bmp,0,0,S.W,S.H);if(adjActive())applyAdj(wctx,S.W,S.H);workIdx=i}
   return wctx;
+}
+/* 影像調整：亮度、對比用查表，飽和度用與灰階的混合 */
+let LUT=null;
+function adjActive(){const a=S.adj;return a.b!==0||a.c!==0||a.s!==100}
+function buildLut(){const C=S.adj.c*2.55,f=259*(C+255)/(255*(259-C)),B=S.adj.b*2.55;LUT=new Uint8ClampedArray(256);for(let v=0;v<256;v++)LUT[v]=f*(v-128)+128+B}
+function applyAdj(ctx,w,h){
+  if(!LUT)buildLut();const img=ctx.getImageData(0,0,w,h),d=img.data,sf=S.adj.s/100;
+  for(let j=0;j<d.length;j+=4){let r=LUT[d[j]],g=LUT[d[j+1]],b=LUT[d[j+2]];
+    if(sf!==1){const l=0.299*r+0.587*g+0.114*b;r=l+(r-l)*sf;g=l+(g-l)*sf;b=l+(b-l)*sf}
+    d[j]=r;d[j+1]=g;d[j+2]=b}
+  ctx.putImageData(img,0,0);
 }
 function clampRect(x,y,w,h){x=Math.round(x);y=Math.round(y);w=Math.round(w);h=Math.round(h);
   if(x<0){w+=x;x=0}if(y<0){h+=y;y=0}if(x+w>S.W)w=S.W-x;if(y+h>S.H)h=S.H-y;return {x,y,w:Math.max(0,w),h:Math.max(0,h)}}
@@ -487,24 +527,40 @@ function timeStats(){
   return `時間戳：共 ${N()} 幀，${dur.toFixed(3)} s，平均 ${((N()-1)/dur).toFixed(1)} fps，間隔 ${(mn*1000).toFixed(1)}～${(mx*1000).toFixed(1)} ms`;
 }
 function showStage(which){
-  view.hidden=which!=='canvas';live.hidden=which!=='live';impVid.hidden=which!=='import';
+  const was=S.stage;S.stage=which;S.liveView=which==='live';
+  if(was!==which){S.crop=null;S.cropMode=false}
+  view.hidden=which==='import';live.hidden=which!=='live';impVid.hidden=which!=='import';
+  view.classList.toggle('over',S.liveView);   // 即時畫面時，畫布疊在影片上方，只用來畫裁切框
 }
+function dims(){return S.liveView?{w:live.videoWidth||640,h:live.videoHeight||480}:{w:S.W,h:S.H}}
+function clampTo(r,d){let {x,y,w,h}=r;x=Math.round(Math.max(0,x));y=Math.round(Math.max(0,y));w=Math.round(Math.min(d.w-x,w));h=Math.round(Math.min(d.h-y,h));return {x,y,w:Math.max(0,w),h:Math.max(0,h)}}
 
 /* ---------------- rendering ---------------- */
 // 畫布用 object-fit:contain 顯示，高度受限時左右會留黑邊，所以要算出影像實際顯示的區域
-function contentRect(){const r=view.getBoundingClientRect(),k=Math.min(r.width/S.W,r.height/S.H)||1,w=S.W*k,h=S.H*k;return {left:r.left+(r.width-w)/2,top:r.top+(r.height-h)/2,width:w,height:h}}
-function lw(){return S.W/Math.max(1,contentRect().width)}
+function contentRect(){const D=dims(),r=view.getBoundingClientRect(),k=Math.min(r.width/D.w,r.height/D.h)||1,w=D.w*k,h=D.h*k;return {left:r.left+(r.width-w)/2,top:r.top+(r.height-h)/2,width:w,height:h}}
+function lw(){return dims().w/Math.max(1,contentRect().width)}
 function render(){
   if(view.hidden)return;
+  const D=dims();if(view.width!==D.w||view.height!==D.h){view.width=D.w;view.height=D.h}
   vctx.setTransform(1,0,0,1,0,0);
+  if(S.liveView){vctx.clearRect(0,0,D.w,D.h);drawCropBox(lw());return}
   vctx.fillStyle='#000';vctx.fillRect(0,0,S.W,S.H);
   if(!N()){vctx.fillStyle='#888';vctx.font='20px sans-serif';vctx.textAlign='center';vctx.fillText('開啟相機錄影，或匯入影片',S.W/2,S.H/2);return}
   if(S.showOverlay&&S.overlay)vctx.drawImage(S.overlay,0,0);
+  else if(adjActive())vctx.drawImage(frameCtx(S.cur).canvas,0,0);
   else vctx.drawImage(S.frames[S.cur].bmp,0,0,S.W,S.H);
   if(S.tab==='track'&&method()==='color'&&S.color&&$('maskPrev').checked&&!S.showOverlay)drawMask();
   const L=lw();
   drawCalib(L);drawTrack(L);
+  if(S.tab==='source')drawCropBox(L);
   if(drag&&drag.kind==='box'){const r=normRect(drag.a,drag.b);vctx.setLineDash([6*L,4*L]);vctx.strokeStyle='#ffd400';vctx.lineWidth=2*L;vctx.strokeRect(r.x,r.y,r.w,r.h);vctx.setLineDash([])}
+}
+function drawCropBox(L){
+  const r=S.crop;if(!r||!r.w||!r.h)return;const D=dims();
+  vctx.fillStyle='rgba(0,0,0,.55)';
+  vctx.fillRect(0,0,D.w,r.y);vctx.fillRect(0,r.y+r.h,D.w,D.h-r.y-r.h);vctx.fillRect(0,r.y,r.x,r.h);vctx.fillRect(r.x+r.w,r.y,D.w-r.x-r.w,r.h);
+  vctx.strokeStyle='#ffd400';vctx.lineWidth=2*L;vctx.setLineDash([8*L,5*L]);vctx.strokeRect(r.x,r.y,r.w,r.h);vctx.setLineDash([]);
+  label(`${r.w}×${r.h}`,r.x+r.w/2,r.y+14*L,'#ffd400',L);
 }
 function drawMask(){
   const img=frameCtx(S.cur).getImageData(0,0,S.W,S.H),d=img.data,c=S.color;
@@ -592,11 +648,12 @@ document.addEventListener('keydown',e=>{
 
 /* ---------------- tabs & hints ---------------- */
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-function setTab(t){S.tab=t;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+function setTab(t){S.tab=t;if(t!=='source')S.cropMode=false;document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
   document.querySelectorAll('.pane').forEach(p=>p.hidden=p.dataset.pane!==t);updateAll()}
 function method(){return document.querySelector('input[name=tmethod]:checked').value}
 function tool(){
-  if(!N()||view.hidden)return null;
+  if(S.cropMode&&!S.rec&&(S.liveView||N()))return 'crop';
+  if(S.liveView||!N()||view.hidden)return null;
   if(S.tab==='calib')return S.calibTool;
   if(S.tab==='track')return method()==='manual'?'manual':'auto';
   return null;
@@ -604,6 +661,8 @@ function tool(){
 function updateHint(){
   const t=tool();let h='';
   if(S.rec)h='<strong>錄影中</strong>，按「停止錄影」或空白鍵結束。';
+  else if(t==='crop')h=S.liveView?'<strong>框選錄影範圍：</strong>在即時畫面上拖曳出要錄的區域。錄影時只會存下框內的畫面。':'<strong>框選範圍：</strong>拖曳出要保留的區域，再按「套用裁切」。';
+  else if(S.liveView)h='相機已開啟。可以先到「裁切範圍」框出要錄的區域，再按「開始錄影」。';
   else if(!N())h='先到「影像」開啟相機錄影，或匯入一段影片。';
   else if(t==='scale')h='<strong>比例尺：</strong>在畫面上從已知長度物體（例如米尺）的一端拖曳到另一端，再在右側填入實際長度。可拖曳兩端圓點微調。';
   else if(t==='origin')h='<strong>原點：</strong>點一下畫面設定座標原點，可以拖曳移動。';
@@ -622,8 +681,16 @@ function updateHint(){
 function updateAll(){updateHint();updateControls();updateFrameUI();buildTable()}
 function updateControls(){
   const has=N()>0;
-  ['pickBtn','cutBefore','cutAfter','scaleTool','originTool','axisTool','alignTrack','flipX','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
+  ['pickBtn','xlsxBtn','cutBefore','cutAfter','scaleTool','originTool','axisTool','alignTrack','flipX','alignAxis','trackFwd','trackBack','delPoint','clearTrack','ovBuild','csvBtn','copyBtn'].forEach(id=>$(id).disabled=!has||S.tracking);
   $('trackStop').disabled=!S.tracking;
+  $('resetBtn').disabled=!!S.rec;
+  $('cropTool').disabled=!!S.rec||!(S.liveView||has);$('cropTool').classList.toggle('on',S.cropMode);
+  $('cropTool').textContent=S.liveView?'框選錄影範圍':'框選範圍';
+  $('cropApply').hidden=S.liveView;$('cropApply').disabled=!(S.crop&&has&&!S.liveView);
+  $('cropClear').disabled=!S.crop||!!S.rec;
+  const cr=S.crop;
+  $('cropInfo').textContent=S.liveView?(cr?`錄影時只會存下框內 ${cr.w}×${cr.h} 的畫面（完整畫面是 ${dims().w}×${dims().h}）。`:'可以先框出要錄的區域，只錄這一塊，影格較小、追蹤也較快。不框選就錄完整畫面。')
+    :(cr?`範圍 ${cr.w}×${cr.h}。按「套用裁切」後，所有影格都會裁成這個範圍，已取的追蹤點、比例尺和原點會跟著平移。`:has?`目前影格大小 ${S.W}×${S.H}。可以框出要分析的範圍再套用裁切。`:'開啟相機後可以先框出錄影範圍；錄完或匯入影片後也可以再裁切。');
   $('scaleTool').classList.toggle('on',S.calibTool==='scale');$('originTool').classList.toggle('on',S.calibTool==='origin');$('axisTool').classList.toggle('on',S.calibTool==='axis');
   const m=method();
   $('autoGroup').hidden=m==='manual';$('manualGroup').hidden=m!=='manual';
@@ -640,7 +707,7 @@ function updateControls(){
 
 /* ---------------- canvas pointer interaction ---------------- */
 let drag=null;
-function evPt(e){const r=contentRect();return {x:(e.clientX-r.left)*S.W/r.width,y:(e.clientY-r.top)*S.H/r.height}}
+function evPt(e){const r=contentRect(),D=dims();return {x:(e.clientX-r.left)*D.w/r.width,y:(e.clientY-r.top)*D.h/r.height}}
 function normRect(a,b){return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x),h:Math.abs(a.y-b.y)}}
 view.addEventListener('pointerdown',e=>{
   const t=tool();if(!t||S.tracking)return;
@@ -655,6 +722,7 @@ view.addEventListener('pointerdown',e=>{
   else if(t==='axis'){S.axes.ox=p.x;S.axes.oy=p.y;drag={kind:'axis',a:p,b:p}}
   else if(t==='manual'){setPoint(S.cur,p,'manual');if($('autoAdv').checked)goto(S.cur+(+$('stepSel').value));drag=null}
   else if(t==='auto'){drag={kind:'box',a:p,b:p}}
+  else if(t==='crop'){drag={kind:'crop',a:p};S.crop=null}
   render();
 });
 view.addEventListener('pointermove',e=>{
@@ -664,10 +732,12 @@ view.addEventListener('pointermove',e=>{
   else if(drag.kind==='origin'){S.axes.ox=p.x;S.axes.oy=p.y}
   else if(drag.kind==='axis'){drag.b=p;if(Math.hypot(p.x-drag.a.x,p.y-drag.a.y)>8*lw())setAngle(Math.atan2(-(p.y-drag.a.y),p.x-drag.a.x)*180/Math.PI,false)}
   else if(drag.kind==='box')drag.b=p;
+  else if(drag.kind==='crop')S.crop=clampTo(normRect(drag.a,p),dims());
   render();
 });
 view.addEventListener('pointerup',e=>{
   if(!drag)return;const d=drag;drag=null;const p=evPt(e);
+  if(d.kind==='crop'){if(!S.crop||S.crop.w<8||S.crop.h<8)S.crop=null;S.cropMode=!S.crop;updateHint();updateControls();render();return}
   if(d.kind==='box'){
     const r=normRect(d.a,p);
     if(r.w<6*lw()&&r.h<6*lw())correctAt(p);else boxSelect(r);
@@ -679,7 +749,7 @@ view.addEventListener('pointerup',e=>{
 view.addEventListener('pointerleave',()=>{$('loupe').hidden=true});
 view.addEventListener('pointercancel',()=>{drag=null;render()});
 function showLoupe(e,p){
-  const lp=$('loupe');if(!tool()||e.pointerType==='touch'&&!drag){lp.hidden=true;return}
+  const lp=$('loupe'),tl=tool();if(!tl||tl==='crop'||e.pointerType==='touch'&&!drag){lp.hidden=true;return}
   const vp=$('viewport').getBoundingClientRect(),r=contentRect();
   const sx=e.clientX-vp.left,sy=e.clientY-vp.top;
   lp.hidden=false;let lx=sx+24,ly=sy-156;if(ly<4)ly=sy+24;if(lx+136>vp.width)lx=sx-160;lp.style.left=lx+'px';lp.style.top=ly+'px';
@@ -865,7 +935,6 @@ async function runTrack(dir,{silent=false}={}){
   S.tracking=false;
   if(stopped){S.lowConf=stopped;S.cur=stopped.i;$('trackMsg').innerHTML=`<span class="note warn">第 ${stopped.i+1} 幀信心 ${stopped.conf.toFixed(2)}，低於門檻 ${thr}。請點選物體正確位置後繼續，或降低門檻、加大搜尋範圍。</span>`;$('trackMsg').className='note warn'}
   else{$('trackMsg').className='note num';$('trackMsg').textContent=`完成，新增 ${cnt} 個點。`}
-  if(!silent&&cnt)autoAxisCharts();
   if(!silent){updateHint();updateControls();updateFrameUI();buildTable()}
 }
 $('trackFwd').onclick=()=>runTrack(1);$('trackBack').onclick=()=>runTrack(-1);
@@ -920,6 +989,47 @@ function trim(a,b){
   toast(`剩下 ${N()} 幀`);updateAll();
 }
 
+/* ---------------- crop ---------------- */
+$('cropTool').onclick=()=>{S.cropMode=!S.cropMode;updateHint();updateControls();render()};
+$('cropClear').onclick=()=>{S.crop=null;S.cropMode=false;updateHint();updateControls();render()};
+$('cropApply').onclick=async()=>{
+  const r=S.crop;if(!r||!N()||S.liveView)return;
+  $('cropApply').disabled=true;pause();
+  let nb;try{nb=await Promise.all(S.frames.map(f=>createImageBitmap(f.bmp,r.x,r.y,r.w,r.h)))}catch(e){toast('裁切失敗：'+e.message);updateControls();return}
+  S.frames.forEach((f,i)=>{f.bmp.close&&f.bmp.close();f.bmp=nb[i]});
+  const sh=p=>({...p,x:p.x-r.x,y:p.y-r.y});
+  let lost=0;S.track=S.track.map(p=>{if(!p)return null;const q=sh(p);if(q.x<0||q.y<0||q.x>r.w||q.y>r.h){lost++;return null}return q});
+  if(S.scale.p1&&S.scale.p2){S.scale.p1=sh(S.scale.p1);S.scale.p2=sh(S.scale.p2)}
+  if(S.axes.ox!=null){S.axes.ox-=r.x;S.axes.oy-=r.y}
+  S.W=r.w;S.H=r.h;workIdx=-1;S.overlay=null;S.showOverlay=false;S.lowConf=null;S.crop=null;S.cropMode=false;
+  $('ovToggle').disabled=$('ovSave').disabled=true;$('ovToggle').textContent='顯示疊圖';
+  updateAll();toast(`已裁切成 ${r.w}×${r.h}`+(lost?`，範圍外的 ${lost} 個追蹤點已刪除`:''));
+};
+
+/* ---------------- image adjustment ---------------- */
+function syncAdjUI(){$('adjB').value=S.adj.b;$('adjC').value=S.adj.c;$('adjS').value=S.adj.s;
+  $('adjBOut').textContent=S.adj.b;$('adjCOut').textContent=S.adj.c;$('adjSOut').textContent=S.adj.s+'%'}
+['adjB','adjC','adjS'].forEach(id=>$(id).addEventListener('input',()=>{
+  S.adj={b:+$('adjB').value,c:+$('adjC').value,s:+$('adjS').value};buildLut();workIdx=-1;syncAdjUI();render()}));
+$('adjReset').onclick=()=>{S.adj={b:0,c:0,s:100};buildLut();workIdx=-1;syncAdjUI();render()};
+
+/* ---------------- start over ---------------- */
+function resetAll(){
+  pause();S.tracking=false;S.importing&&(S.importing.cancel=true);
+  S.adj={b:0,c:0,s:100};buildLut();syncAdjUI();
+  setFrames([],640,400);
+  S.calibTool='scale';$('scaleLen').value=100;$('scaleUnit').value='cm';S.scale.len=100;S.scale.unit='cm';$('yUp').checked=true;S.axes.yUp=true;$('axisOut').textContent='0°';
+  $('posKind').value='xt';$('posFit').value='none';$('velKind').value='vxt';$('velFit').value='none';
+  $('maskPrev').checked=false;updateColorUI();
+  $('trackMsg').className='note num';$('trackMsg').textContent='';
+  $('ovMsg').textContent='「背景相減」需要物體有移動；自動背景用各幀的中位數，物體停在原地太久會被當成背景。';
+  $('impStart').value=0;$('impEnd').value='';
+  $('camInfo').textContent='錄影時程式會記下每一幀的實際拍攝時間。光線越充足，越不容易掉幀和糊掉。';
+  if(S.stream)showStage('live');
+  setTab('source');toast('已清除所有資料，可以重新錄影或匯入影片');
+}
+armed($('resetBtn'),resetAll);
+
 /* ---------------- camera ---------------- */
 async function listCams(){
   try{const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');const sel=$('camSel'),cur=sel.value;
@@ -941,7 +1051,7 @@ async function startCamera(){
   $('camBtn').textContent='關閉相機';$('recBtn').disabled=false;
   const tr=S.stream.getVideoTracks()[0],st=tr.getSettings();
   $('camInfo').textContent=`相機回報：${st.width}×${st.height}，${st.frameRate?Math.round(st.frameRate)+' fps':'幀率未知'}。實際幀率會在錄影後顯示。畫面不做鏡像，左右方向與實際相同。`;
-  setupExposure(tr);listCams();updateHint();
+  setupExposure(tr);listCams();updateAll();
 }
 function setupExposure(tr){
   const cap=tr.getCapabilities?tr.getCapabilities():{};const row=$('expRow');
@@ -954,6 +1064,7 @@ function setupExposure(tr){
 }
 function stopCamera(){if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}live.srcObject=null;$('camBtn').textContent='開啟相機';$('recBtn').disabled=true;$('expRow').hidden=true}
 $('camBtn').onclick=()=>{if(S.stream){stopCamera();showStage('canvas');updateAll()}else startCamera()};
+live.addEventListener('loadedmetadata',()=>{if(S.liveView)updateAll()});
 $('resSel').onchange=$('fpsSel').onchange=$('camSel').onchange=()=>{if(S.stream)startCamera()};
 $('recBtn').onclick=()=>{if(S.rec)stopRecording();else beginRecording()};
 async function beginRecording(){
@@ -962,16 +1073,18 @@ async function beginRecording(){
   const cd=+$('cdSel').value;$('recBtn').disabled=true;
   for(let k=cd;k>0;k--){$('countdown').hidden=false;$('countdown').textContent=k;await new Promise(r=>setTimeout(r,1000))}
   $('countdown').hidden=true;$('recBtn').disabled=false;showStage('live');$('recBtn').textContent='■ 停止錄影';
-  const vw=live.videoWidth,vh=live.videoHeight;
-  S.rec={frames:[],promises:[],maxDur:+$('durSel').value,t0:null,src:null,W:vw,H:vh,maxFrames:Math.floor(1.6e9/(vw*vh*4))};
-  $('recBadge').hidden=false;updateHint();
+  const cr=S.crop&&S.crop.w>=8&&S.crop.h>=8?clampTo(S.crop,dims()):null;
+  const vw=cr?cr.w:live.videoWidth,vh=cr?cr.h:live.videoHeight;
+  S.cropMode=false;
+  S.rec={frames:[],promises:[],maxDur:+$('durSel').value,t0:null,src:null,W:vw,H:vh,crop:cr,maxFrames:Math.floor(1.6e9/(vw*vh*4))};
+  $('recBadge').hidden=false;updateHint();updateControls();render();
   if('requestVideoFrameCallback' in HTMLVideoElement.prototype)live.requestVideoFrameCallback(onRecFrame);
   else{S.rec.fallback=setInterval(()=>grab(performance.now()/1000),1000/(+$('fpsSel').value));S.rec.noRVFC=true}
 }
 function grab(t){
   const R=S.rec;if(!R)return;if(R.t0==null)R.t0=t;
   const idx=R.frames.length;R.frames.push({bmp:null,t});
-  R.promises.push(createImageBitmap(live).then(b=>R.frames[idx].bmp=b).catch(()=>{}));
+  const cr=R.crop;R.promises.push((cr?createImageBitmap(live,cr.x,cr.y,cr.w,cr.h):createImageBitmap(live)).then(b=>R.frames[idx].bmp=b).catch(()=>{}));
   const el=t-R.t0;$('recBadge').textContent=`● REC ${el.toFixed(1)} s · ${idx+1} 幀`;
   if(el>=R.maxDur||idx+1>=R.maxFrames)stopRecording();
 }
@@ -987,10 +1100,10 @@ async function stopRecording(){
   $('recBadge').hidden=true;$('recBtn').textContent='● 開始錄影';
   await Promise.all(R.promises);
   const fr=R.frames.filter(f=>f.bmp);
-  if(fr.length<2){toast('錄到的影格太少');updateHint();return}
+  if(fr.length<2){toast('錄到的影格太少');updateAll();return}
   setFrames(fr,R.W,R.H);
   const dur=fr[fr.length-1].t-fr[0].t,fps=(fr.length-1)/dur;
-  $('camInfo').innerHTML=`錄到 <b>${fr.length}</b> 幀，${dur.toFixed(2)} s，實際平均 <b>${fps.toFixed(1)} fps</b>${fps<+$('fpsSel').value*0.8?'。<span class="note warn">比設定的幀率低很多，通常是光線不足讓相機自動拉長曝光，請加強照明。</span>':'。'}${R.noRVFC?'（此瀏覽器不支援逐幀回呼，時間戳為近似值）':''}`;
+  $('camInfo').innerHTML=`錄到 <b>${fr.length}</b> 幀（${R.W}×${R.H}），${dur.toFixed(2)} s，實際平均 <b>${fps.toFixed(1)} fps</b>${fps<+$('fpsSel').value*0.8?'。<span class="note warn">比設定的幀率低很多，通常是光線不足讓相機自動拉長曝光，請加強照明。</span>':'。'}${R.noRVFC?'（此瀏覽器不支援逐幀回呼，時間戳為近似值）':''}`;
   toast(`錄影完成：${fr.length} 幀`);
 }
 
@@ -1099,38 +1212,29 @@ function polyfit(xs,ys,deg){
   return {co,r2:st>0?1-sr/st:1};
 }
 
-/* 追蹤完成後，圖表自動切到移動量較大的方向（例如自由落體是 y） */
-function autoAxisCharts(){
-  const pts=S.track.filter(Boolean).map(toWorld);if(pts.length<3)return;
-  const rng=k=>Math.max(...pts.map(p=>p[k]))-Math.min(...pts.map(p=>p[k]));
-  const useY=rng('y')>rng('x');
-  const pk=$('posKind').value,vk=$('velKind').value;
-  if(!['xt','yt'].includes(pk)||!['vxt','vyt'].includes(vk))return;
-  const want=useY?'yt':'xt';if(pk===want&&vk===(useY?'vyt':'vxt'))return;
-  $('posKind').value=want;$('velKind').value=useY?'vyt':'vxt';
-  if($('posFit').value==='none')$('posFit').value='2';if($('velFit').value==='none')$('velFit').value='1';
-  drawCharts();toast(`物體主要沿 ${useY?'y':'x'} 方向移動，圖表已切換到 ${useY?'y–t 與 vy–t':'x–t 與 vx–t'}`);
-}
-
 /* ---------------- charts ---------------- */
 const charts={pos:{cv:$('cPos'),kind:$('posKind'),fit:$('posFit'),out:$('posOut'),hit:[]},vel:{cv:$('cVel'),kind:$('velKind'),fit:$('velFit'),out:$('velOut'),hit:[]}};
 function niceTicks(lo,hi,n=5){if(lo===hi){lo-=1;hi+=1}const span=hi-lo,raw=span/n,mag=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/mag;
   const st=(f<1.5?1:f<3?2:f<7?5:10)*mag;const ticks=[];for(let v=Math.ceil(lo/st)*st;v<=hi+st*1e-9;v+=st)ticks.push(+v.toPrecision(10));return {ticks,st}}
 function drawCharts(){for(const k in charts)drawChart(charts[k],k)}
-function drawChart(ch,which){
-  const cv=ch.cv,dpr=window.devicePixelRatio||1,cw=cv.clientWidth,chh=cv.clientHeight;if(!cw)return;
+// exp 有值時畫在新的畫布上（白底、固定淺色配色），給 Excel 匯出用
+function drawChart(ch,which,exp){
+  let cv,cw,chh,dpr;
+  if(exp){cv=document.createElement('canvas');cw=exp.w;chh=exp.h;dpr=2}else{cv=ch.cv;dpr=window.devicePixelRatio||1;cw=cv.clientWidth;chh=cv.clientHeight;if(!cw)return}
   cv.width=Math.round(cw*dpr);cv.height=Math.round(chh*dpr);const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);
-  const ink=css('--ink'),muted=css('--muted'),line=css('--line'),acc=css('--accent'),trk=css('--track'),num=css('--font-num');
-  c.clearRect(0,0,cw,chh);
+  const pal=exp?{ink:'#1a1f28',muted:'#5b6474',line:'#d2d7df',acc:'#2c52cf',trk:'#e0306f',num:'"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace'}
+    :{ink:css('--ink'),muted:css('--muted'),line:css('--line'),acc:css('--accent'),trk:css('--track'),num:css('--font-num')};
+  const {ink,muted,line,acc,trk,num}=pal;
+  if(exp){c.fillStyle='#fff';c.fillRect(0,0,cw,chh)}else c.clearRect(0,0,cw,chh);
   const pts=series(),u=unit(),kind=ch.kind.value;
   let X,Y,xl,yl;
   const map={xt:['t','x','t (s)',`x (${u})`],yt:['t','y','t (s)',`y (${u})`],yx:['x','y',`x (${u})`,`y (${u})`],vxt:['t','vx','t (s)',`vx (${u}/s)`],vyt:['t','vy','t (s)',`vy (${u}/s)`],vt:['t','v','t (s)',`v (${u}/s)`]}[kind];
   [X,Y,xl,yl]=map;
   const P=pts.filter(p=>p[X]!=null&&p[Y]!=null&&isFinite(p[Y]));
-  ch.hit=[];
+  if(!exp)ch.hit=[];
   const ml=58,mr=14,mt=12,mb=36,pw=cw-ml-mr,ph=chh-mt-mb;
   c.font=`11px ${num}`;c.fillStyle=muted;
-  if(P.length<2){c.textAlign='center';c.textBaseline='middle';c.font='13px sans-serif';c.fillText(N()?'需要至少兩個追蹤點（先到「追蹤」取點）':'尚無資料',cw/2,chh/2);ch.out.textContent='';return}
+  if(P.length<2){c.textAlign='center';c.textBaseline='middle';c.font='13px sans-serif';c.fillText(N()?'需要至少兩個追蹤點（先到「追蹤」取點）':'尚無資料',cw/2,chh/2);if(exp)return null;ch.out.textContent='';return}
   let x0=Math.min(...P.map(p=>p[X])),x1=Math.max(...P.map(p=>p[X])),y0=Math.min(...P.map(p=>p[Y])),y1=Math.max(...P.map(p=>p[Y]));
   if(which==='vel'&&kind!=='vt'){y0=Math.min(y0,0);y1=Math.max(y1,0)}
   const py=(y1-y0)*0.08||1,px=(x1-x0)*0.04||0.1;y0-=py;y1+=py;x0-=px;x1+=px;
@@ -1153,10 +1257,11 @@ function drawChart(ch,which){
       const clipP=new Path2D();clipP.rect(ml,mt,pw,ph);c.save();c.clip(clipP);c.stroke();c.restore();c.setLineDash([]);
       fitTxt=fitText(kind,deg,f,u);}
   }
-  ch.out.innerHTML=fitTxt||(deg?'點太少，無法擬合':'');
+  if(!exp)ch.out.innerHTML=fitTxt||(deg?'點太少，無法擬合':'');
   // points
   c.strokeStyle=trk;c.globalAlpha=.35;c.lineWidth=1.2;c.beginPath();P.forEach((p,k)=>k?c.lineTo(sx(p[X]),sy(p[Y])):c.moveTo(sx(p[X]),sy(p[Y])));c.stroke();c.globalAlpha=1;
-  for(const p of P){const x=sx(p[X]),y=sy(p[Y]);c.fillStyle=trk;c.beginPath();c.arc(x,y,p.i===S.cur?5:3,0,7);c.fill();if(p.i===S.cur){c.strokeStyle=ink;c.lineWidth=1.5;c.beginPath();c.arc(x,y,7,0,7);c.stroke()}ch.hit.push({x,y,i:p.i,xv:p[X],yv:p[Y]})}
+  for(const p of P){const x=sx(p[X]),y=sy(p[Y]),cur=!exp&&p.i===S.cur;c.fillStyle=trk;c.beginPath();c.arc(x,y,cur?5:3,0,7);c.fill();if(cur){c.strokeStyle=ink;c.lineWidth=1.5;c.beginPath();c.arc(x,y,7,0,7);c.stroke()}if(!exp)ch.hit.push({x,y,i:p.i,xv:p[X],yv:p[Y]})}
+  if(exp)return cv;
   ch.box={ml,mt,pw,ph};
 }
 function fitText(kind,deg,f,u){
@@ -1198,6 +1303,83 @@ $('dataTable').tBodies[0].addEventListener('click',e=>{const tr=e.target.closest
 $('csvBtn').onclick=()=>{const {head,d}=rows();if(!d.length){toast('還沒有追蹤點');return}
   const q=v=>/[",\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v;
   const txt='﻿'+[head,...d].map(r=>r.map(q).join(',')).join('\r\n');saveFile('運動數據.csv',new Blob([txt],{type:'text/csv'}))};
+/* ---------------- Excel 匯出（數據＋圖） ---------------- */
+let excelLoading=null;
+function loadExcelJS(){
+  if(window.ExcelJS)return Promise.resolve();
+  if(excelLoading)return excelLoading;
+  const urls=['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js','https://unpkg.com/exceljs@4.4.0/dist/exceljs.min.js'];
+  excelLoading=urls.reduce((pr,u)=>pr.catch(()=>new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=u;sc.onload=()=>window.ExcelJS?res():rej();sc.onerror=()=>{sc.remove();rej()};document.head.appendChild(sc)})),Promise.reject())
+    .catch(e=>{excelLoading=null;throw e});
+  return excelLoading;
+}
+function plainFit(ch){return ch.out.innerHTML.replace(/<br\s*\/?>/g,'；').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim()}
+// 把軌跡點畫在影像上（base 是影格或疊圖）
+function snapshot(base,idxFilter){
+  const c=document.createElement('canvas');c.width=S.W;c.height=S.H;const x=c.getContext('2d');x.drawImage(base,0,0,S.W,S.H);
+  const L=Math.max(1,S.W/640),col='#e0306f';
+  const s=S.scale;if(s.p1&&s.p2){x.strokeStyle='#38d6ff';x.lineWidth=2.5*L;x.beginPath();x.moveTo(s.p1.x,s.p1.y);x.lineTo(s.p2.x,s.p2.y);x.stroke()}
+  const pts=[];S.track.forEach((p,i)=>{if(p&&(!idxFilter||idxFilter(i)))pts.push(p)});
+  if(pts.length>1&&!idxFilter){x.strokeStyle=col;x.globalAlpha=.5;x.lineWidth=1.5*L;x.beginPath();pts.forEach((p,k)=>k?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y));x.stroke();x.globalAlpha=1}
+  for(const p of pts){x.fillStyle=p.src==='manual'?'#ffd400':col;x.beginPath();x.arc(p.x,p.y,3.2*L,0,7);x.fill()}
+  return c;
+}
+$('xlsxBtn').onclick=async()=>{
+  const pts=series();if(!pts.length){toast('還沒有追蹤點');return}
+  const btn=$('xlsxBtn'),label=btn.textContent;btn.disabled=true;btn.textContent='產生中…';
+  try{
+    try{await loadExcelJS()}catch(e){toast('無法載入 Excel 元件（需要網路連線），請改用「下載 CSV」');return}
+    const u=unit(),wb=new ExcelJS.Workbook();wb.creator='影格軌跡分析';wb.created=new Date();
+    const ws=wb.addWorksheet('運動數據');
+    const k=scaleK(),sp=S.scale.p1&&S.scale.p2?Math.hypot(S.scale.p2.x-S.scale.p1.x,S.scale.p2.y-S.scale.p1.y):0;
+    const info=[
+      ['影格軌跡分析　運動數據'],
+      ['匯出時間',new Date().toLocaleString('zh-TW')],
+      ['影格數',N()],
+      ['時間基準',S.timeMode==='fps'?`固定幀率 ${S.fpsOverride} fps`:'每幀實際時間戳'],
+      ['影片長度 (s)',+tOf(N()-1).toFixed(4)],
+      ['影像大小',`${S.W} × ${S.H} px`],
+      ['比例尺',k?`${S.scale.len} ${S.scale.unit} = ${sp.toFixed(1)} px（1 px = ${fmt(k)} ${S.scale.unit}）`:'未設定（單位 px）'],
+      ['座標原點',S.axes.ox==null?'畫面左下角':`(${S.axes.ox.toFixed(1)}, ${S.axes.oy.toFixed(1)}) px`],
+      ['x 軸角度',`${S.axes.angle}°`],
+      ['y 軸方向',S.axes.yUp?'向上為正':'向下為正'],
+      ['追蹤方法',{ncc:'外觀比對',color:'顏色追蹤',manual:'手動點選'}[method()]],
+      ['速度計算',`中央差分，跨距 ±${$('vSpan').value} 個點`],
+      ['影像調整',adjActive()?`亮度 ${S.adj.b}、對比 ${S.adj.c}、飽和度 ${S.adj.s}%`:'無'],
+      [$('posKind').selectedOptions[0].text+' 擬合',plainFit(charts.pos)||'未擬合'],
+      [$('velKind').selectedOptions[0].text+' 擬合',plainFit(charts.vel)||'未擬合'],
+    ];
+    info.forEach(r=>ws.addRow(r));
+    ws.getRow(1).font={bold:true,size:14};
+    for(let r=2;r<=info.length;r++)ws.getCell(r,1).font={bold:true};
+    ws.addRow([]);
+    const head=['幀','t (s)',`x (${u})`,`y (${u})`,`vx (${u}/s)`,`vy (${u}/s)`,`v (${u}/s)`,'信心','來源'];
+    const hr=ws.addRow(head);hr.font={bold:true};hr.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE2E6EC'}};c.border={bottom:{style:'thin'}}});
+    const hdrRow=hr.number;
+    for(const p of pts)ws.addRow([p.i+1,p.t,p.x,p.y,p.vx??null,p.vy??null,p.v??null,+p.conf.toFixed(3),p.src==='auto'?'自動':'手動']);
+    const nf=['0','0.0000',u==='px'?'0.0':'0.000',u==='px'?'0.0':'0.000','0.000','0.000','0.000','0.000','@'];
+    ws.columns.forEach((col,i)=>{col.width=i===0?16:13;if(nf[i])for(let r=hdrRow+1;r<=ws.rowCount;r++)ws.getCell(r,i+1).numFmt=nf[i]});
+    ws.getColumn(2).width=13;ws.views=[{state:'frozen',ySplit:hdrRow}];
+
+    const wi=wb.addWorksheet('圖像');wi.getColumn(1).width=100;let row=1;
+    const put=(title,canvas,w)=>{const h=Math.round(canvas.height*w/canvas.width);
+      wi.getCell(row,1).value=title;wi.getCell(row,1).font={bold:true,size:12};
+      const id=wb.addImage({base64:canvas.toDataURL('image/png'),extension:'png'});
+      wi.addImage(id,{tl:{col:0,row:row},ext:{width:w,height:h}});row+=Math.ceil(h/20)+3};
+    const base=adjActive()?(()=>{const c=document.createElement('canvas');c.width=S.W;c.height=S.H;c.getContext('2d').drawImage(frameCtx(S.cur).canvas,0,0);return c})():S.frames[S.cur].bmp;
+    put(`軌跡圖（第 ${S.cur+1} 幀畫面，加上全部 ${pts.length} 個追蹤點）`,snapshot(base),Math.min(720,S.W));
+    if(S.overlay){const ev=+$('ovEvery').value,a=+$('ovFrom').value-1,b=+$('ovTo').value-1;
+      put(`頻閃疊圖（第 ${a+1}～${b+1} 幀，每 ${ev} 幀一張）`,snapshot(S.overlay,i=>i>=a&&i<=b&&(i-a)%ev===0),Math.min(720,S.W))}
+    for(const [key,ch] of Object.entries(charts)){const cv=drawChart(ch,key,{w:760,h:420});
+      if(cv)put(`${ch.kind.selectedOptions[0].text}　${plainFit(ch)}`,cv,760)}
+
+    const buf=await wb.xlsx.writeBuffer();
+    const d=new Date(),z=n=>String(n).padStart(2,'0');
+    await saveFile(`運動數據_${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.xlsx`,
+      new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  }catch(e){console.error(e);toast('產生 Excel 時發生錯誤：'+(e.message||e))}
+  finally{btn.textContent=label;btn.disabled=false;updateControls()}
+};
 $('copyBtn').onclick=()=>{const {head,d}=rows();if(!d.length){toast('還沒有追蹤點');return}
   const txt=[head,...d].map(r=>r.join('\t')).join('\n');
   const fallback=()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();toast(ok?'已複製，可貼到 Google 試算表或 Excel':'無法自動複製，請改用下載 CSV')};
@@ -1229,7 +1411,7 @@ async function loadDemo(){
   updateAll();
 }
 $('demoBtn').onclick=()=>{stopCamera();loadDemo()};
-$('demoClear').onclick=()=>{setFrames([],640,400);$('posFit').value='none';$('velFit').value='none';$('trackMsg').textContent='';updateAll()};
+$('demoClear').onclick=resetAll;
 
 /* ---------------- boot ---------------- */
 updateColorUI();
