@@ -92,6 +92,10 @@
                         <option value="emPresbyopiaFix">29. 老花眼矯正：凸透鏡</option>
                         <option value="emCataract">30. 白內障：水晶體混濁</option>
                     </optgroup>
+                    <optgroup label="多個光源">
+                        <option value="twoShadows">31. 兩個點光源：兩個影子</option>
+                        <option value="twoLasers">32. 兩道平行雷射經過凸透鏡</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -116,6 +120,9 @@
                     <i class="fa-solid fa-sun"></i> 1. 光源設定 (Light Source)
                 </h2>
                 
+                <!-- 光源清單：點一下切換要調整的光源 -->
+                <div id="lightChips" class="flex flex-wrap gap-1.5 mb-3"></div>
+
                 <!-- Light Type Tabs -->
                 <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 mb-3">
                     <button onclick="setLightType('single')" id="btnLightSingle" class="py-1.5 text-xs rounded-md font-medium text-white bg-slate-800 shadow transition flex flex-col items-center gap-1">
@@ -131,6 +138,10 @@
 
                 <!-- Light Source Controls -->
                 <div class="space-y-3 bg-slate-950/50 p-3 rounded-lg border border-slate-800/80">
+                    <div>
+                        <div class="text-xs text-slate-300 mb-1.5">光的顏色</div>
+                        <div id="lightColors" class="flex flex-wrap gap-2"></div>
+                    </div>
                     <div>
                         <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
                             <span>發射角度 (Angle)</span>
@@ -162,6 +173,9 @@
                         </div>
                         <input type="range" id="lightDensitySlider" min="2" max="15" value="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
                     </div>
+                    <button id="btnDeleteLight" onclick="deleteLight()" class="hidden w-full py-1.5 text-xs rounded-md border border-rose-900/70 text-rose-300 hover:bg-rose-950/50 transition">
+                        <i class="fa-solid fa-trash-can"></i> 刪除這個光源
+                    </button>
                 </div>
             </div>
 
@@ -353,7 +367,7 @@
                 <div class="space-y-2 text-xs">
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
                         <span class="flex items-center gap-2 text-slate-300">
-                            <i class="fa-solid fa-bolt text-cyan-400"></i> 雷射光源 (Laser)
+                            <i class="fa-solid fa-bolt text-cyan-400"></i> 光源與光線 (Light)
                         </span>
                         <input type="checkbox" id="chkShowLight" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
@@ -537,13 +551,9 @@
             panStart: { x: 0, y: 0 },
             spacePressed: false,
 
-            light: {
-                type: 'single', // 'single', 'parallel', 'point'
-                x: 180,
-                y: 180,
-                angle: 35, // degrees
-                density: 5
-            },
+            // 可以有好幾個光源；左邊面板顯示「目前選取」的那一個（state.light）
+            lights: [{ type: 'single', x: 180, y: 180, angle: 35, density: 5, color: '#00f0ff' }],   // type：'single'、'parallel'、'point'
+            activeLight: 0,
             mirrors: [],
             protractor: {
                 x: 450,
@@ -704,7 +714,53 @@
             }
         }
 
+        const LIGHT_COLORS = [
+            // 紅、綠、藍用接近純色，光束重疊時才混得出黃、青、洋紅與白（色光三原色）
+            { c: '#00f0ff', name: '青' }, { c: '#ff3838', name: '紅' }, { c: '#38ff4c', name: '綠' }, { c: '#4a6dff', name: '藍' },
+            { c: '#ffe14a', name: '黃' }, { c: '#c084fc', name: '紫' }, { c: '#f1f5f9', name: '白' }
+        ];
+        // state.light 永遠指向目前選取的光源；直接指定 state.light = {...} 則把舞台改成只有這一個光源
+        Object.defineProperty(state, 'light', {
+            get() { return state.lights[state.activeLight] || state.lights[0]; },
+            set(v) { state.lights = [{ density: 5, color: LIGHT_COLORS[0].c, ...v }]; state.activeLight = 0; }
+        });
+        const lightNo = L => state.lights.indexOf(L) + 1;
+
+        function selectLight(i) {
+            state.activeLight = Math.max(0, Math.min(state.lights.length - 1, i));
+            refreshLightPanel();
+            draw();
+        }
+
+        function addLight() {
+            const cur = state.light;
+            const used = state.lights.map(l => l.color);
+            const color = (LIGHT_COLORS.find(k => !used.includes(k.c)) || LIGHT_COLORS[state.lights.length % LIGHT_COLORS.length]).c;
+            state.lights.push({ type: 'single', x: cur.x, y: cur.y + 100, angle: cur.angle, density: 5, color });
+            state.activeLight = state.lights.length - 1;
+            document.getElementById('chkShowLight').checked = true;
+            refreshLightPanel();
+            draw();
+        }
+
+        function deleteLight() {
+            if (state.lights.length < 2) return;
+            state.lights.splice(state.activeLight, 1);
+            state.activeLight = Math.max(0, state.activeLight - 1);
+            refreshLightPanel();
+            draw();
+        }
+
+        function setLightColor(c) {
+            state.light.color = c;
+            refreshLightPanel();
+            draw();
+        }
+
         function clearCanvasObjects() {
+            state.lights = [state.light];   // 清空舞台時只留下目前選取的光源
+            state.activeLight = 0;
+            refreshLightPanel();
             state.mirrors = [];
             state.selectedMirrorIndex = -1;
             updateInspectorUI();
@@ -997,51 +1053,51 @@
         }
 
         const DENSITY_MAX = 15;   // 光線密度滑桿的最大值；拉到最大就變成「光束」
-        const isBeamMode = () => state.light.type !== 'single' && state.light.density >= DENSITY_MAX;
+        const isBeamMode = (L = state.light) => L.type !== 'single' && L.density >= DENSITY_MAX;
 
         // dense = true：產生很密的光線（數百條），用來判斷眼睛有沒有看到光，以及畫光束
-        function makeOriginRays(dense) {
+        function makeOriginRays(dense, L = state.light) {
             const originRays = [];
             if (dense) {
-                const lightRad = degToRad(state.light.angle);
+                const lightRad = degToRad(L.angle);
                 const dirX = Math.cos(lightRad), dirY = Math.sin(lightRad);
-                if (state.light.type === 'parallel') {
-                    const width = (state.light.density - 1) * 32;
+                if (L.type === 'parallel') {
+                    const width = (L.density - 1) * 32;
                     const n = Math.max(2, Math.round(width / 1.5) + 1);
                     for (let i = 0; i < n; i++) {
                         const offset = -width / 2 + width * i / (n - 1);
-                        originRays.push({ x: state.light.x - dirY * offset, y: state.light.y + dirX * offset, dx: dirX, dy: dirY });
+                        originRays.push({ x: L.x - dirY * offset, y: L.y + dirX * offset, dx: dirX, dy: dirY });
                     }
-                } else if (state.light.type === 'point') {
+                } else if (L.type === 'point') {
                     const n = 401, spread = 100;
                     for (let i = 0; i < n; i++) {
-                        const a = degToRad(state.light.angle - spread / 2 + spread * i / (n - 1));
-                        originRays.push({ x: state.light.x, y: state.light.y, dx: Math.cos(a), dy: Math.sin(a) });
+                        const a = degToRad(L.angle - spread / 2 + spread * i / (n - 1));
+                        originRays.push({ x: L.x, y: L.y, dx: Math.cos(a), dy: Math.sin(a) });
                     }
                 }
                 return originRays;
             }
-            const lightRad = degToRad(state.light.angle);
+            const lightRad = degToRad(L.angle);
             const dirX = Math.cos(lightRad);
             const dirY = Math.sin(lightRad);
-            if (state.light.type === 'single') {
-                originRays.push({ x: state.light.x, y: state.light.y, dx: dirX, dy: dirY });
-            } else if (state.light.type === 'parallel') {
-                const count = state.light.density;
+            if (L.type === 'single') {
+                originRays.push({ x: L.x, y: L.y, dx: dirX, dy: dirY });
+            } else if (L.type === 'parallel') {
+                const count = L.density;
                 const spacing = 32;
                 const startOffset = -((count - 1) * spacing) / 2;
                 for (let i = 0; i < count; i++) {
                     const offset = startOffset + i * spacing;
-                    originRays.push({ x: state.light.x - dirY * offset, y: state.light.y + dirX * offset, dx: dirX, dy: dirY });
+                    originRays.push({ x: L.x - dirY * offset, y: L.y + dirX * offset, dx: dirX, dy: dirY });
                 }
-            } else if (state.light.type === 'point') {
-                const count = state.light.density * 2;
+            } else if (L.type === 'point') {
+                const count = L.density * 2;
                 const spreadAngle = 100;
-                const startAngle = state.light.angle - spreadAngle / 2;
+                const startAngle = L.angle - spreadAngle / 2;
                 const step = spreadAngle / (count - 1);
                 for (let i = 0; i < count; i++) {
                     const a = degToRad(startAngle + i * step);
-                    originRays.push({ x: state.light.x, y: state.light.y, dx: Math.cos(a), dy: Math.sin(a) });
+                    originRays.push({ x: L.x, y: L.y, dx: Math.cos(a), dy: Math.sin(a) });
                 }
             }
             return originRays;
@@ -1049,11 +1105,24 @@
 
         // ───────── 光線追跡 ─────────
         // paths：每一段光路（含部分反射分出的支線）；events：被標示角度那條光線的反射、折射、全反射位置
+        // opts.lights：只追這幾個光源（預設全部）；每段光路記下來自哪個光源（light、color）
         function traceRays(opts = {}) {
             if (!document.getElementById('chkShowLight').checked) return { paths: [], events: [], multi: false };
-            const originRays = makeOriginRays(!!opts.dense);
-            // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°
-            const trackedRay = opts.dense ? -1 : (originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0);
+            const paths = [], events = [];
+            let multi = false;
+            (opts.lights || state.lights).forEach(L => {
+                const r = traceLight(L, opts, events);
+                paths.push(...r.paths);
+                if (L === state.light) multi = r.multi;
+            });
+            return { paths, events, multi };
+        }
+
+        function traceLight(L, opts, events) {
+            const originRays = makeOriginRays(!!opts.dense, L);
+            // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°；只標示目前選取的光源
+            const trackedRay = opts.dense || L !== state.light ? -1 : (originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0);
+            const multiRays = originRays.length > 1;
             const partialOn = partialLevel() > 0;
             const mirrors = state.mirrors.filter(m => MIRROR_TYPES.includes(m.type));
             const ideals = state.mirrors.filter(m => IDEAL_TYPES.includes(m.type));
@@ -1063,7 +1132,7 @@
             const prims = [];
             state.mirrors.forEach(m => { if (GLASS_TYPES.includes(m.type)) prims.push(...glassPrims(m)); });
 
-            const paths = [], events = [];
+            const paths = [];
             let budget = 800 + originRays.length * 60;
 
             originRays.forEach((ray0, rayIdx) => {
@@ -1150,11 +1219,11 @@
                         if (trackThis) events.push({ type: 'refract', x: best.x, y: best.y, n: { x: nx, y: ny }, dIn, dOut: { x: tx, y: ty }, n1, n2 });
                         cur = { x: best.x, y: best.y, dx: tx, dy: ty };
                     }
-                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, eyeBody, retina: retinaHit, scatter: !!br.scatter, rayIdx });
+                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, eyeBody, retina: retinaHit, scatter: !!br.scatter, rayIdx, light: L, color: L.color, multi: multiRays });
                 }
             });
 
-            return { paths, events, multi: originRays.length > 1 };
+            return { paths, multi: multiRays };
         }
 
         function draw() {
@@ -1181,18 +1250,26 @@
             });
 
             // 4. 光線
-            const { paths, events, multi } = traceRays();
-            const beam = isBeamMode();
+            const { paths, events } = traceRays();
             // 點光源、平行光是連續的光：畫面上只畫幾條代表光線，但判斷眼睛有沒有看到光、以及畫光束時，改用很密的光線
-            const needDense = state.light.type !== 'single' && (beam || state.mirrors.some(m => m.type === 'eye' || m.type === 'eyeModel'));
-            const dense = needDense ? traceRays({ dense: true }) : null;
-            if (beam) {
-                drawBeam(dense.paths);
-                // 光束模式不另外畫光線；只有打開法線、要標角度時，才畫出被標角度的那一條
-                if (document.getElementById('chkShowNormals').checked) drawRays(paths.filter(p => p.tracked), multi);
-            } else {
-                drawRays(paths, multi);
-            }
+            const hasEyes = state.mirrors.some(m => m.type === 'eye' || m.type === 'eyeModel');
+            const denseLights = state.lights.filter(L => L.type !== 'single' && (isBeamMode(L) || hasEyes));
+            const dense = denseLights.length ? traceRays({ dense: true, lights: denseLights }) : null;
+            const densePaths = dense ? dense.paths : [];
+            const shown = [];   // 每個光源實際畫出來的光：光束模式用密集光線，其他用一般光線
+            state.lights.forEach(L => {
+                if (isBeamMode(L)) {
+                    const dp = densePaths.filter(p => p.light === L);
+                    drawBeam(dp);
+                    shown.push(...dp);
+                    // 光束模式不另外畫光線；只有打開法線、要標角度時，才畫出被標角度的那一條
+                    if (document.getElementById('chkShowNormals').checked) drawRays(paths.filter(p => p.light === L && p.tracked));
+                } else {
+                    const pp = paths.filter(p => p.light === L);
+                    drawRays(pp);
+                    shown.push(...pp);
+                }
+            });
             if (document.getElementById('chkShowExtensions')?.checked) {
                 drawRayExtensions(paths);
             }
@@ -1204,8 +1281,8 @@
 
             // 6. 成像：特殊光線、像、屏幕、物體；再畫眼睛與進入眼睛的光
             drawImaging();
-            drawEyes(paths, dense ? dense.paths : null, beam);
-            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, beam ? dense.paths : paths, idx === state.selectedMirrorIndex, beam); });
+            drawEyes(paths, densePaths);
+            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, shown, idx === state.selectedMirrorIndex); });
             refreshEyeModelInfo();
 
             // 7. 其他元件的手把
@@ -1219,7 +1296,7 @@
             }
 
             // 9. 光源
-            if (document.getElementById('chkShowLight').checked) drawLightSource();
+            if (document.getElementById('chkShowLight').checked) state.lights.forEach(drawLightSource);
 
             // 10. 量角器
             if (document.getElementById('chkShowProtractor').checked) {
@@ -1262,10 +1339,10 @@
             if (!paths || !paths.length) return;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = '#00f0ff';
             ctx.lineCap = 'round';
-            const base = state.light.type === 'point' ? 0.07 : 0.11;
             paths.forEach(p => {
+                const base = p.light.type === 'point' ? 0.07 : 0.11;
+                ctx.strokeStyle = p.color;
                 const pts = p.points;
                 if (pts.length < 2) return;
                 const k = p.main || p.scatter ? 1 : partialLevel();
@@ -1280,23 +1357,23 @@
             ctx.restore();
         }
 
-        function drawRays(paths, multi) {
+        function drawRays(paths) {
             ctx.save();
-            ctx.strokeStyle = '#00f0ff';
-            ctx.shadowColor = '#00f0ff';
             ctx.shadowBlur = 8;
             paths.forEach(p => {
                 const pts = p.points;
+                ctx.strokeStyle = p.color;
+                ctx.shadowColor = p.color;
                 if (pts.length < 2) return;
                 // 亮度依光的強度：部分反射分出的支線比較暗，並再乘上使用者設定的部分反射亮度
                 ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I)) * (p.main || p.scatter ? 1 : partialLevel());
-                ctx.lineWidth = multi ? 1.8 : (p.main ? 2.5 : 1.6);
+                ctx.lineWidth = p.multi ? 1.8 : (p.main ? 2.5 : 1.6);
                 ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
                 ctx.stroke();
                 for (let i = 0; i < pts.length - 1; i++) {
-                    drawRayArrow(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, '#00f0ff');
+                    drawRayArrow(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, p.color);
                 }
             });
             ctx.restore();
@@ -2059,20 +2136,21 @@
             return chosen;
         }
 
+        // 進入眼睛的代表光線：用光源自己的顏色加粗發光，中間再加一條白色細線，和一般光線區分
         function drawEyeRay(rep) {
+            const c = rep.color || '#00f0ff';
             ctx.save();
-            ctx.strokeStyle = '#7df9ff';
-            ctx.shadowColor = '#00f0ff';
-            ctx.shadowBlur = 10;
-            ctx.lineWidth = 2.2;
             ctx.beginPath();
             rep.points.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+            ctx.strokeStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 12; ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
             ctx.stroke();
             ctx.restore();
-            for (let i = 0; i < rep.points.length - 1; i++) drawRayArrow(rep.points[i].x, rep.points[i].y, rep.points[i + 1].x, rep.points[i + 1].y, '#7df9ff');
+            for (let i = 0; i < rep.points.length - 1; i++) drawRayArrow(rep.points[i].x, rep.points[i].y, rep.points[i + 1].x, rep.points[i + 1].y, c);
         }
 
-        function drawEyes(paths, densePaths, beam) {
+        function drawEyes(paths, densePaths) {
             const eyes = state.mirrors.filter(m => m.type === 'eye');
             if (!eyes.length) return;
             const sight = document.getElementById('chkEyeSight').checked;
@@ -2081,16 +2159,21 @@
                 const msgs = [];
                 let seeing = false;
 
-                // 1. 光進入瞳孔：畫面上的光線（光束模式則沒有）加上密集光線，挑至少兩條畫出來
-                const drawnIn = (beam ? [] : paths).filter(p => p.eye === eye.id && p.main);
-                const denseIn = densePaths ? densePaths.filter(p => p.eye === eye.id && p.main) : [];
-                let laser = pickEyeRays(drawnIn, denseIn);
-                if (!laser.length) laser = paths.filter(p => p.eye === eye.id);   // 只剩部分反射的支線進到眼睛
+                // 1. 光進入瞳孔：每個光源分開看。畫面上的光線（光束模式則沒有）加上密集光線，各挑至少兩條畫出來
+                let laser = [];
+                const seenLights = [];
+                state.lights.forEach(L => {
+                    const drawnIn = isBeamMode(L) ? [] : paths.filter(p => p.light === L && p.eye === eye.id && p.main);
+                    const denseIn = densePaths.filter(p => p.light === L && p.eye === eye.id && p.main);
+                    let got = pickEyeRays(drawnIn, denseIn);
+                    if (!got.length) got = paths.filter(p => p.light === L && p.eye === eye.id);   // 只剩部分反射的支線進到眼睛
+                    if (got.length) { seenLights.push(L); laser.push(...got); }
+                });
                 laser.forEach(drawEyeRay);
-                const pool = densePaths || paths;
+                const pool = densePaths;
                 if (laser.length) {
                     seeing = true;
-                    msgs.push(['看到光了', '#fde047']);
+                    msgs.push([state.lights.length > 1 ? `看到光了：${seenLights.map(L => '光源 ' + lightNo(L)).join('、')}` : '看到光了', '#fde047']);
                     if (sight) {
                         ctx.save();
                         ctx.strokeStyle = '#a3e635';
@@ -2335,14 +2418,15 @@
         }
 
         // 物體 → （矯正鏡片）→ 水晶體 → 視網膜 的光線，以及視網膜上的像
-        function drawEyeModelOverlay(m, paths, isSelected, beam) {
+        function drawEyeModelOverlay(m, paths, isSelected) {
             const F = emFrame(m), S = emShape(m), res = m._res || {}, c = emCond(m);
             const msgs = [];
             // 雷射落在視網膜上的光點
             paths.filter(p => p.retina === m.id).forEach(p => {
                 const e = p.points[p.points.length - 1];
                 ctx.save();
-                ctx.fillStyle = '#fde047'; ctx.shadowColor = '#fde047'; ctx.shadowBlur = 10;
+                const beam = isBeamMode(p.light);
+                ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 10;
                 ctx.globalAlpha = beam ? 0.12 : Math.min(1, 0.3 + p.I);
                 ctx.beginPath(); ctx.arc(e.x, e.y, beam ? 2 : 3, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
@@ -2588,20 +2672,28 @@
             ctx.restore();
         }
 
-        function drawLightSource() {
+        function drawLightSource(L) {
+            const many = state.lights.length > 1, active = L === state.light;
             ctx.save();
-            ctx.translate(state.light.x, state.light.y);
-            const rad = degToRad(state.light.angle);
+            ctx.translate(L.x, L.y);
+            const rad = degToRad(L.angle);
             ctx.rotate(rad);
 
+            if (many && active) {   // 目前選取、面板正在調整的光源
+                ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                ctx.beginPath(); ctx.roundRect(-27, -17, 44, 34, 8); ctx.stroke();
+                ctx.setLineDash([]);
+            }
             ctx.fillStyle = '#1e293b';
-            ctx.strokeStyle = '#38bdf8';
+            ctx.strokeStyle = many ? L.color : '#38bdf8';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.roundRect(-22, -12, 34, 24, 5);
             ctx.fill(); ctx.stroke();
 
-            ctx.fillStyle = '#00f0ff';
+            ctx.fillStyle = L.color;
             ctx.beginPath();
             ctx.arc(12, 0, 8, -Math.PI / 2, Math.PI / 2);
             ctx.fill();
@@ -2612,9 +2704,17 @@
             ctx.beginPath();
             ctx.arc(28, 0, 7, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.fillStyle = '#00f0ff'; ctx.beginPath(); ctx.arc(28, 0, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = L.color; ctx.beginPath(); ctx.arc(28, 0, 3, 0, Math.PI * 2); ctx.fill();
 
             ctx.restore();
+            if (many) {   // 光源編號，字保持朝上
+                ctx.save();
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillText(String(lightNo(L)), L.x - 5 * Math.cos(rad), L.y - 5 * Math.sin(rad));
+                ctx.restore();
+            }
         }
 
         // 量角器的兩個手把（量角器自己的座標）：旋轉圓點在上方外側，縮放方塊在右側外側
@@ -2821,21 +2921,26 @@
                 return;
             }
 
-            // 1. Light Emitter Rotation Tip Check
-            const lightRad = degToRad(state.light.angle);
-            const tipX = state.light.x + Math.cos(lightRad) * 28;
-            const tipY = state.light.y + Math.sin(lightRad) * 28;
+            // 1–2. 光源：先找旋轉環，再找本體；點到哪個光源就選取它，左邊面板改顯示它的設定
             const lightOn = document.getElementById('chkShowLight').checked;
-            if (lightOn && Math.hypot(pos.x - tipX, pos.y - tipY) < hr) {
-                state.draggedObject = 'light-rot';
-                return;
-            }
-
-            // 2. Light Emitter Body Check
-            if (lightOn && Math.hypot(pos.x - state.light.x, pos.y - state.light.y) < Math.max(22 / state.zoom, hr)) {
-                state.draggedObject = 'light-body';
-                state.dragOffset = { x: pos.x - state.light.x, y: pos.y - state.light.y };
-                return;
+            if (lightOn) {
+                for (let i = state.lights.length - 1; i >= 0; i--) {
+                    const L = state.lights[i], lightRad = degToRad(L.angle);
+                    if (Math.hypot(pos.x - (L.x + Math.cos(lightRad) * 28), pos.y - (L.y + Math.sin(lightRad) * 28)) < hr) {
+                        if (i !== state.activeLight) selectLight(i);
+                        state.draggedObject = 'light-rot';
+                        return;
+                    }
+                }
+                for (let i = state.lights.length - 1; i >= 0; i--) {
+                    const L = state.lights[i];
+                    if (Math.hypot(pos.x - L.x, pos.y - L.y) < Math.max(22 / state.zoom, hr)) {
+                        if (i !== state.activeLight) selectLight(i);
+                        state.draggedObject = 'light-body';
+                        state.dragOffset = { x: pos.x - L.x, y: pos.y - L.y };
+                        return;
+                    }
+                }
             }
 
             // 3. Protractor Check
@@ -3018,6 +3123,45 @@
 
         function setLightType(type) {
             state.light.type = type;
+            refreshLightPanel();
+            draw();
+        }
+
+        // 左邊光源面板：光源清單、類型、顏色、刪除，以及角度、位置、密度
+        function refreshLightPanel() {
+            const L = state.light, type = L.type;
+            const chips = document.getElementById('lightChips');
+            if (chips) {
+                chips.innerHTML = '';
+                state.lights.forEach((l, i) => {
+                    const b = document.createElement('button');
+                    const on = l === L;
+                    b.className = 'px-2 py-1 rounded-md text-xs border flex items-center gap-1.5 transition ' + (on ? 'border-amber-400 bg-slate-800 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500');
+                    b.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${l.color}"></span>光源 ${i + 1}`;
+                    b.onclick = () => selectLight(i);
+                    chips.appendChild(b);
+                });
+                const add = document.createElement('button');
+                add.className = 'px-2 py-1 rounded-md text-xs border border-dashed border-cyan-700 text-cyan-300 hover:bg-cyan-950/50 hover:border-cyan-400 transition';
+                add.innerHTML = '<i class="fa-solid fa-plus"></i> 新增光源';
+                add.onclick = addLight;
+                chips.appendChild(add);
+            }
+            const sw = document.getElementById('lightColors');
+            if (sw) {
+                sw.innerHTML = '';
+                LIGHT_COLORS.forEach(k => {
+                    const b = document.createElement('button');
+                    b.title = k.name + '色';
+                    b.setAttribute('aria-label', k.name + '色');
+                    b.className = 'w-6 h-6 rounded-full border-2 transition ' + (k.c === L.color ? 'border-white scale-110' : 'border-transparent opacity-70 hover:opacity-100');
+                    b.style.background = k.c;
+                    b.onclick = () => setLightColor(k.c);
+                    sw.appendChild(b);
+                });
+            }
+            const del = document.getElementById('btnDeleteLight');
+            if (del) del.classList.toggle('hidden', state.lights.length < 2);
 
             ['Single', 'Parallel', 'Point'].forEach(t => {
                 const btn = document.getElementById(`btnLight${t}`);
@@ -3037,8 +3181,7 @@
             } else {
                 densityContainer.classList.add('hidden');
             }
-
-            draw();
+            syncControlsFromState();
         }
 
         function updateLightFromControls() {
@@ -3217,10 +3360,12 @@
         function loadPreset(presetKey) {
             clearCanvasObjects();
             const setChk = (id, v) => { document.getElementById(id).checked = v; };
-            const light = (type, x, y, angle, density) => {
+            const light = (type, x, y, angle, density, color) => {
+                state.light = { type, x, y, angle, density: density || 5, color: color || LIGHT_COLORS[0].c };
                 setLightType(type);
-                state.light.x = x; state.light.y = y; state.light.angle = angle;
-                if (density) state.light.density = density;
+            };
+            const addLightAt = (type, x, y, angle, density, color) => {
+                state.lights.push({ type, x, y, angle, density: density || 5, color });
             };
             const protractorAt = (x, y) => { state.protractor.x = x; state.protractor.y = y; state.protractor.angle = 0; };
             // 每個預設先把輔助選項設回固定狀態，避免沿用上一個預設的設定
@@ -3334,6 +3479,20 @@
                 addMirror('flat', { x: 480, y: 320, angle: 90, length: 300 });
                 addMirror('eye', { x: 220, y: 495, angle: 330 });   // 眼睛朝向反射光射來的方向
                 protractorAt(800, 560);
+            } else if (presetKey === 'twoShadows') {
+                // 兩個點光源照一個小擋板：牆上出現兩個影子；只被一個光源照到的地方是那個光源的顏色，兩個都照到就混成黃色
+                light('point', 140, 230, 18, DENSITY_MAX, '#ff3838');
+                addLightAt('point', 140, 410, -18, DENSITY_MAX, '#38ff4c');
+                addMirror('screen', { x: 440, y: 320, angle: 90, length: 70 });
+                addMirror('screen', { x: 820, y: 320, angle: 90, length: 560 });
+                protractorAt(900, 620);
+            } else if (presetKey === 'twoLasers') {
+                // 兩道平行的雷射經過凸透鏡，都會經過另一側的焦點
+                light('single', 120, 250, 0, 5, '#ff3838');
+                addLightAt('single', 120, 390, 0, 5, '#38ff4c');
+                addMirror('idealConvex', { x: 460, y: 320, angle: 90, length: 280, focalLength: 160 });
+                setChk('chkShowFocal', true);
+                protractorAt(800, 580);
             } else if (presetKey.startsWith('em')) {
                 // 眼球模型：水晶體在 (740, 320)，眼睛朝左看；物體放在主軸上
                 const EYE = { x: 740, y: 320 };
@@ -3358,11 +3517,12 @@
                 if (st.lens) addMirror(st.lens[0], { x: EYE.x - 50, y: EYE.y, angle: 90, length: 170, focalLength: st.lens[1] });   // 眼鏡在水晶體前 50px
                 protractorAt(900, 620);
             }
+            state.activeLight = 0;
             state.selectedMirrorIndex = -1;
             syncAngleToggle();
             syncProtractorUI();
             updateInspectorUI();
-            syncControlsFromState();
+            refreshLightPanel();
             draw();
         }
 
