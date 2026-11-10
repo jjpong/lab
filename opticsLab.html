@@ -832,7 +832,7 @@
             const rad = degToRad(m.angle);
             const cosA = Math.cos(rad), sinA = Math.sin(rad);
             if (m.type === 'object') return [{ x: m.x, y: m.y }, { x: m.x + cosA * m.length, y: m.y + sinA * m.length }];
-            if (m.type === 'eye') return [{ x: m.x, y: m.y }, { x: m.x + cosA * EYE_ROT_DIST, y: m.y + sinA * EYE_ROT_DIST }];
+            if (m.type === 'eye') return [{ x: m.x, y: m.y }, { x: m.x + cosA * eyeRot(m), y: m.y + sinA * eyeRot(m) }];
             if (m.type === 'eyeModel') return [{ x: m.x, y: m.y }, { x: m.x + cosA * EM_HANDLE, y: m.y + sinA * EM_HANDLE }];
             if (!isCurvedMirror(m)) {
                 const halfL = m.length / 2;
@@ -996,8 +996,31 @@
             return { t: res.t, x: res.hitX, y: res.hitY, dx: vx / L, dy: vy / L };
         }
 
-        function makeOriginRays() {
+        const DENSITY_MAX = 15;   // 光線密度滑桿的最大值；拉到最大就變成「光束」
+        const isBeamMode = () => state.light.type !== 'single' && state.light.density >= DENSITY_MAX;
+
+        // dense = true：產生很密的光線（數百條），用來判斷眼睛有沒有看到光，以及畫光束
+        function makeOriginRays(dense) {
             const originRays = [];
+            if (dense) {
+                const lightRad = degToRad(state.light.angle);
+                const dirX = Math.cos(lightRad), dirY = Math.sin(lightRad);
+                if (state.light.type === 'parallel') {
+                    const width = (state.light.density - 1) * 32;
+                    const n = Math.max(2, Math.round(width / 1.5) + 1);
+                    for (let i = 0; i < n; i++) {
+                        const offset = -width / 2 + width * i / (n - 1);
+                        originRays.push({ x: state.light.x - dirY * offset, y: state.light.y + dirX * offset, dx: dirX, dy: dirY });
+                    }
+                } else if (state.light.type === 'point') {
+                    const n = 401, spread = 100;
+                    for (let i = 0; i < n; i++) {
+                        const a = degToRad(state.light.angle - spread / 2 + spread * i / (n - 1));
+                        originRays.push({ x: state.light.x, y: state.light.y, dx: Math.cos(a), dy: Math.sin(a) });
+                    }
+                }
+                return originRays;
+            }
             const lightRad = degToRad(state.light.angle);
             const dirX = Math.cos(lightRad);
             const dirY = Math.sin(lightRad);
@@ -1026,11 +1049,11 @@
 
         // ───────── 光線追跡 ─────────
         // paths：每一段光路（含部分反射分出的支線）；events：被標示角度那條光線的反射、折射、全反射位置
-        function traceRays() {
+        function traceRays(opts = {}) {
             if (!document.getElementById('chkShowLight').checked) return { paths: [], events: [], multi: false };
-            const originRays = makeOriginRays();
+            const originRays = makeOriginRays(!!opts.dense);
             // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°
-            const trackedRay = originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0;
+            const trackedRay = opts.dense ? -1 : (originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0);
             const partialOn = partialLevel() > 0;
             const mirrors = state.mirrors.filter(m => MIRROR_TYPES.includes(m.type));
             const ideals = state.mirrors.filter(m => IDEAL_TYPES.includes(m.type));
@@ -1041,7 +1064,7 @@
             state.mirrors.forEach(m => { if (GLASS_TYPES.includes(m.type)) prims.push(...glassPrims(m)); });
 
             const paths = [], events = [];
-            let budget = 800;
+            let budget = 800 + originRays.length * 60;
 
             originRays.forEach((ray0, rayIdx) => {
                 const stack = [{ x: ray0.x, y: ray0.y, dx: ray0.dx, dy: ray0.dy, I: 1, main: true }];
@@ -1050,7 +1073,7 @@
                     const trackThis = br.main && rayIdx === trackedRay;
                     let cur = br;
                     const pts = [{ x: cur.x, y: cur.y }];
-                    let escaped = false, interactions = 0, enteredEye = null, retinaHit = null;
+                    let escaped = false, interactions = 0, enteredEye = null, retinaHit = null, eyeBody = null;
                     for (let step = 0; step < 40 && budget > 0; step++, budget--) {
                         let best = null;
                         for (const m of mirrors) { const h = hitMirror(cur, m); if (h && (!best || h.t < best.t)) best = { ...h, kind: 'mirror' }; }
@@ -1080,7 +1103,7 @@
                         const dIn = { x: cur.dx, y: cur.dy };
 
                         if (best.kind === 'mirror') {
-                            if (best.absorbed) { enteredEye = best.eye || null; retinaHit = best.retina || null; break; }
+                            if (best.absorbed) { enteredEye = best.eye || null; eyeBody = best.eyeBody || null; retinaHit = best.retina || null; break; }
                             if (trackThis) events.push({ type: 'reflect', x: best.x, y: best.y, n: best.normal, dIn, dOut: best.reflectDir });
                             cur = { x: best.x, y: best.y, dx: best.reflectDir.x, dy: best.reflectDir.y };
                             continue;
@@ -1127,7 +1150,7 @@
                         if (trackThis) events.push({ type: 'refract', x: best.x, y: best.y, n: { x: nx, y: ny }, dIn, dOut: { x: tx, y: ty }, n1, n2 });
                         cur = { x: best.x, y: best.y, dx: tx, dy: ty };
                     }
-                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, retina: retinaHit, scatter: !!br.scatter });
+                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, eyeBody, retina: retinaHit, scatter: !!br.scatter, rayIdx });
                 }
             });
 
@@ -1159,7 +1182,16 @@
 
             // 4. 光線
             const { paths, events, multi } = traceRays();
-            drawRays(paths, multi);
+            const beam = isBeamMode();
+            // 點光源、平行光是連續的光：畫面上只畫幾條代表光線，但判斷眼睛有沒有看到光、以及畫光束時，改用很密的光線
+            const needDense = state.light.type !== 'single' && (beam || state.mirrors.some(m => m.type === 'eye' || m.type === 'eyeModel'));
+            const dense = needDense ? traceRays({ dense: true }) : null;
+            if (beam) {
+                drawBeam(dense.paths);
+                drawRays(paths.filter(p => p.tracked), multi);   // 光束上保留一條標示角度用的光線
+            } else {
+                drawRays(paths, multi);
+            }
             if (document.getElementById('chkShowExtensions')?.checked) {
                 drawRayExtensions(paths);
             }
@@ -1171,8 +1203,8 @@
 
             // 6. 成像：特殊光線、像、屏幕、物體；再畫眼睛與進入眼睛的光
             drawImaging();
-            drawEyes(paths);
-            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, paths, idx === state.selectedMirrorIndex); });
+            drawEyes(paths, dense ? dense.paths : null);
+            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, beam ? dense.paths : paths, idx === state.selectedMirrorIndex, beam); });
             refreshEyeModelInfo();
 
             // 7. 其他元件的手把
@@ -1220,6 +1252,29 @@
                     ctx.font = 'bold 13px sans-serif';
                     ctx.fillText(item.text, item.x, item.y);
                 }
+            });
+            ctx.restore();
+        }
+
+        // 光束：把很密的光線用半透明、相加的方式畫在一起，看起來就是一整片發光的區域
+        function drawBeam(paths) {
+            if (!paths || !paths.length) return;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineCap = 'round';
+            const base = state.light.type === 'point' ? 0.07 : 0.11;
+            paths.forEach(p => {
+                const pts = p.points;
+                if (pts.length < 2) return;
+                const k = p.main || p.scatter ? 1 : partialLevel();
+                if (k <= 0) return;
+                ctx.globalAlpha = base * Math.min(1, 0.25 + 0.75 * Math.sqrt(p.I)) * k;
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
             });
             ctx.restore();
         }
@@ -1508,7 +1563,7 @@
             const dt = (px - m.x) * f.tx + (py - m.y) * f.ty;
             const ds = (px - m.x) * f.nx + (py - m.y) * f.ny;
             if (m.type === 'object') return dt >= -8 && dt <= m.length + 8 && Math.abs(ds) <= Math.max(10, m.length * 0.14);
-            if (m.type === 'eye') return Math.hypot(dt, ds) <= EYE_R + 6;
+            if (m.type === 'eye') return Math.hypot(dt, ds) <= eyeR(m) + 6;
             if (m.type === 'eyeModel') {
                 const F = emFrame(m), S = emShape(m), q = F.L({ x: px, y: py });
                 return ((q.z - S.zc) / S.a) ** 2 + (q.t / S.b) ** 2 <= 1.05 || (q.z > -EM_CORNEA - 6 && q.z < 0 && Math.abs(q.t) < EM_PUPIL + 20);
@@ -1888,24 +1943,25 @@
 
         // ───────── 眼睛：光進到瞳孔，眼睛才看得到 ─────────
         // 眼睛的 (x, y) 是眼球中心，angle 是眼睛看的方向
-        const EYE_R = 22;            // 眼球半徑
+        const eyeR = e => (e.length || 44) / 2;   // 眼球半徑（大小可調，length 是直徑）
+        const eyeRot = e => eyeR(e) + 28;          // 旋轉手把離眼球中心的距離
         const EYE_PUPIL_HALF = 28;   // 瞳孔（可以讓光進入）的半張角，度
-        const EYE_ROT_DIST = EYE_R + 28;
         const eyeDir = e => ({ x: Math.cos(degToRad(e.angle)), y: Math.sin(degToRad(e.angle)) });
 
         // 光線打到眼球：從正面射進瞳孔才算「看到」，打到眼球其他地方就被擋住
         function hitEye(ray, eye) {
             const ox = ray.x - eye.x, oy = ray.y - eye.y;
-            const b = ox * ray.dx + oy * ray.dy, c = ox * ox + oy * oy - EYE_R * EYE_R;
+            const R = eyeR(eye);
+            const b = ox * ray.dx + oy * ray.dy, c = ox * ox + oy * oy - R * R;
             const disc = b * b - c;
             if (disc < 0) return null;
             const t = -b - Math.sqrt(disc);
             if (t <= 0.001) return null;
             const x = ray.x + ray.dx * t, y = ray.y + ray.dy * t;
             const v = eyeDir(eye);
-            const cosA = ((x - eye.x) * v.x + (y - eye.y) * v.y) / EYE_R;
+            const cosA = ((x - eye.x) * v.x + (y - eye.y) * v.y) / R;
             const intoPupil = cosA >= Math.cos(degToRad(EYE_PUPIL_HALF)) && (ray.dx * v.x + ray.dy * v.y) < 0;
-            return { t, x, y, absorbed: true, kind: 'mirror', eye: intoPupil ? eye.id : null };
+            return { t, x, y, absorbed: true, kind: 'mirror', eye: intoPupil ? eye.id : null, eyeBody: eye.id };
         }
 
         // 眼睛看到物體的像：從物體頂端出發、經過元件後真的進到瞳孔的兩條光線
@@ -1915,7 +1971,8 @@
             if (r.infinite) return { reason: '物體在焦點上，像在無窮遠處' };
             const { S, op } = r;
             const v = eyeDir(eye);
-            const pc = { x: eye.x + v.x * EYE_R, y: eye.y + v.y * EYE_R };
+            const R = eyeR(eye);
+            const pc = { x: eye.x + v.x * R, y: eye.y + v.y * R };
             const I = r.iTip.pt, IL = S.toLocal(I);
             const E0 = S.toLocal(pc);
             // 眼睛要在光射出的那一側：透鏡在另一側（w > 0），面鏡在鏡前（w < 0）
@@ -1929,7 +1986,7 @@
             const px = -v.y, py = v.x;   // 瞳孔的橫向
             const rays = [];
             for (const k of [-0.7, 0.7]) {
-                const E = { x: pc.x + px * EYE_R * 0.45 * k, y: pc.y + py * EYE_R * 0.45 * k };
+                const E = { x: pc.x + px * R * 0.45 * k, y: pc.y + py * R * 0.45 * k };
                 const EL = S.toLocal(E);
                 if (Math.abs(EL.w - IL.w) < 1e-6) continue;
                 const tP = IL.t + (EL.t - IL.t) * (0 - IL.w) / (EL.w - IL.w);   // 像點和眼睛連線與元件平面的交點
@@ -1950,7 +2007,7 @@
         }
 
         function drawEye(eye, isSelected, seeing) {
-            const v = eyeDir(eye), a = Math.atan2(v.y, v.x);
+            const v = eyeDir(eye), a = Math.atan2(v.y, v.x), R = eyeR(eye);
             ctx.save();
             ctx.translate(eye.x, eye.y);
             ctx.rotate(a);
@@ -1959,30 +2016,30 @@
             ctx.fillStyle = '#f1f5f9';
             ctx.strokeStyle = isSelected ? '#38bdf8' : '#94a3b8';
             ctx.lineWidth = isSelected ? 2.5 : 1.5;
-            ctx.beginPath(); ctx.arc(0, 0, EYE_R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
             ctx.shadowBlur = 0;
             // 角膜：眼球前方的透明凸起
             ctx.fillStyle = 'rgba(186, 230, 253, 0.35)';
             ctx.strokeStyle = 'rgba(125, 211, 252, 0.9)';
             ctx.lineWidth = 1.2;
-            ctx.beginPath(); ctx.arc(EYE_R * 0.62, 0, EYE_R * 0.5, -1.15, 1.15); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(R * 0.62, 0, R * 0.5, -1.15, 1.15); ctx.closePath(); ctx.fill(); ctx.stroke();
             // 虹膜與瞳孔
             ctx.fillStyle = '#0ea5e9';
-            ctx.fillRect(EYE_R * 0.78, -EYE_R * 0.42, EYE_R * 0.16, EYE_R * 0.84);
+            ctx.fillRect(R * 0.78, -R * 0.42, R * 0.16, R * 0.84);
             ctx.fillStyle = seeing ? '#fde047' : '#0f172a';
-            ctx.fillRect(EYE_R * 0.8, -EYE_R * 0.2, EYE_R * 0.14, EYE_R * 0.4);
+            ctx.fillRect(R * 0.8, -R * 0.2, R * 0.14, R * 0.4);
             // 水晶體
             ctx.fillStyle = 'rgba(224, 242, 254, 0.9)';
-            ctx.beginPath(); ctx.ellipse(EYE_R * 0.6, 0, EYE_R * 0.12, EYE_R * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(R * 0.6, 0, R * 0.12, R * 0.3, 0, 0, Math.PI * 2); ctx.fill();
             // 視神經
             ctx.strokeStyle = '#fca5a5';
-            ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(-EYE_R, 0); ctx.lineTo(-EYE_R - 10, 3); ctx.stroke();
+            ctx.lineWidth = Math.max(3, R * 0.14);
+            ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(-R - R * 0.45, R * 0.14); ctx.stroke();
             ctx.restore();
         }
 
         // 畫眼睛、進入眼睛的光線、反向延長的視線，以及「看到了」的標示
-        function drawEyes(paths) {
+        function drawEyes(paths, densePaths) {
             const eyes = state.mirrors.filter(m => m.type === 'eye');
             if (!eyes.length) return;
             const sight = document.getElementById('chkEyeSight').checked;
@@ -1992,7 +2049,26 @@
                 let seeing = false;
 
                 // 1. 雷射光進入瞳孔
-                const laser = paths.filter(p => p.eye === eye.id);
+                let laser = paths.filter(p => p.eye === eye.id);
+                // 畫出來的光線剛好都沒進到眼睛時，用很密的光線再判斷一次；有進去的話，把真正進到眼睛的那條光畫出來
+                if (!laser.length && densePaths) {
+                    const inEye = densePaths.filter(p => p.eye === eye.id && p.main);
+                    if (inEye.length) {
+                        const rep = inEye[Math.floor(inEye.length / 2)];
+                        laser = [rep];
+                        ctx.save();
+                        ctx.strokeStyle = '#7df9ff';
+                        ctx.shadowColor = '#00f0ff';
+                        ctx.shadowBlur = 10;
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        rep.points.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+                        ctx.stroke();
+                        ctx.restore();
+                        for (let i = 0; i < rep.points.length - 1; i++) drawRayArrow(rep.points[i].x, rep.points[i].y, rep.points[i + 1].x, rep.points[i + 1].y, '#7df9ff');
+                    }
+                }
+                const pool = densePaths || paths;
                 if (laser.length) {
                     seeing = true;
                     msgs.push(['看到光了', '#fde047']);
@@ -2045,11 +2121,14 @@
                 drawEye(eye, state.mirrors.indexOf(eye) === state.selectedMirrorIndex, seeing);
                 // 旋轉手把
                 const v = eyeDir(eye);
-                drawHandle(eye.x + v.x * EYE_ROT_DIST, eye.y + v.y * EYE_ROT_DIST, state.mirrors.indexOf(eye) === state.selectedMirrorIndex);
+                drawHandle(eye.x + v.x * eyeRot(eye), eye.y + v.y * eyeRot(eye), state.mirrors.indexOf(eye) === state.selectedMirrorIndex);
                 // 看得到時只列出看到什麼；完全看不到時才說明原因
                 let show = seeing ? msgs.filter(m => m[1] !== '#94a3b8') : msgs.slice(0, 1);
-                if (!show.length) show = [['沒有光進到眼睛', '#94a3b8']];
-                show.forEach(([text, color], i) => drawPillBadge(text, eye.x, eye.y - EYE_R - 18 - i * 22, color));
+                if (!show.length) {
+                    const touched = pool.some(p => p.eyeBody === eye.id) || paths.some(p => p.eyeBody === eye.id);
+                    show = [[touched ? '光打到眼睛，但沒有從正面射進瞳孔' : '沒有光進到眼睛', '#94a3b8']];
+                }
+                show.forEach(([text, color], i) => drawPillBadge(text, eye.x, eye.y - eyeR(eye) - 18 - i * 22, color));
             });
         }
 
@@ -2237,7 +2316,7 @@
         }
 
         // 物體 → （矯正鏡片）→ 水晶體 → 視網膜 的光線，以及視網膜上的像
-        function drawEyeModelOverlay(m, paths, isSelected) {
+        function drawEyeModelOverlay(m, paths, isSelected, beam) {
             const F = emFrame(m), S = emShape(m), res = m._res || {}, c = emCond(m);
             const msgs = [];
             // 雷射落在視網膜上的光點
@@ -2245,8 +2324,8 @@
                 const e = p.points[p.points.length - 1];
                 ctx.save();
                 ctx.fillStyle = '#fde047'; ctx.shadowColor = '#fde047'; ctx.shadowBlur = 10;
-                ctx.globalAlpha = Math.min(1, 0.3 + p.I);
-                ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = beam ? 0.12 : Math.min(1, 0.3 + p.I);
+                ctx.beginPath(); ctx.arc(e.x, e.y, beam ? 2 : 3, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
             });
             if (res.obj) {
@@ -2952,7 +3031,7 @@
             state.light.x = parseFloat(document.getElementById('lightPosX').value) || 0;
             state.light.y = parseFloat(document.getElementById('lightPosY').value) || 0;
             state.light.density = parseInt(document.getElementById('lightDensitySlider').value) || 5;
-            document.getElementById('lightDensityVal').innerText = state.light.density;
+            document.getElementById('lightDensityVal').innerText = state.light.density >= DENSITY_MAX ? '光束' : state.light.density;
 
             draw();
         }
@@ -2964,7 +3043,7 @@
             document.getElementById('lightAngleInput').value = state.light.angle;
             document.getElementById('lightAngleVal').innerText = `${state.light.angle}°`;
             document.getElementById('lightDensitySlider').value = state.light.density;
-            document.getElementById('lightDensityVal').innerText = state.light.density;
+            document.getElementById('lightDensityVal').innerText = state.light.density >= DENSITY_MAX ? '光束' : state.light.density;
         }
 
         function updateInspectorUI() {
@@ -2984,9 +3063,9 @@
             $('mirrorRotInput').value = Math.round(m.angle);
             $('mirrorRotVal').innerText = `${Math.round(m.angle)}°`;
 
-            const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)', object: '物體高度 (Height)', screen: '屏幕高度 (Height)' };
+            const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)', object: '物體高度 (Height)', screen: '屏幕高度 (Height)', eye: '眼睛大小 (Size)' };
             $('mirrorLenLabel').innerText = lenLabels[m.type] || (LENS_TYPES.includes(m.type) ? '透鏡高度 (Height)' : '鏡面長度 (Length)');
-            $('lengthControl').classList.toggle('hidden', m.type === 'eye' || m.type === 'eyeModel');
+            $('lengthControl').classList.toggle('hidden', m.type === 'eyeModel');
             $('eyeModelControl').classList.toggle('hidden', m.type !== 'eyeModel');
             if (m.type === 'eyeModel') {
                 const on = 'bg-cyan-600 text-white border-cyan-500', off = 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
