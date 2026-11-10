@@ -1188,7 +1188,8 @@
             const dense = needDense ? traceRays({ dense: true }) : null;
             if (beam) {
                 drawBeam(dense.paths);
-                drawRays(paths.filter(p => p.tracked), multi);   // 光束上保留一條標示角度用的光線
+                // 光束模式不另外畫光線；只有打開法線、要標角度時，才畫出被標角度的那一條
+                if (document.getElementById('chkShowNormals').checked) drawRays(paths.filter(p => p.tracked), multi);
             } else {
                 drawRays(paths, multi);
             }
@@ -1203,7 +1204,7 @@
 
             // 6. 成像：特殊光線、像、屏幕、物體；再畫眼睛與進入眼睛的光
             drawImaging();
-            drawEyes(paths, dense ? dense.paths : null);
+            drawEyes(paths, dense ? dense.paths : null, beam);
             state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, beam ? dense.paths : paths, idx === state.selectedMirrorIndex, beam); });
             refreshEyeModelInfo();
 
@@ -1289,8 +1290,7 @@
                 if (pts.length < 2) return;
                 // 亮度依光的強度：部分反射分出的支線比較暗，並再乘上使用者設定的部分反射亮度
                 ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I)) * (p.main || p.scatter ? 1 : partialLevel());
-                // 多條光線時，標示角度的那一條畫粗一點
-                ctx.lineWidth = multi ? (p.tracked ? 3.5 : 1.8) : (p.main ? 2.5 : 1.6);
+                ctx.lineWidth = multi ? 1.8 : (p.main ? 2.5 : 1.6);
                 ctx.beginPath();
                 ctx.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -2039,7 +2039,40 @@
         }
 
         // 畫眼睛、進入眼睛的光線、反向延長的視線，以及「看到了」的標示
-        function drawEyes(paths, densePaths) {
+        // 從進到眼睛的光線裡挑出要畫的代表光線：至少兩條，盡量挑分得開的
+        function pickEyeRays(drawn, dense) {
+            const chosen = drawn.slice();
+            if (chosen.length >= 2 || !dense || !dense.length) return chosen;
+            const sep = (a, b) => {
+                const a0 = a.points[0], b0 = b.points[0], a1 = a.points[1], b1 = b.points[1];
+                return Math.hypot(a0.x - b0.x, a0.y - b0.y) + Math.hypot(a1.x - b1.x, a1.y - b1.y);
+            };
+            if (!chosen.length) {
+                if (dense.length === 1) return [dense[0]];
+                const n = dense.length - 1;
+                const i1 = Math.round(n * 0.2), i2 = Math.max(i1 + 1, Math.round(n * 0.8));
+                return [dense[i1], dense[Math.min(i2, n)]];
+            }
+            let best = null, bestD = -1;
+            dense.forEach(p => { const d = sep(p, chosen[0]); if (d > bestD) { bestD = d; best = p; } });
+            if (best && bestD > 1) chosen.push(best);
+            return chosen;
+        }
+
+        function drawEyeRay(rep) {
+            ctx.save();
+            ctx.strokeStyle = '#7df9ff';
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            rep.points.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+            ctx.stroke();
+            ctx.restore();
+            for (let i = 0; i < rep.points.length - 1; i++) drawRayArrow(rep.points[i].x, rep.points[i].y, rep.points[i + 1].x, rep.points[i + 1].y, '#7df9ff');
+        }
+
+        function drawEyes(paths, densePaths, beam) {
             const eyes = state.mirrors.filter(m => m.type === 'eye');
             if (!eyes.length) return;
             const sight = document.getElementById('chkEyeSight').checked;
@@ -2048,26 +2081,12 @@
                 const msgs = [];
                 let seeing = false;
 
-                // 1. 雷射光進入瞳孔
-                let laser = paths.filter(p => p.eye === eye.id);
-                // 畫出來的光線剛好都沒進到眼睛時，用很密的光線再判斷一次；有進去的話，把真正進到眼睛的那條光畫出來
-                if (!laser.length && densePaths) {
-                    const inEye = densePaths.filter(p => p.eye === eye.id && p.main);
-                    if (inEye.length) {
-                        const rep = inEye[Math.floor(inEye.length / 2)];
-                        laser = [rep];
-                        ctx.save();
-                        ctx.strokeStyle = '#7df9ff';
-                        ctx.shadowColor = '#00f0ff';
-                        ctx.shadowBlur = 10;
-                        ctx.lineWidth = 2.5;
-                        ctx.beginPath();
-                        rep.points.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
-                        ctx.stroke();
-                        ctx.restore();
-                        for (let i = 0; i < rep.points.length - 1; i++) drawRayArrow(rep.points[i].x, rep.points[i].y, rep.points[i + 1].x, rep.points[i + 1].y, '#7df9ff');
-                    }
-                }
+                // 1. 光進入瞳孔：畫面上的光線（光束模式則沒有）加上密集光線，挑至少兩條畫出來
+                const drawnIn = (beam ? [] : paths).filter(p => p.eye === eye.id && p.main);
+                const denseIn = densePaths ? densePaths.filter(p => p.eye === eye.id && p.main) : [];
+                let laser = pickEyeRays(drawnIn, denseIn);
+                if (!laser.length) laser = paths.filter(p => p.eye === eye.id);   // 只剩部分反射的支線進到眼睛
+                laser.forEach(drawEyeRay);
                 const pool = densePaths || paths;
                 if (laser.length) {
                     seeing = true;
