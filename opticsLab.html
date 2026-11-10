@@ -80,6 +80,18 @@
                         <option value="eyeMagnifier">19. 眼睛透過放大鏡看到放大的像</option>
                         <option value="eyeLaser">20. 雷射光反射進入眼睛</option>
                     </optgroup>
+                    <optgroup label="眼睛的成像與視力問題">
+                        <option value="emParallel">21. 眼睛的成像：平行光聚焦在視網膜上</option>
+                        <option value="emFar">22. 看遠的物體：水晶體放鬆</option>
+                        <option value="emNear">23. 看近的物體：調節作用</option>
+                        <option value="emMyopia">24. 近視眼：看不清遠處</option>
+                        <option value="emMyopiaFix">25. 近視眼矯正：凹透鏡</option>
+                        <option value="emHyperopia">26. 遠視眼：看不清近處</option>
+                        <option value="emHyperopiaFix">27. 遠視眼矯正：凸透鏡</option>
+                        <option value="emPresbyopia">28. 老花眼：調節能力變差</option>
+                        <option value="emPresbyopiaFix">29. 老花眼矯正：凸透鏡</option>
+                        <option value="emCataract">30. 白內障：水晶體混濁</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -218,6 +230,13 @@
                     </button>
                 </div>
 
+                <p class="text-[11px] text-slate-500 mb-1.5">眼睛：成像原理與視力問題（眼前可放理想透鏡當眼鏡）</p>
+                <div class="grid grid-cols-1 gap-2 mb-3">
+                    <button onclick="addMirror('eyeModel')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-row justify-center items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5 text-rose-300" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="13" cy="12" rx="9" ry="8"/><path d="M4 9a6 6 0 0 0 0 6" stroke="#7dd3fc"/><ellipse cx="6.5" cy="12" rx="1.6" ry="3.4" fill="currentColor" fill-opacity=".25"/><path d="M21 9.5a8 8 0 0 1 0 5" stroke="#f87171" stroke-width="2.2"/></svg> 眼球模型（剖面）
+                    </button>
+                </div>
+
                 <!-- Selected Element Inspector -->
                 <div id="selectedMirrorInspector" class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 hidden">
                     <div class="flex justify-between items-center mb-2">
@@ -275,6 +294,29 @@
                             </div>
                             <input type="range" id="mirrorFocalSlider" min="60" max="400" value="150" step="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('focalSlider')">
                             <p id="lensInfo" class="hidden mt-1.5 text-[11px] leading-relaxed text-slate-400"></p>
+                        </div>
+
+                        <div id="eyeModelControl" class="hidden space-y-2">
+                            <div class="text-slate-400">眼睛狀況</div>
+                            <div class="grid grid-cols-3 gap-1">
+                                <button onclick="setEyeCondition('normal')" id="emBtn_normal" class="py-1 rounded border text-[11px]">正常眼</button>
+                                <button onclick="setEyeCondition('myopia')" id="emBtn_myopia" class="py-1 rounded border text-[11px]">近視眼</button>
+                                <button onclick="setEyeCondition('hyperopia')" id="emBtn_hyperopia" class="py-1 rounded border text-[11px]">遠視眼</button>
+                                <button onclick="setEyeCondition('presbyopia')" id="emBtn_presbyopia" class="py-1 rounded border text-[11px]">老花眼</button>
+                                <button onclick="setEyeCondition('cataract')" id="emBtn_cataract" class="py-1 rounded border text-[11px]">白內障</button>
+                            </div>
+                            <label class="flex items-center justify-between text-slate-300 cursor-pointer">
+                                <span>自動調節（看哪裡就對焦到哪裡）</span>
+                                <input type="checkbox" id="emAutoChk" onchange="setEyeAuto(this.checked)" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                            </label>
+                            <div id="emAccRow">
+                                <div class="flex justify-between text-slate-400 mb-1">
+                                    <span>調節程度（睫狀肌收縮）</span>
+                                    <span class="text-cyan-400 font-mono" id="emAccVal">0%</span>
+                                </div>
+                                <input type="range" id="emAccSlider" min="0" max="100" step="1" value="0" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="setEyeAcc(this.value)">
+                            </div>
+                            <p id="eyeModelInfo" class="p-2 rounded bg-slate-900/80 border border-slate-800 text-[11px] leading-relaxed text-slate-300"></p>
                         </div>
 
                         <div id="objectControl" class="hidden">
@@ -423,6 +465,7 @@
                 <p>• <b>真實透鏡</b>：焦距是薄透鏡近似值，實際交點會因透鏡厚度與球面像差而偏移。</p>
                 <p>• <b>成像</b>：物體會對最近的理想薄透鏡或面鏡成像；拖曳物體底端移動，拖曳頂端改變高度。實像畫實線，虛像畫虛線。打開座標網格（一格 40px）可量物距與像距。</p>
                 <p>• <b>眼睛</b>：拖曳眼球移動，拖曳前方的圓點改變看的方向。光從正面射進瞳孔，眼睛才看得到；綠色虛線是眼睛覺得光來自的方向。</p>
+                <p>• <b>眼球模型</b>：會自動對焦到眼前的物體；在左側切換近視、遠視、老花、白內障。把理想凹透鏡或凸透鏡放在眼睛前方就是戴眼鏡。</p>
                 <p>• <b>移動畫面</b>：按住滑鼠<b>右鍵</b>拖曳（也可以按住滾輪拖曳，或按住空白鍵再用左鍵拖曳）。</p>
                 <p>• <b>縮放畫面</b>：用右上角的 <b>＋</b>、<b>－</b> 按鈕；「重置視角」回到原位。</p>
                 <p>• <b>觸控螢幕</b>：單指拖曳物件，兩指縮放、移動畫面。</p>
@@ -622,7 +665,7 @@
             rect: { length: 300, angle: 0, thickness: 120 }, semi: { length: 260, angle: 90 },
             lensConvex: { length: 180, angle: 90 }, lensConcave: { length: 180, angle: 90 },
             idealConvex: { length: 260, angle: 90 }, idealConcave: { length: 260, angle: 90 },
-            object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }, eye: { length: 44, angle: 180 }
+            object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }, eye: { length: 44, angle: 180 }, eyeModel: { length: 200, angle: 180 }
         };
 
         function addMirror(type, customProps = {}) {
@@ -637,7 +680,10 @@
                 focalLength: customProps.focalLength || 150,
                 thickness: customProps.thickness || def.thickness || 120,
                 n: customProps.n || 1.5,
-                style: customProps.style || 'candle'
+                style: customProps.style || 'candle',
+                cond: customProps.cond || 'normal',
+                autoAcc: customProps.autoAcc !== false,
+                acc: 0
             };
             if (isRealLens(mirror)) {
                 mirror.radius = customProps.radius || 2 * (mirror.n - 1) * mirror.focalLength;
@@ -717,7 +763,7 @@
             rect: '長方形玻璃磚', semi: '半圓形玻璃磚',
             lensConvex: '凸透鏡（真實）', lensConcave: '凹透鏡（真實）',
             idealConvex: '凸透鏡（理想薄透鏡）', idealConcave: '凹透鏡（理想薄透鏡）',
-            object: '物體', screen: '屏幕', eye: '眼睛'
+            object: '物體', screen: '屏幕', eye: '眼睛', eyeModel: '眼球模型'
         };
         const isCurvedMirror = m => m.type === 'concave' || m.type === 'convex';
 
@@ -787,6 +833,7 @@
             const cosA = Math.cos(rad), sinA = Math.sin(rad);
             if (m.type === 'object') return [{ x: m.x, y: m.y }, { x: m.x + cosA * m.length, y: m.y + sinA * m.length }];
             if (m.type === 'eye') return [{ x: m.x, y: m.y }, { x: m.x + cosA * EYE_ROT_DIST, y: m.y + sinA * EYE_ROT_DIST }];
+            if (m.type === 'eyeModel') return [{ x: m.x, y: m.y }, { x: m.x + cosA * EM_HANDLE, y: m.y + sinA * EM_HANDLE }];
             if (!isCurvedMirror(m)) {
                 const halfL = m.length / 2;
                 return [{ x: m.x - cosA * halfL, y: m.y - sinA * halfL }, { x: m.x + cosA * halfL, y: m.y + sinA * halfL }];
@@ -805,7 +852,7 @@
             m.angle = normalizeAngle(radToDeg(Math.atan2(dy, dx)));
             const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
             if (m.type === 'object') { m.x = p1.x; m.y = p1.y; m.length = Math.round(dist); return; }
-            if (m.type === 'eye') return;   // 眼睛的手把只改變看的方向
+            if (m.type === 'eye' || m.type === 'eyeModel') return;   // 眼睛的手把只改變看的方向
             if (!isCurvedMirror(m)) {
                 m.length = Math.round(dist);
                 m.x = midX; m.y = midY;
@@ -989,6 +1036,7 @@
             const ideals = state.mirrors.filter(m => IDEAL_TYPES.includes(m.type));
             const screens = state.mirrors.filter(m => m.type === 'screen');
             const eyes = state.mirrors.filter(m => m.type === 'eye');
+            const eyeModels = state.mirrors.filter(m => m.type === 'eyeModel').map(m => ({ m, ...emParts(m) }));
             const prims = [];
             state.mirrors.forEach(m => { if (GLASS_TYPES.includes(m.type)) prims.push(...glassPrims(m)); });
 
@@ -1002,7 +1050,7 @@
                     const trackThis = br.main && rayIdx === trackedRay;
                     let cur = br;
                     const pts = [{ x: cur.x, y: cur.y }];
-                    let escaped = false, interactions = 0, enteredEye = null;
+                    let escaped = false, interactions = 0, enteredEye = null, retinaHit = null;
                     for (let step = 0; step < 40 && budget > 0; step++, budget--) {
                         let best = null;
                         for (const m of mirrors) { const h = hitMirror(cur, m); if (h && (!best || h.t < best.t)) best = { ...h, kind: 'mirror' }; }
@@ -1014,6 +1062,14 @@
                             if (h && (!best || h.t < best.t)) best = { t: h.t, x: h.hitX, y: h.hitY, absorbed: true, kind: 'mirror' };
                         }
                         for (const m of eyes) { const h = hitEye(cur, m); if (h && (!best || h.t < best.t)) best = h; }
+                        for (const E of eyeModels) {   // 眼球模型：水晶體折射，虹膜與眼球後壁擋光（光落在視網膜上）
+                            const h = hitIdeal(cur, E.lens);
+                            if (h && (!best || h.t < best.t)) best = { ...h, kind: 'ideal', cloudy: E.cloudy };
+                            for (const [a, b, isRetina] of E.segs) {
+                                const h2 = intersectRaySegment(cur, a, b);
+                                if (h2 && (!best || h2.t < best.t)) best = { t: h2.t, x: h2.hitX, y: h2.hitY, absorbed: true, kind: 'mirror', retina: isRetina ? E.m.id : null };
+                            }
+                        }
                         if (!best) {
                             pts.push({ x: cur.x + cur.dx * 4000, y: cur.y + cur.dy * 4000 });
                             escaped = true;
@@ -1024,12 +1080,21 @@
                         const dIn = { x: cur.dx, y: cur.dy };
 
                         if (best.kind === 'mirror') {
-                            if (best.absorbed) { enteredEye = best.eye || null; break; }
+                            if (best.absorbed) { enteredEye = best.eye || null; retinaHit = best.retina || null; break; }
                             if (trackThis) events.push({ type: 'reflect', x: best.x, y: best.y, n: best.normal, dIn, dOut: best.reflectDir });
                             cur = { x: best.x, y: best.y, dx: best.reflectDir.x, dy: best.reflectDir.y };
                             continue;
                         }
                         if (best.kind === 'ideal') {
+                            if (best.cloudy) {
+                                // 白內障：混濁的水晶體讓光變弱，並把一部分光散射到各個方向
+                                stack.push({ x: best.x, y: best.y, dx: best.dx, dy: best.dy, I: br.I * 0.45, main: br.main });
+                                if (br.I > 0.2) [-0.6, -0.3, 0.3, 0.6].forEach(da => {
+                                    const c2 = Math.cos(da), s2 = Math.sin(da);
+                                    stack.push({ x: best.x, y: best.y, dx: best.dx * c2 - best.dy * s2, dy: best.dx * s2 + best.dy * c2, I: br.I * 0.06, main: false, scatter: true });
+                                });
+                                break;
+                            }
                             cur = { x: best.x, y: best.y, dx: best.dx, dy: best.dy };
                             continue;
                         }
@@ -1062,7 +1127,7 @@
                         if (trackThis) events.push({ type: 'refract', x: best.x, y: best.y, n: { x: nx, y: ny }, dIn, dOut: { x: tx, y: ty }, n1, n2 });
                         cur = { x: best.x, y: best.y, dx: tx, dy: ty };
                     }
-                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye });
+                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, retina: retinaHit, scatter: !!br.scatter });
                 }
             });
 
@@ -1085,7 +1150,9 @@
             // 2. Custom Annotations
             drawAnnotations();
 
-            // 3. 玻璃與透鏡本體（畫在光線下面，光線在玻璃裡才看得清楚）
+            // 3. 眼球模型先決定水晶體要調節多少（光線追跡會用到）；玻璃、透鏡、眼球本體畫在光線下面
+            state.mirrors.forEach(m => { if (m.type === 'eyeModel') updateEyeModel(m); });
+            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelBody(m, idx === state.selectedMirrorIndex); });
             state.mirrors.forEach((m, idx) => {
                 if (GLASS_TYPES.includes(m.type) || IDEAL_TYPES.includes(m.type)) drawOptic(m, idx === state.selectedMirrorIndex);
             });
@@ -1105,10 +1172,12 @@
             // 6. 成像：特殊光線、像、屏幕、物體；再畫眼睛與進入眼睛的光
             drawImaging();
             drawEyes(paths);
+            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, paths, idx === state.selectedMirrorIndex); });
+            refreshEyeModelInfo();
 
             // 7. 其他元件的手把
             state.mirrors.forEach((m, idx) => {
-                if (!MIRROR_TYPES.includes(m.type) && m.type !== 'eye') drawElementHandles(m, idx === state.selectedMirrorIndex);
+                if (!MIRROR_TYPES.includes(m.type) && m.type !== 'eye' && m.type !== 'eyeModel') drawElementHandles(m, idx === state.selectedMirrorIndex);
             });
 
             // 8. 法線與角度代號
@@ -1164,7 +1233,7 @@
                 const pts = p.points;
                 if (pts.length < 2) return;
                 // 亮度依光的強度：部分反射分出的支線比較暗，並再乘上使用者設定的部分反射亮度
-                ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I)) * (p.main ? 1 : partialLevel());
+                ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I)) * (p.main || p.scatter ? 1 : partialLevel());
                 // 多條光線時，標示角度的那一條畫粗一點
                 ctx.lineWidth = multi ? (p.tracked ? 3.5 : 1.8) : (p.main ? 2.5 : 1.6);
                 ctx.beginPath();
@@ -1440,6 +1509,10 @@
             const ds = (px - m.x) * f.nx + (py - m.y) * f.ny;
             if (m.type === 'object') return dt >= -8 && dt <= m.length + 8 && Math.abs(ds) <= Math.max(10, m.length * 0.14);
             if (m.type === 'eye') return Math.hypot(dt, ds) <= EYE_R + 6;
+            if (m.type === 'eyeModel') {
+                const F = emFrame(m), S = emShape(m), q = F.L({ x: px, y: py });
+                return ((q.z - S.zc) / S.a) ** 2 + (q.t / S.b) ** 2 <= 1.05 || (q.z > -EM_CORNEA - 6 && q.z < 0 && Math.abs(q.t) < EM_PUPIL + 20);
+            }
             if (m.type === 'screen') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= 10;
             if (m.type === 'rect') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= (m.thickness || 120) / 2;
             if (m.type === 'semi') return ds >= -8 && Math.hypot(dt, ds) <= m.length / 2;
@@ -1980,6 +2053,334 @@
             });
         }
 
+        // ───────── 眼球模型：眼睛的成像原理與視力問題 ─────────
+        // (x, y) 是水晶體中心；angle 是眼睛看的方向。眼內座標：ζ 由水晶體往視網膜為正，t 為橫向
+        // 角膜與水晶體合起來視為一個焦距可以改變的理想透鏡；視網膜在水晶體後方 dr 的地方
+        const EM_CORNEA = 24, EM_B = 90, EM_PUPIL = 34, EM_HANDLE = EM_CORNEA + 46;
+        const EM_COND = {
+            normal:     { name: '正常眼',  dr: 166, f0: 166, A: 1 / 220 },
+            myopia:     { name: '近視眼',  dr: 191, f0: 130, A: 1 / 220 },   // 眼軸太長、水晶體太凸
+            hyperopia:  { name: '遠視眼',  dr: 135, f0: 166, A: 1 / 220 },   // 眼軸太短
+            presbyopia: { name: '老花眼',  dr: 166, f0: 166, A: 1 / 600 },   // 水晶體彈性變差，調節能力變小
+            cataract:   { name: '白內障',  dr: 166, f0: 166, A: 1 / 220, cloudy: true }   // 水晶體混濁
+        };
+        const emCond = m => EM_COND[m.cond] || EM_COND.normal;
+        function emFrame(m) {
+            const v = { x: Math.cos(degToRad(m.angle)), y: Math.sin(degToRad(m.angle)) };   // 看的方向
+            const inn = { x: -v.x, y: -v.y }, p = { x: -v.y, y: v.x };
+            return { v, inn, p,
+                W: (z, t) => ({ x: m.x + inn.x * z + p.x * t, y: m.y + inn.y * z + p.y * t }),
+                L: q => ({ z: (q.x - m.x) * inn.x + (q.y - m.y) * inn.y, t: (q.x - m.x) * p.x + (q.y - m.y) * p.y }) };
+        }
+        function emShape(m) {
+            const c = emCond(m);
+            const a = (c.dr + EM_CORNEA) / 2, zc = (c.dr - EM_CORNEA) / 2;   // 眼球（橢圓）由角膜延伸到視網膜
+            return { a, zc, b: EM_B, dr: c.dr };
+        }
+
+        // 薄透鏡成像（允許虛物）：透鏡在 zL、焦距 f；回傳像點
+        function thinLensMap(pt, zL, tL, f) {
+            const p = zL - pt.z;
+            if (Math.abs(p) < 1e-6) return { z: zL, t: pt.t };
+            const inv = 1 / f - 1 / p;
+            const q = Math.abs(inv) < 1e-9 ? 1e9 : 1 / inv;
+            return { z: zL + q, t: tL - (q / p) * (pt.t - tL) };
+        }
+
+        // 眼睛前方的矯正鏡片（理想薄透鏡），依離物體由遠到近排列
+        function emCorrectors(m, zObj) {
+            const F = emFrame(m);
+            return state.mirrors.filter(o => IDEAL_TYPES.includes(o.type)).map(o => {
+                const q = F.L(o);
+                return { o, z: q.z, t: q.t, f: (o.type === 'idealConvex' ? 1 : -1) * o.focalLength };
+            }).filter(c => c.z < -EM_CORNEA + 2 && c.z > zObj && Math.abs(c.t) < c.o.length / 2 + EM_B)
+              .sort((a, b) => a.z - b.z);
+        }
+
+        // 眼睛正在看的物體：在眼睛前方、最靠近視軸的那一個
+        function emTarget(m) {
+            const F = emFrame(m);
+            let best = null, bestT = Infinity;
+            state.mirrors.filter(o => o.type === 'object').forEach(o => {
+                const b = F.L(o);
+                if (b.z < -EM_CORNEA - 20 && Math.abs(b.t) < 250 && Math.abs(b.t) < bestT) { bestT = Math.abs(b.t); best = o; }
+            });
+            return best;
+        }
+
+        // 計算水晶體的調節狀態與視網膜上的像
+        function updateEyeModel(m) {
+            const c = emCond(m), F = emFrame(m);
+            const Pmin = 1 / c.f0, Pmax = 1 / c.f0 + c.A;
+            const res = { cond: c, Pmin, Pmax };
+            const obj = emTarget(m);
+            let P;
+            if (obj) {
+                const base0 = F.L(obj), tip0 = F.L(objTip(obj));
+                const corr = emCorrectors(m, base0.z);
+                const chainTip = [tip0], chainBase = [base0];
+                corr.forEach(k => { chainTip.push(thinLensMap(chainTip[chainTip.length - 1], k.z, k.t, k.f)); chainBase.push(thinLensMap(chainBase[chainBase.length - 1], k.z, k.t, k.f)); });
+                const oTip = chainTip[chainTip.length - 1], oBase = chainBase[chainBase.length - 1];   // 眼睛「看到」的物（經過鏡片後）
+                const pE = -oBase.z;                       // 物距（由水晶體量起；鏡片造成的虛物時可能為負）
+                const Pneed = 1 / c.dr + 1 / pE;           // 要讓像剛好落在視網膜上需要的屈光力
+                P = m.autoAcc === false ? Pmin + c.A * (m.acc || 0) : Math.min(Pmax, Math.max(Pmin, Pneed));
+                const img = pt => thinLensMap(pt, 0, 0, 1 / P);
+                const iTip = img(oTip), iBase = img(oBase);
+                const q = iBase.z;
+                const blur = Math.abs(q) > 1e8 ? 2 * EM_PUPIL : 2 * EM_PUPIL * Math.abs(c.dr - q) / Math.abs(q);   // 視網膜上的模糊光斑直徑
+                let where = 'on';
+                if (blur >= 3) where = (q > 0 && q < c.dr) ? 'front' : 'behind';
+                Object.assign(res, { obj, corr, chainTip, chainBase, oTip, oBase, iTip, iBase, blur, where, pE, Pneed });
+            } else {
+                P = m.autoAcc === false ? Pmin + c.A * (m.acc || 0) : Pmin;   // 沒有東西可看時，水晶體放鬆
+            }
+            res.P = P;
+            res.accFrac = (P - Pmin) / c.A;
+            // 遠點與近點（由水晶體量起）
+            const farInv = Pmin - 1 / c.dr, nearInv = Pmax - 1 / c.dr;
+            res.far = farInv > 1e-7 ? 1 / farInv : (Math.abs(farInv) <= 1e-7 ? Infinity : -1);   // -1：比無限遠還遠（遠視）
+            res.near = nearInv > 1e-7 ? 1 / nearInv : Infinity;
+            m._f = 1 / P;
+            m._res = res;
+            return res;
+        }
+
+        // 給光線追跡用的零件：水晶體（理想透鏡）、虹膜、眼球後半部（視網膜與鞏膜，會擋光）
+        function emParts(m) {
+            const F = emFrame(m), S = emShape(m);
+            const lensAngle = radToDeg(Math.atan2(F.p.y, F.p.x));
+            const lens = { type: 'idealConvex', x: m.x, y: m.y, angle: lensAngle, length: EM_PUPIL * 2, focalLength: m._f || emCond(m).f0 };
+            const ellT = z => S.b * Math.sqrt(Math.max(0, 1 - ((z - S.zc) / S.a) ** 2));
+            const irisOuter = ellT(0);
+            const segs = [
+                [F.W(0, EM_PUPIL), F.W(0, irisOuter), false], [F.W(0, -EM_PUPIL), F.W(0, -irisOuter), false]
+            ];
+            const N = 60;
+            for (let i = 0; i < N; i++) {   // 眼球後半部（水晶體平面之後）
+                const a1 = (i / N) * Math.PI * 2, a2 = ((i + 1) / N) * Math.PI * 2;
+                const p1 = { z: S.zc + S.a * Math.cos(a1), t: S.b * Math.sin(a1) }, p2 = { z: S.zc + S.a * Math.cos(a2), t: S.b * Math.sin(a2) };
+                if (p1.z < 0 && p2.z < 0) continue;   // 前方（角膜那一側）透光
+                segs.push([F.W(p1.z, p1.t), F.W(p2.z, p2.t), (p1.z + p2.z) / 2 > S.zc * 0.4]);
+            }
+            return { lens, segs, cloudy: !!emCond(m).cloudy };
+        }
+
+        // 光線與眼球後壁（橢圓）的交點，ζ 方向往後
+        function emRetinaHit(m, from, dir) {
+            const F = emFrame(m), S = emShape(m);
+            const o = F.L(from);
+            const d = { z: dir.x * F.inn.x + dir.y * F.inn.y, t: dir.x * F.p.x + dir.y * F.p.y };
+            const oz = (o.z - S.zc) / S.a, ot = o.t / S.b, dz = d.z / S.a, dt = d.t / S.b;
+            const A = dz * dz + dt * dt, B = 2 * (oz * dz + ot * dt), C = oz * oz + ot * ot - 1;
+            const disc = B * B - 4 * A * C;
+            if (disc < 0) return null;
+            const s = (-B + Math.sqrt(disc)) / (2 * A);
+            return { x: from.x + dir.x * s, y: from.y + dir.y * s };
+        }
+
+        function drawEyeModelBody(m, isSelected) {
+            const F = emFrame(m), S = emShape(m), c = emCond(m);
+            const res = m._res || {};
+            const ang = Math.atan2(F.inn.y, F.inn.x);
+            const C = F.W(S.zc, 0);
+            ctx.save();
+            // 眼球（鞏膜）
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.55)';
+            ctx.strokeStyle = isSelected ? '#38bdf8' : '#cbd5e1';
+            ctx.lineWidth = isSelected ? 3 : 2;
+            ctx.beginPath(); ctx.ellipse(C.x, C.y, S.a, S.b, ang, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            // 視網膜（眼球後半部內側）
+            ctx.strokeStyle = '#f87171';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.ellipse(C.x, C.y, S.a - 4, S.b - 4, ang, -1.25, 1.25); ctx.stroke();
+            // 視神經
+            const on1 = F.W(S.dr + 2, 6), on2 = F.W(S.dr + 30, 14);
+            ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(on1.x, on1.y); ctx.lineTo(on2.x, on2.y); ctx.stroke();
+            // 角膜
+            const k0 = F.W(0, 0);
+            ctx.fillStyle = 'rgba(186, 230, 253, 0.18)';
+            ctx.strokeStyle = 'rgba(125, 211, 252, 0.95)';
+            ctx.lineWidth = 2;
+            const corR = 62, corC = F.W(-EM_CORNEA + corR, 0);
+            ctx.beginPath(); ctx.arc(corC.x, corC.y, corR, ang + Math.PI - 0.72, ang + Math.PI + 0.72); ctx.stroke();
+            // 虹膜
+            const ellT = z => S.b * Math.sqrt(Math.max(0, 1 - ((z - S.zc) / S.a) ** 2));
+            const irisOuter = ellT(0);
+            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 5; ctx.lineCap = 'butt';
+            [[EM_PUPIL, irisOuter], [-EM_PUPIL, -irisOuter]].forEach(([t1, t2]) => {
+                const a1 = F.W(0, t1), a2 = F.W(0, t2);
+                ctx.beginPath(); ctx.moveTo(a1.x, a1.y); ctx.lineTo(a2.x, a2.y); ctx.stroke();
+            });
+            // 睫狀肌
+            ctx.fillStyle = '#fb7185';
+            [1, -1].forEach(sg => { const q = F.W(4, sg * (irisOuter - 6)); ctx.beginPath(); ctx.ellipse(q.x, q.y, 6, 9, ang, 0, Math.PI * 2); ctx.fill(); });
+            // 水晶體：越凸（屈光力越大）越厚
+            const thick = 7 + 22 * Math.min(1.4, Math.max(0, (1 / (m._f || c.f0) - 1 / 200) / (1 / 220)));
+            ctx.fillStyle = c.cloudy ? 'rgba(226, 232, 240, 0.85)' : 'rgba(224, 242, 254, 0.35)';
+            ctx.strokeStyle = c.cloudy ? '#e2e8f0' : '#bae6fd';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.ellipse(k0.x, k0.y, thick / 2, EM_PUPIL + 4, ang, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            if (c.cloudy) {   // 混濁的斑點
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+                for (let i = 0; i < 9; i++) { const q = F.W(((i * 37) % 9 - 4) * thick / 12, ((i * 53) % 13 - 6) * EM_PUPIL / 8); ctx.beginPath(); ctx.arc(q.x, q.y, 1.6, 0, Math.PI * 2); ctx.fill(); }
+            }
+            // 構造名稱
+            ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#7dd3fc';
+            // 名稱放在眼球外側，避免壓到構造本身
+            const lc = F.W(-EM_CORNEA - 6, S.b * 0.72); ctx.fillText('角膜', lc.x, lc.y);
+            const ll = F.W(4, -(irisOuter + 26)); ctx.fillStyle = '#bae6fd'; ctx.fillText('水晶體', ll.x, ll.y);
+            const lm = F.W(4, irisOuter + 24); ctx.fillStyle = '#fda4af'; ctx.fillText('睫狀肌', lm.x, lm.y);
+            const lr = F.W(S.dr + 6, -S.b * 0.72); ctx.fillStyle = '#fca5a5'; ctx.fillText('視網膜', lr.x, lr.y);
+            ctx.restore();
+        }
+
+        // 物體 → （矯正鏡片）→ 水晶體 → 視網膜 的光線，以及視網膜上的像
+        function drawEyeModelOverlay(m, paths, isSelected) {
+            const F = emFrame(m), S = emShape(m), res = m._res || {}, c = emCond(m);
+            const msgs = [];
+            // 雷射落在視網膜上的光點
+            paths.filter(p => p.retina === m.id).forEach(p => {
+                const e = p.points[p.points.length - 1];
+                ctx.save();
+                ctx.fillStyle = '#fde047'; ctx.shadowColor = '#fde047'; ctx.shadowBlur = 10;
+                ctx.globalAlpha = Math.min(1, 0.3 + p.I);
+                ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            });
+            if (res.obj) {
+                const tipW = objTip(res.obj);
+                const rays = [];
+                for (const k of [-0.8, -0.4, 0, 0.4, 0.8]) {
+                    const h = k * EM_PUPIL;
+                    // 由水晶體往回推：每一段光都在「前一個像點」與下一個打到的點的連線上
+                    let cur = { z: 0, t: h };
+                    const pts = [cur];
+                    let ok = true;
+                    for (let i = res.corr.length - 1; i >= 0; i--) {
+                        const from = res.chainTip[i + 1], k2 = res.corr[i];
+                        const dz = cur.z - from.z;
+                        const tAt = Math.abs(dz) < 1e-9 ? cur.t : from.t + (cur.t - from.t) * (k2.z - from.z) / dz;
+                        if (Math.abs(tAt - k2.t) > k2.o.length / 2) { ok = false; break; }   // 沒有經過鏡片
+                        cur = { z: k2.z, t: tAt };
+                        pts.unshift(cur);
+                    }
+                    if (!ok) continue;
+                    pts.unshift(F.L(tipW));
+                    // 經過水晶體之後：朝像點前進（像在無窮遠時與主光線平行）
+                    const Pe = F.W(0, h);
+                    let dir;
+                    if (Math.abs(res.iTip.z) > 1e8) {
+                        const o = res.oTip, sg = o.z > 0 ? 1 : -1; const L = Math.hypot(o.z, o.t); dir = { z: sg * o.z / L, t: sg * o.t / L };
+                    } else {
+                        const sg = res.iTip.z > 0 ? 1 : -1;
+                        let dz = (res.iTip.z - 0) * sg, dt = (res.iTip.t - h) * sg; const L = Math.hypot(dz, dt); dir = { z: dz / L, t: dt / L };
+                    }
+                    const dW = { x: F.inn.x * dir.z + F.p.x * dir.t, y: F.inn.y * dir.z + F.p.y * dir.t };
+                    const end = emRetinaHit(m, Pe, dW);
+                    rays.push({ world: pts.map(q => F.W(q.z, q.t)), Pe, end, dW });
+                }
+                ctx.save();
+                rays.forEach(r => {
+                    ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.95;
+                    ctx.beginPath(); r.world.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.stroke();
+                    const a = r.world[0], b = r.world[1];
+                    drawArrowHead((a.x + b.x) / 2, (a.y + b.y) / 2, b.x - a.x, b.y - a.y, '#f8fafc');
+                    if (r.end) {
+                        ctx.globalAlpha = c.cloudy ? 0.4 : 0.95;
+                        ctx.beginPath(); ctx.moveTo(r.Pe.x, r.Pe.y); ctx.lineTo(r.end.x, r.end.y); ctx.stroke();
+                        if (c.cloudy) {   // 混濁的水晶體把光散射到各個方向
+                            ctx.globalAlpha = 0.18;
+                            [-0.5, -0.25, 0.25, 0.5].forEach(da => {
+                                const ca = Math.cos(da), sa = Math.sin(da);
+                                const d2 = { x: r.dW.x * ca - r.dW.y * sa, y: r.dW.x * sa + r.dW.y * ca };
+                                const e2 = emRetinaHit(m, r.Pe, d2);
+                                if (e2) { ctx.beginPath(); ctx.moveTo(r.Pe.x, r.Pe.y); ctx.lineTo(e2.x, e2.y); ctx.stroke(); }
+                            });
+                        }
+                    }
+                });
+                ctx.restore();
+
+                // 視網膜上的像：主光線（通過水晶體中心）落在視網膜的位置
+                const chief = o => {   // 通過水晶體中心的光線方向不變：由（虛）物點經過中心，往眼內前進
+                    const sg = o.z > 0 ? 1 : -1, L = Math.hypot(o.z, o.t);
+                    return emRetinaHit(m, m, { x: (F.inn.x * sg * o.z + F.p.x * sg * o.t) / L, y: (F.inn.y * sg * o.z + F.p.y * sg * o.t) / L });
+                };
+                const rB = chief(res.oBase), rT = chief(res.oTip);
+                if (rB && rT) {
+                    const sharp = res.blur < 3 && !c.cloudy;
+                    if (sharp) drawObjectShape(rB, rT, res.obj.style, '#fb923c', { widthScale: Math.max(0.2, Math.hypot(rT.x - rB.x, rT.y - rB.y) / res.obj.length) });
+                    else {
+                        const spread = Math.max(4, res.blur / 2);
+                        const ux = (rT.x - rB.x), uy = (rT.y - rB.y), L = Math.hypot(ux, uy) || 1;
+                        const g1 = { x: rB.x - ux / L * spread, y: rB.y - uy / L * spread }, g2 = { x: rT.x + ux / L * spread, y: rT.y + uy / L * spread };
+                        const grad = ctx.createLinearGradient(g1.x, g1.y, g2.x, g2.y);
+                        const a = c.cloudy ? 0.35 : Math.min(0.75, 8 / spread);
+                        grad.addColorStop(0, 'rgba(251, 146, 60, 0)'); grad.addColorStop(0.5, `rgba(251, 146, 60, ${a})`); grad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+                        ctx.save(); ctx.strokeStyle = grad; ctx.lineWidth = 10 + (c.cloudy ? 10 : 0); ctx.lineCap = 'butt';
+                        ctx.beginPath(); ctx.moveTo(g1.x, g1.y); ctx.lineTo(g2.x, g2.y); ctx.stroke(); ctx.restore();
+                    }
+                }
+                if (c.cloudy) msgs.push(['影像變暗、變模糊：混濁的水晶體把光散射掉', '#e2e8f0']);
+                else if (res.where === 'on') msgs.push(['清晰：像落在視網膜上', '#4ade80']);
+                else if (res.where === 'front') msgs.push(['模糊：像落在視網膜前方', '#fbbf24']);
+                else msgs.push(['模糊：像落在視網膜後方', '#fbbf24']);
+            } else if (!paths.some(p => p.retina === m.id)) {
+                msgs.push(['眼前沒有物體（放一個箭頭或蠟燭在眼睛前方）', '#94a3b8']);
+            }
+            // 旋轉手把與標題
+            const hp = F.W(-EM_HANDLE, 0);
+            drawHandle(hp.x, hp.y, isSelected);
+            const top = F.W(S.zc, 0);
+            drawPillBadge(c.name, top.x, top.y - S.b - 16, '#7dd3fc');
+            msgs.forEach(([t, col], i) => drawPillBadge(t, top.x, top.y + S.b + 18 + i * 22, col));
+        }
+
+        function setEyeAuto(on) {
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || m.type !== 'eyeModel') return;
+            if (!on && m._res) m.acc = Math.max(0, Math.min(1, m._res.accFrac));   // 切換成手動時，從目前的調節程度開始
+            m.autoAcc = on;
+            updateInspectorUI();
+            draw();
+        }
+        function setEyeAcc(v) {
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || m.type !== 'eyeModel' || m.autoAcc !== false) return;
+            m.acc = (+v) / 100;
+            draw();
+        }
+
+        function setEyeCondition(cond) {
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || m.type !== 'eyeModel') return;
+            m.cond = cond;
+            updateInspectorUI();
+            draw();
+        }
+
+        function refreshEyeModelInfo() {
+            const box = document.getElementById('eyeModelInfo');
+            if (!box) return;
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || m.type !== 'eyeModel' || !m._res) return;
+            const r = m._res, c = r.cond;
+            const pct = Math.round(r.accFrac * 100);
+            const far = r.far === Infinity ? '無限遠' : (r.far < 0 ? '比無限遠還遠（看遠處也要調節）' : fmtLen(r.far));
+            const near = r.near === Infinity ? '—' : fmtLen(r.near);
+            let html = `<b class="text-sky-300">${c.name}</b><br>水晶體焦距 ${Math.round(1 / r.P)}px，調節 ${pct}%（${pct < 3 ? '睫狀肌放鬆，水晶體較扁' : '睫狀肌收縮，水晶體變厚'}）<br>遠點：${far}<br>近點：${near}`;
+            if (r.obj) {
+                html += `<br>物距 ${fmtLen(-r.chainBase[0].z)}`;
+                if (r.corr.length) html += `，經過 ${r.corr.length} 片矯正鏡片`;
+                html += `<br>像距 ${Math.abs(r.iBase.z) > 1e8 ? '無限遠' : fmtLen(r.iBase.z)}（視網膜在 ${fmtLen(c.dr)}）`;
+            }
+            box.innerHTML = html;
+            document.getElementById('emAccSlider').value = Math.round((m.autoAcc === false ? (m.acc || 0) : r.accFrac) * 100);
+            document.getElementById('emAccVal').innerText = `${pct}%`;
+        }
+
         function drawHandle(x, y, isSelected) {
             ctx.fillStyle = isSelected ? '#38bdf8' : '#64748b';
             ctx.strokeStyle = '#0f172a';
@@ -2359,7 +2760,7 @@
                 const m = state.mirrors[i];
                 const [h1, h2] = mirrorEnds(m);
 
-                if (m.type !== 'object' && m.type !== 'eye' && Math.hypot(pos.x - h1.x, pos.y - h1.y) < hr) {
+                if (m.type !== 'object' && m.type !== 'eye' && m.type !== 'eyeModel' && Math.hypot(pos.x - h1.x, pos.y - h1.y) < hr) {
                     state.draggedObject = 'mirror-h1';
                     state.dragMirrorIdx = i;
                     state.dragAnchor = { x: h2.x, y: h2.y };
@@ -2585,7 +2986,16 @@
 
             const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)', object: '物體高度 (Height)', screen: '屏幕高度 (Height)' };
             $('mirrorLenLabel').innerText = lenLabels[m.type] || (LENS_TYPES.includes(m.type) ? '透鏡高度 (Height)' : '鏡面長度 (Length)');
-            $('lengthControl').classList.toggle('hidden', m.type === 'eye');
+            $('lengthControl').classList.toggle('hidden', m.type === 'eye' || m.type === 'eyeModel');
+            $('eyeModelControl').classList.toggle('hidden', m.type !== 'eyeModel');
+            if (m.type === 'eyeModel') {
+                const on = 'bg-cyan-600 text-white border-cyan-500', off = 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
+                Object.keys(EM_COND).forEach(k => { $('emBtn_' + k).className = `py-1 rounded border text-[11px] ${(m.cond || 'normal') === k ? on : off}`; });
+                $('emAutoChk').checked = m.autoAcc !== false;
+                $('emAccSlider').disabled = m.autoAcc !== false;
+                $('emAccRow').classList.toggle('opacity-50', m.autoAcc !== false);
+                refreshEyeModelInfo();
+            }
             $('mirrorLenSlider').value = Math.round(m.length);
             $('mirrorLenInput').value = Math.round(m.length);
             $('mirrorLenVal').innerText = `${Math.round(m.length)}px`;
@@ -2599,7 +3009,9 @@
             $('mirrorFocalLabel').innerText = isRealLens(m) ? '焦距（薄透鏡近似）' : '焦距 (Focal)';
             // 真實透鏡的焦距會隨折射率變得很長或很短，所以滑桿範圍放寬
             const fs = $('mirrorFocalSlider');
-            if (isRealLens(m)) { fs.min = 20; fs.max = 1000; fs.step = 1; } else { fs.min = 60; fs.max = 400; fs.step = 5; }
+            if (isRealLens(m)) { fs.min = 20; fs.max = 1000; fs.step = 1; }
+            else if (IDEAL_TYPES.includes(m.type)) { fs.min = 40; fs.max = 800; fs.step = 5; }   // 理想透鏡也拿來當眼鏡，焦距可以比較長
+            else { fs.min = 60; fs.max = 400; fs.step = 5; }
             fs.value = m.focalLength;
             $('mirrorFocalVal').innerText = Math.round(m.focalLength);
 
@@ -2824,6 +3236,29 @@
                 addMirror('flat', { x: 480, y: 320, angle: 90, length: 300 });
                 addMirror('eye', { x: 220, y: 495, angle: 330 });   // 眼睛朝向反射光射來的方向
                 protractorAt(800, 560);
+            } else if (presetKey.startsWith('em')) {
+                // 眼球模型：水晶體在 (740, 320)，眼睛朝左看；物體放在主軸上
+                const EYE = { x: 740, y: 320 };
+                const setups = {
+                    emParallel:      { cond: 'normal' },
+                    emFar:           { cond: 'normal',     obj: [560, 100, 'candle'] },
+                    emNear:          { cond: 'normal',     obj: [250, 50, 'arrow'] },
+                    emMyopia:        { cond: 'myopia',     obj: [620, 100, 'candle'] },
+                    emMyopiaFix:     { cond: 'myopia',     obj: [620, 100, 'candle'], lens: ['idealConcave', 357] },
+                    emHyperopia:     { cond: 'hyperopia',  obj: [240, 50, 'arrow'] },
+                    emHyperopiaFix:  { cond: 'hyperopia',  obj: [240, 50, 'arrow'],   lens: ['idealConvex', 480] },
+                    emPresbyopia:    { cond: 'presbyopia', obj: [260, 50, 'arrow'] },
+                    emPresbyopiaFix: { cond: 'presbyopia', obj: [260, 50, 'arrow'],   lens: ['idealConvex', 314] },
+                    emCataract:      { cond: 'cataract',   obj: [500, 100, 'candle'] }
+                };
+                const st = setups[presetKey];
+                setChk('chkPrincipal', false);
+                if (presetKey === 'emParallel') light('parallel', 140, 320, 0, 3);
+                else setChk('chkShowLight', false);
+                addMirror('eyeModel', { x: EYE.x, y: EYE.y, angle: 180, cond: st.cond });
+                if (st.obj) addMirror('object', { x: EYE.x - st.obj[0], y: EYE.y, angle: 270, length: st.obj[1], style: st.obj[2] });
+                if (st.lens) addMirror(st.lens[0], { x: EYE.x - 50, y: EYE.y, angle: 90, length: 170, focalLength: st.lens[1] });   // 眼鏡在水晶體前 50px
+                protractorAt(900, 620);
             }
             state.selectedMirrorIndex = -1;
             syncAngleToggle();
