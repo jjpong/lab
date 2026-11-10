@@ -96,6 +96,11 @@
                         <option value="twoShadows">31. 兩個點光源：兩個影子</option>
                         <option value="twoLasers">32. 兩道平行雷射經過凸透鏡</option>
                     </optgroup>
+                    <optgroup label="色散">
+                        <option value="prismWhite">33. 白光經過三稜鏡：色散（重火石玻璃）</option>
+                        <option value="prismCrown">34. 冕玻璃三稜鏡：色散很小</option>
+                        <option value="chromaticLens">35. 白光經過真實凸透鏡：色像差</option>
+                    </optgroup>
                 </select>
             </div>
             
@@ -198,13 +203,16 @@
                     </button>
                 </div>
 
-                <p class="text-[11px] text-slate-500 mb-1.5">折射：玻璃磚</p>
-                <div class="grid grid-cols-2 gap-2 mb-3">
+                <p class="text-[11px] text-slate-500 mb-1.5">折射：玻璃磚與三稜鏡</p>
+                <div class="grid grid-cols-3 gap-2 mb-3">
                     <button onclick="addMirror('rect')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
                         <svg viewBox="0 0 24 24" class="w-5 h-5 text-sky-300" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="1" fill="currentColor" fill-opacity=".2"/></svg> 長方形玻璃磚
                     </button>
                     <button onclick="addMirror('semi')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
                         <svg viewBox="0 0 24 24" class="w-5 h-5 text-sky-300" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 0 16 0Z" fill="currentColor" fill-opacity=".2"/></svg> 半圓形玻璃磚
+                    </button>
+                    <button onclick="addMirror('prism')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5 text-sky-300" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 21 19H3Z" fill="currentColor" fill-opacity=".2"/></svg> 三稜鏡
                     </button>
                 </div>
 
@@ -293,6 +301,14 @@
                             <input type="range" id="mirrorThickSlider" min="20" max="300" value="120" step="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('thickSlider')">
                         </div>
 
+                        <div id="apexControl" class="hidden">
+                            <div class="flex justify-between text-slate-400 mb-1">
+                                <span>頂角 (Apex)</span>
+                                <span class="text-cyan-400 font-mono" id="mirrorApexVal">60°</span>
+                            </div>
+                            <input type="range" id="mirrorApexSlider" min="20" max="120" value="60" step="1" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('apexSlider')">
+                        </div>
+
                         <div id="radiusControl" class="hidden">
                             <div class="flex justify-between text-slate-400 mb-1">
                                 <span>曲率半徑 R (Curvature)</span>
@@ -348,11 +364,9 @@
                                 <span class="text-cyan-400 font-mono" id="mirrorIndexVal">1.50</span>
                             </div>
                             <input type="range" id="mirrorIndexSlider" min="1.00" max="2.50" value="1.50" step="0.01" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('indexSlider')">
-                            <div class="grid grid-cols-3 gap-1 mt-1.5">
-                                <button onclick="setSelectedIndex(1.33)" class="py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300">水 1.33</button>
-                                <button onclick="setSelectedIndex(1.50)" class="py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300">玻璃 1.50</button>
-                                <button onclick="setSelectedIndex(2.42)" class="py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300">鑽石 2.42</button>
-                            </div>
+                            <div class="text-slate-400 mt-2 mb-1">材質（真實的折射率與色散）</div>
+                            <div id="materialButtons" class="grid grid-cols-3 gap-1"></div>
+                            <p id="materialInfo" class="mt-1.5 text-[11px] leading-relaxed text-slate-400"></p>
                         </div>
                     </div>
                 </div>
@@ -673,7 +687,7 @@
         const ELEMENT_DEFAULTS = {
             flat: { length: 240, angle: 90 }, concave: { length: 240, angle: 90 }, convex: { length: 240, angle: 90 },
             rect: { length: 300, angle: 0, thickness: 120 }, semi: { length: 260, angle: 90 },
-            lensConvex: { length: 180, angle: 90 }, lensConcave: { length: 180, angle: 90 },
+            lensConvex: { length: 180, angle: 90 }, lensConcave: { length: 180, angle: 90 }, prism: { length: 180, angle: 0 },
             idealConvex: { length: 260, angle: 90 }, idealConcave: { length: 260, angle: 90 },
             object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }, eye: { length: 44, angle: 180 }, eyeModel: { length: 200, angle: 180 }
         };
@@ -689,7 +703,10 @@
                 angle: customProps.angle !== undefined ? customProps.angle : def.angle,
                 focalLength: customProps.focalLength || 150,
                 thickness: customProps.thickness || def.thickness || 120,
-                n: customProps.n || 1.5,
+                n: customProps.n || (customProps.mat ? MATERIALS[customProps.mat].n : 1.5),
+                V: customProps.V || (customProps.mat ? MATERIALS[customProps.mat].V : DEFAULT_ABBE),
+                mat: customProps.mat || null,
+                apex: customProps.apex || 60,
                 style: customProps.style || 'candle',
                 cond: customProps.cond || 'normal',
                 autoAcc: customProps.autoAcc !== false,
@@ -717,8 +734,29 @@
         const LIGHT_COLORS = [
             // 紅、綠、藍用接近純色，光束重疊時才混得出黃、青、洋紅與白（色光三原色）
             { c: '#00f0ff', name: '青' }, { c: '#ff3838', name: '紅' }, { c: '#38ff4c', name: '綠' }, { c: '#4a6dff', name: '藍' },
-            { c: '#ffe14a', name: '黃' }, { c: '#c084fc', name: '紫' }, { c: '#f1f5f9', name: '白' }
+            { c: '#ffe14a', name: '黃' }, { c: '#c084fc', name: '紫' }, { c: '#f1f5f9', name: '白', white: true }
         ];
+        // 每種色光的波長（nm），決定它在玻璃裡的折射率；白光由下面七種色光組成
+        const LIGHT_LAMBDA = { '#00f0ff': 490, '#ff3838': 650, '#38ff4c': 530, '#4a6dff': 450, '#ffe14a': 580, '#c084fc': 410 };
+        const SPECTRUM = [[650, '#ff2a2a'], [605, '#ff8c1a'], [580, '#ffe02e'], [530, '#33ff4d'], [490, '#1ae8ff'], [455, '#3355ff'], [415, '#a34dff']];
+        const isWhiteLight = L => L.color === '#f1f5f9';
+
+        // 材質：n 是黃光（589 nm，鈉 D 線）的折射率，V 是阿貝數（越小色散越大），都用真實數值
+        const MATERIALS = {
+            water:   { name: '水',         n: 1.333, V: 55.8 },
+            acrylic: { name: '壓克力',     n: 1.491, V: 57.2 },
+            crown:   { name: '冕玻璃',     n: 1.517, V: 64.2 },
+            flint:   { name: '火石玻璃',   n: 1.620, V: 36.4 },
+            dflint:  { name: '重火石玻璃', n: 1.785, V: 25.8 },
+            diamond: { name: '鑽石',       n: 2.417, V: 55.3 }
+        };
+        const DEFAULT_ABBE = 64.2;
+        // 柯西公式 n(λ) = A + B/λ²：由黃光的 n 與阿貝數 V = (n_D − 1)/(n_F − n_C) 求出 B
+        function nAt(nD, V, lam) {
+            if (!lam || !V) return nD;
+            const B = (nD - 1) / (V * (1 / 0.4861 ** 2 - 1 / 0.6563 ** 2));
+            return nD + B * (1 / (lam / 1000) ** 2 - 1 / 0.5893 ** 2);
+        }
         // state.light 永遠指向目前選取的光源；直接指定 state.light = {...} 則把舞台改成只有這一個光源
         Object.defineProperty(state, 'light', {
             get() { return state.lights[state.activeLight] || state.lights[0]; },
@@ -811,12 +849,12 @@
 
         // ───────── 元件種類 ─────────
         const MIRROR_TYPES = ['flat', 'concave', 'convex'];
-        const GLASS_TYPES = ['rect', 'semi', 'lensConvex', 'lensConcave'];
+        const GLASS_TYPES = ['rect', 'semi', 'prism', 'lensConvex', 'lensConcave'];
         const IDEAL_TYPES = ['idealConvex', 'idealConcave'];
         const LENS_TYPES = ['lensConvex', 'lensConcave', 'idealConvex', 'idealConcave'];
         const TYPE_NAMES = {
             flat: '平面鏡', concave: '凹面鏡', convex: '凸面鏡',
-            rect: '長方形玻璃磚', semi: '半圓形玻璃磚',
+            rect: '長方形玻璃磚', semi: '半圓形玻璃磚', prism: '三稜鏡',
             lensConvex: '凸透鏡（真實）', lensConcave: '凹透鏡（真實）',
             idealConvex: '凸透鏡（理想薄透鏡）', idealConcave: '凹透鏡（理想薄透鏡）',
             object: '物體', screen: '屏幕', eye: '眼睛', eyeModel: '眼球模型'
@@ -977,11 +1015,27 @@
             return makeHit(ray, res.t, res.hitX, res.hitY, rx * s, ry * s, mirror);
         }
 
+        // 三稜鏡（等腰）：底邊長 length、頂角 apex；重心在 (x, y)，頂點朝法線的 −s 方向
+        function prismVerts(m) {
+            const L = m.length, h = (L / 2) / Math.tan(degToRad(m.apex || 60) / 2);
+            return [toWorld(m, 0, -2 * h / 3), toWorld(m, -L / 2, h / 3), toWorld(m, L / 2, h / 3)];
+        }
+
         // ───────── 玻璃：把每個元件拆成線段與圓弧，法線一律朝玻璃外側 ─────────
         function glassPrims(m) {
-            const f = frame(m), n = m.n || 1.5;
+            const f = frame(m), n = m.n || 1.5, V = m.V || DEFAULT_ABBE;
             const W = (t, s) => toWorld(m, t, s);
-            const seg = (a, b, onx, ony) => ({ kind: 'seg', a, b, nx: onx, ny: ony, n });
+            const seg = (a, b, onx, ony) => ({ kind: 'seg', a, b, nx: onx, ny: ony, n, V });
+            if (m.type === 'prism') {
+                // 三稜鏡：每條邊的法線朝外（遠離重心）
+                const [A, B1, B2] = prismVerts(m);
+                return [[A, B1], [B1, B2], [B2, A]].map(([a, b]) => {
+                    let ex = b.x - a.x, ey = b.y - a.y; const L = Math.hypot(ex, ey);
+                    let onx = -ey / L, ony = ex / L;
+                    if (((a.x + b.x) / 2 - m.x) * onx + ((a.y + b.y) / 2 - m.y) * ony < 0) { onx = -onx; ony = -ony; }
+                    return seg(a, b, onx, ony);
+                });
+            }
             if (m.type === 'rect') {
                 const hw = m.length / 2, ht = (m.thickness || 120) / 2;
                 return [
@@ -995,14 +1049,14 @@
                 const R = m.length / 2;
                 return [
                     seg(W(-R, 0), W(R, 0), -f.nx, -f.ny),
-                    { kind: 'arc', cx: m.x, cy: m.y, R, px: f.nx, py: f.ny, sign: 1, h: R + 1, ox: m.x, oy: m.y, tx: f.tx, ty: f.ty, n }
+                    { kind: 'arc', cx: m.x, cy: m.y, R, px: f.nx, py: f.ny, sign: 1, h: R + 1, ox: m.x, oy: m.y, tx: f.tx, ty: f.ty, n, V }
                 ];
             }
             const g = lensGeom(m);
             const arc = (surf) => {
                 const C = W(0, surf.cs);
                 return { kind: 'arc', cx: C.x, cy: C.y, R: g.R, px: f.nx * surf.pole, py: f.ny * surf.pole,
-                    sign: g.convex ? 1 : -1, h: g.h, ox: m.x, oy: m.y, tx: f.tx, ty: f.ty, n };
+                    sign: g.convex ? 1 : -1, h: g.h, ox: m.x, oy: m.y, tx: f.tx, ty: f.ty, n, V };
             };
             return [
                 arc(g.front), arc(g.back),
@@ -1014,7 +1068,7 @@
         function hitGlassPrim(ray, p) {
             if (p.kind === 'seg') {
                 const res = intersectRaySegment(ray, p.a, p.b);
-                return res ? { t: res.t, x: res.hitX, y: res.hitY, nx: p.nx, ny: p.ny, n: p.n } : null;
+                return res ? { t: res.t, x: res.hitX, y: res.hitY, nx: p.nx, ny: p.ny, n: p.n, V: p.V } : null;
             }
             const ox = ray.x - p.cx, oy = ray.y - p.cy;
             const b = ox * ray.dx + oy * ray.dy;
@@ -1028,7 +1082,7 @@
                 const rx = (x - p.cx) / p.R, ry = (y - p.cy) / p.R;
                 if (rx * p.px + ry * p.py <= 0) continue;                                   // 只取靠近元件的那半圓
                 if (Math.abs((x - p.ox) * p.tx + (y - p.oy) * p.ty) > p.h + 1e-6) continue;  // 超出透鏡高度
-                return { t, x, y, nx: rx * p.sign, ny: ry * p.sign, n: p.n };
+                return { t, x, y, nx: rx * p.sign, ny: ry * p.sign, n: p.n, V: p.V };
             }
             return null;
         }
@@ -1119,10 +1173,15 @@
         }
 
         function traceLight(L, opts, events) {
-            const originRays = makeOriginRays(!!opts.dense, L);
+            const baseRays = makeOriginRays(!!opts.dense, L);
             // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°；只標示目前選取的光源
-            const trackedRay = opts.dense || L !== state.light ? -1 : (originRays.length > 1 ? Math.floor((originRays.length - 1) / 4) : 0);
-            const multiRays = originRays.length > 1;
+            const trackedBase = opts.dense || L !== state.light ? -1 : (baseRays.length > 1 ? Math.floor((baseRays.length - 1) / 4) : 0);
+            const multiRays = baseRays.length > 1;
+            // 白光：每一條光其實是七種色光疊在一起，進入玻璃後因折射率不同而分開（色散）
+            const white = isWhiteLight(L);
+            const originRays = white
+                ? baseRays.flatMap((r, base) => SPECTRUM.map(([lam, col]) => ({ ...r, lam, col, base })))
+                : baseRays.map((r, base) => ({ ...r, lam: LIGHT_LAMBDA[L.color] || 550, col: L.color, base }));
             const partialOn = partialLevel() > 0;
             const mirrors = state.mirrors.filter(m => MIRROR_TYPES.includes(m.type));
             const ideals = state.mirrors.filter(m => IDEAL_TYPES.includes(m.type));
@@ -1137,12 +1196,13 @@
 
             originRays.forEach((ray0, rayIdx) => {
                 const stack = [{ x: ray0.x, y: ray0.y, dx: ray0.dx, dy: ray0.dy, I: 1, main: true }];
+                const tracked0 = ray0.base === trackedBase && (!white || ray0.lam === 580);   // 白光標示黃光那一道的角度
                 while (stack.length && budget > 0) {
                     const br = stack.pop();
-                    const trackThis = br.main && rayIdx === trackedRay;
+                    const trackThis = br.main && tracked0;
                     let cur = br;
                     const pts = [{ x: cur.x, y: cur.y }];
-                    let escaped = false, interactions = 0, enteredEye = null, retinaHit = null, eyeBody = null;
+                    let escaped = false, interactions = 0, enteredEye = null, retinaHit = null, eyeBody = null, split = br.split ?? Infinity;
                     for (let step = 0; step < 40 && budget > 0; step++, budget--) {
                         let best = null;
                         for (const m of mirrors) { const h = hitMirror(cur, m); if (h && (!best || h.t < best.t)) best = { ...h, kind: 'mirror' }; }
@@ -1193,8 +1253,9 @@
 
                         // 玻璃界面：判斷光是進入還是離開玻璃
                         let nx = best.nx, ny = best.ny;
-                        let n1 = 1, n2 = best.n;
-                        if (cur.dx * nx + cur.dy * ny > 0) { n1 = best.n; n2 = 1; nx = -nx; ny = -ny; }   // 法線改朝入射光那一側
+                        const nGlass = nAt(best.n, best.V, ray0.lam);   // 這種色光在這個材質裡的折射率
+                        let n1 = 1, n2 = nGlass;
+                        if (cur.dx * nx + cur.dy * ny > 0) { n1 = nGlass; n2 = 1; nx = -nx; ny = -ny; }   // 法線改朝入射光那一側
                         const cosi = Math.min(1, -(cur.dx * nx + cur.dy * ny));
                         const eta = n1 / n2;
                         const k = 1 - eta * eta * (1 - cosi * cosi);
@@ -1214,12 +1275,13 @@
                         const rp = (n1 * cost - n2 * cosi) / (n1 * cost + n2 * cosi);
                         const Rf = (rs * rs + rp * rp) / 2;
                         if (partialOn && br.I * Rf >= 0.004) {
-                            stack.push({ x: best.x, y: best.y, dx: rDir.x, dy: rDir.y, I: br.I * Rf, main: false });
+                            stack.push({ x: best.x, y: best.y, dx: rDir.x, dy: rDir.y, I: br.I * Rf, main: false, split: split === Infinity ? undefined : 0 });
                         }
                         if (trackThis) events.push({ type: 'refract', x: best.x, y: best.y, n: { x: nx, y: ny }, dIn, dOut: { x: tx, y: ty }, n1, n2 });
+                        if (split === Infinity) split = pts.length - 1;   // 第一次折射：白光從這裡開始分成各色光
                         cur = { x: best.x, y: best.y, dx: tx, dy: ty };
                     }
-                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, eyeBody, retina: retinaHit, scatter: !!br.scatter, rayIdx, light: L, color: L.color, multi: multiRays });
+                    paths.push({ points: pts, I: br.I, main: br.main, tracked: trackThis, escaped, interactions, eye: enteredEye, eyeBody, retina: retinaHit, scatter: !!br.scatter, rayIdx, base: ray0.base, split, lam: ray0.lam, light: L, color: ray0.col, spectral: white, multi: multiRays });
                 }
             });
 
@@ -1341,7 +1403,7 @@
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineCap = 'round';
             paths.forEach(p => {
-                const base = p.light.type === 'point' ? 0.07 : 0.11;
+                const base = (p.light.type === 'point' ? 0.07 : 0.11) * (p.spectral ? 0.4 : 1);
                 ctx.strokeStyle = p.color;
                 const pts = p.points;
                 if (pts.length < 2) return;
@@ -1364,6 +1426,8 @@
                 const pts = p.points;
                 ctx.strokeStyle = p.color;
                 ctx.shadowColor = p.color;
+                // 白光的七種色光用「相加」的方式畫：疊在一起時是白色，分開後才看到各自的顏色
+                ctx.globalCompositeOperation = p.spectral ? 'lighter' : 'source-over';
                 if (pts.length < 2) return;
                 // 亮度依光的強度：部分反射分出的支線比較暗，並再乘上使用者設定的部分反射亮度
                 ctx.globalAlpha = Math.min(1, 0.2 + 0.8 * Math.sqrt(p.I)) * (p.main || p.scatter ? 1 : partialLevel());
@@ -1372,7 +1436,10 @@
                 ctx.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
                 ctx.stroke();
+                ctx.globalCompositeOperation = 'source-over';
                 for (let i = 0; i < pts.length - 1; i++) {
+                    // 白光還沒分開的那幾段：七種色光重疊，只用黃光那一道畫一個白色箭頭
+                    if (p.spectral && i < p.split) { if (p.lam === 580) drawRayArrow(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, '#ffffff'); continue; }
                     drawRayArrow(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, p.color);
                 }
             });
@@ -1549,6 +1616,12 @@
                     ctx.arc(m.x, m.y, R, a, a + Math.PI, false);   // 弧面在法線 +s 那一側
                     ctx.closePath();
                     labelPos = W(-R - 34, 0);
+                } else if (m.type === 'prism') {
+                    const v = prismVerts(m);
+                    v.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+                    ctx.closePath();
+                    const h = (m.length / 2) / Math.tan(degToRad(m.apex || 60) / 2);
+                    labelPos = W(0, h / 3 + 14);
                 } else {
                     const g = lensGeom(m);
                     const phi = Math.asin(g.h / g.R);
@@ -1580,7 +1653,7 @@
                 ctx.font = '11px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`n = ${(m.n || 1.5).toFixed(2)}`, labelPos.x, labelPos.y);
+                ctx.fillText(`${m.mat ? MATERIALS[m.mat].name + ' ' : ''}n = ${(m.n || 1.5).toFixed(m.mat ? 3 : 2)}`, labelPos.x, labelPos.y);
             } else {
                 // 理想薄透鏡的符號：凸透鏡兩端箭頭朝外，凹透鏡兩端箭頭朝內
                 const half = m.length / 2;
@@ -1648,6 +1721,10 @@
             if (m.type === 'screen') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= 10;
             if (m.type === 'rect') return Math.abs(dt) <= m.length / 2 && Math.abs(ds) <= (m.thickness || 120) / 2;
             if (m.type === 'semi') return ds >= -8 && Math.hypot(dt, ds) <= m.length / 2;
+            if (m.type === 'prism') {
+                const h = (m.length / 2) / Math.tan(degToRad(m.apex || 60) / 2);
+                return ds <= h / 3 + 6 && ds >= -2 * h / 3 - 6 && Math.abs(dt) <= (m.length / 2) * (ds + 2 * h / 3) / h + 6;
+            }
             if (m.type === 'lensConvex' || m.type === 'lensConcave') {
                 const g = lensGeom(m);
                 return Math.abs(dt) <= g.h && Math.abs(ds) <= Math.max(g.half, 10);
@@ -2117,7 +2194,16 @@
 
         // 畫眼睛、進入眼睛的光線、反向延長的視線，以及「看到了」的標示
         // 從進到眼睛的光線裡挑出要畫的代表光線：至少兩條，盡量挑分得開的
-        function pickEyeRays(drawn, dense) {
+        function pickEyeRays(drawnPaths, densePaths) {
+            // 白光的一條光包含七種色光：以「同一條光」為單位挑選，挑到的那條光的各色光都畫出來
+            const group = arr => { const g = new Map(); arr.forEach(p => { if (!g.has(p.base)) g.set(p.base, []); g.get(p.base).push(p); }); return g; };
+            const gd = group(drawnPaths), gn = group(densePaths || []);
+            const drawn = [...gd.values()].map(v => v[0]), dense = [...gn.values()].map(v => v[0]);
+            const expand = (reps, g) => reps.flatMap(r => g.get(r.base));
+            const picked = pickEyeReps(drawn, dense);
+            return [...expand(picked.filter(r => drawn.includes(r)), gd), ...expand(picked.filter(r => !drawn.includes(r)), gn)];
+        }
+        function pickEyeReps(drawn, dense) {
             const chosen = drawn.slice();
             if (chosen.length >= 2 || !dense || !dense.length) return chosen;
             const sep = (a, b) => {
@@ -2142,9 +2228,11 @@
             ctx.save();
             ctx.beginPath();
             rep.points.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+            if (rep.spectral) ctx.globalCompositeOperation = 'lighter';
             ctx.strokeStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 12; ctx.lineWidth = 3;
             ctx.stroke();
-            ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.shadowBlur = 0; ctx.strokeStyle = rep.spectral ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1;
             ctx.stroke();
             ctx.restore();
             for (let i = 0; i < rep.points.length - 1; i++) drawRayArrow(rep.points[i].x, rep.points[i].y, rep.points[i + 1].x, rep.points[i + 1].y, c);
@@ -2179,7 +2267,9 @@
                         ctx.strokeStyle = '#a3e635';
                         ctx.lineWidth = 1.5;
                         ctx.setLineDash([6, 5]);
-                        laser.forEach(p => {
+                        // 白光的各色光只畫一條視線（同一條光取黃光那一道）
+                        const sightRays = laser.filter(p => !p.spectral || p.lam === 580 || !laser.some(q => q.light === p.light && q.base === p.base && q.lam === 580) && p === laser.find(q => q.light === p.light && q.base === p.base));
+                        sightRays.forEach(p => {
                             const a = p.points[p.points.length - 2], b = p.points[p.points.length - 1];
                             const L = Math.hypot(b.x - a.x, b.y - a.y);
                             if (L < 1e-6) return;
@@ -3152,8 +3242,9 @@
                 sw.innerHTML = '';
                 LIGHT_COLORS.forEach(k => {
                     const b = document.createElement('button');
-                    b.title = k.name + '色';
-                    b.setAttribute('aria-label', k.name + '色');
+                    const label = k.white ? '白光（含各種色光）' : k.name + '色';
+                    b.title = label;
+                    b.setAttribute('aria-label', label);
                     b.className = 'w-6 h-6 rounded-full border-2 transition ' + (k.c === L.color ? 'border-white scale-110' : 'border-transparent opacity-70 hover:opacity-100');
                     b.style.background = k.c;
                     b.onclick = () => setLightColor(k.c);
@@ -3225,7 +3316,7 @@
             $('mirrorRotInput').value = Math.round(m.angle);
             $('mirrorRotVal').innerText = `${Math.round(m.angle)}°`;
 
-            const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)', object: '物體高度 (Height)', screen: '屏幕高度 (Height)', eye: '眼睛大小 (Size)' };
+            const lenLabels = { rect: '寬度 (Width)', semi: '直徑 (Diameter)', prism: '底邊長 (Base)', object: '物體高度 (Height)', screen: '屏幕高度 (Height)', eye: '眼睛大小 (Size)' };
             $('mirrorLenLabel').innerText = lenLabels[m.type] || (LENS_TYPES.includes(m.type) ? '透鏡高度 (Height)' : '鏡面長度 (Length)');
             $('lengthControl').classList.toggle('hidden', m.type === 'eyeModel');
             $('eyeModelControl').classList.toggle('hidden', m.type !== 'eyeModel');
@@ -3242,6 +3333,8 @@
             $('mirrorLenVal').innerText = `${Math.round(m.length)}px`;
 
             $('thicknessControl').classList.toggle('hidden', m.type !== 'rect');
+            $('apexControl').classList.toggle('hidden', m.type !== 'prism');
+            if (m.type === 'prism') { $('mirrorApexSlider').value = m.apex || 60; $('mirrorApexVal').innerText = `${m.apex || 60}°`; }
             $('mirrorThickSlider').value = m.thickness;
             $('mirrorThickVal').innerText = `${m.thickness}px`;
 
@@ -3265,7 +3358,21 @@
             $('indexControl').classList.toggle('hidden', !GLASS_TYPES.includes(m.type));
             $('mirrorIndexSlider').min = isRealLens(m) ? LENS_N_MIN : 1.0;
             $('mirrorIndexSlider').value = m.n;
-            $('mirrorIndexVal').innerText = m.n.toFixed(2);
+            $('mirrorIndexVal').innerText = m.n.toFixed(m.mat ? 3 : 2);
+            if (GLASS_TYPES.includes(m.type)) {
+                const box = $('materialButtons');
+                box.innerHTML = '';
+                Object.entries(MATERIALS).forEach(([k, mt]) => {
+                    const b = document.createElement('button');
+                    b.className = 'py-1 rounded border text-[11px] leading-tight ' + (m.mat === k ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300');
+                    b.innerHTML = `${mt.name}<br><span class="font-mono opacity-70">${mt.n.toFixed(2)}</span>`;
+                    b.onclick = () => setMaterial(k);
+                    box.appendChild(b);
+                });
+                const V = m.V || DEFAULT_ABBE;
+                const nr = nAt(m.n, V, 656), nv = nAt(m.n, V, 410);
+                $('materialInfo').innerHTML = `${m.mat ? MATERIALS[m.mat].name : '自訂材質'}：阿貝數 ${V.toFixed(1)}（越小色散越大）<br>紅光 n = ${nr.toFixed(3)}、紫光 n = ${nv.toFixed(3)}，相差 ${(nv - nr).toFixed(3)}`;
+            }
 
             $('objectControl').classList.toggle('hidden', m.type !== 'object');
             if (m.type === 'object') {
@@ -3310,8 +3417,12 @@
                 m.thickness = parseInt($('mirrorThickSlider').value) || 120;
                 $('mirrorThickVal').innerText = `${m.thickness}px`;
             }
-            if (GLASS_TYPES.includes(m.type)) {
+            if (m.type === 'prism') {
+                m.apex = parseInt($('mirrorApexSlider').value) || 60;
+            }
+            if (GLASS_TYPES.includes(m.type) && source === 'indexSlider') {
                 m.n = parseFloat($('mirrorIndexSlider').value) || 1.5;
+                m.mat = null;   // 自己調折射率：變成自訂材質（色散程度維持原來的阿貝數）
             }
             if (isRealLens(m)) {
                 // 真實透鏡：改焦距 → 用目前的折射率換算新的曲率；改曲率 → 直接設定
@@ -3347,11 +3458,12 @@
             label.classList.toggle('cursor-pointer', on);
         }
 
-        function setSelectedIndex(n) {
+        function setMaterial(key) {
             if (state.selectedMirrorIndex < 0) return;
             const m = state.mirrors[state.selectedMirrorIndex];
             if (!GLASS_TYPES.includes(m.type)) return;
-            m.n = n;
+            const mt = MATERIALS[key];
+            m.n = mt.n; m.V = mt.V; m.mat = key;
             state.lensLimitHit = enforceLensLimits(m, 'other') ? 'other' : null;
             updateInspectorUI();
             draw();
@@ -3482,9 +3594,27 @@
             } else if (presetKey === 'twoShadows') {
                 // 兩個點光源照一個小擋板：牆上出現兩個影子；只被一個光源照到的地方是那個光源的顏色，兩個都照到就混成黃色
                 light('point', 140, 230, 18, DENSITY_MAX, '#ff3838');
-                addLightAt('point', 140, 410, -18, DENSITY_MAX, '#38ff4c');
+                addLightAt('point', 140, 410, 342, DENSITY_MAX, '#38ff4c');
                 addMirror('screen', { x: 440, y: 320, angle: 90, length: 70 });
                 addMirror('screen', { x: 820, y: 320, angle: 90, length: 560 });
+                protractorAt(900, 620);
+            } else if (presetKey === 'prismWhite') {
+                // 白光以最小偏向角射入重火石玻璃三稜鏡：紫光偏折最多、紅光最少，在屏幕上排成光譜
+                light('single', 179, 455, 326.8, 5, '#f1f5f9');
+                addMirror('prism', { x: 480, y: 320, angle: 0, length: 200, apex: 60, mat: 'dflint' });
+                addMirror('screen', { x: 823, y: 483, angle: 123.2, length: 260 });
+                protractorAt(900, 620);
+            } else if (presetKey === 'prismCrown') {
+                // 同樣的三稜鏡改成冕玻璃：色散小很多，光譜幾乎分不開
+                light('single', 194, 374, 340.7, 5, '#f1f5f9');
+                addMirror('prism', { x: 480, y: 320, angle: 0, length: 200, apex: 60, mat: 'crown' });
+                addMirror('screen', { x: 841, y: 400, angle: 109.3, length: 260 });
+                protractorAt(900, 620);
+            } else if (presetKey === 'chromaticLens') {
+                // 白光經過真實凸透鏡：紫光的焦點比紅光近（色像差）；理想薄透鏡則沒有這個問題
+                light('parallel', 60, 320, 0, 5, '#f1f5f9');
+                addMirror('lensConvex', { x: 420, y: 320, angle: 90, length: 180, mat: 'dflint', radius: 314 });
+                setChk('chkShowFocal', true);
                 protractorAt(900, 620);
             } else if (presetKey === 'twoLasers') {
                 // 兩道平行的雷射經過凸透鏡，都會經過另一側的焦點
