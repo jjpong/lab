@@ -494,6 +494,7 @@
                 <p>• <b>成像</b>：物體會對最近的理想薄透鏡或面鏡成像；拖曳物體底端移動，拖曳頂端改變高度。實像畫實線，虛像畫虛線。打開座標網格（一格 40px）可量物距與像距。</p>
                 <p>• <b>眼睛</b>：拖曳眼球移動，拖曳前方的圓點改變看的方向。光從正面射進瞳孔，眼睛才看得到；綠色虛線是眼睛覺得光來自的方向。</p>
                 <p>• <b>眼球模型</b>：會自動對焦到眼前的物體；在左側切換近視、遠視、老花、白內障。把理想凹透鏡或凸透鏡放在眼睛前方就是戴眼鏡。</p>
+                <p>• <b>鍵盤</b>：<kbd>Delete</kbd> 刪除選取的元件（或剛點選的光源）；<kbd>Ctrl</kbd>+<kbd>C</kbd> 複製、<kbd>Ctrl</kbd>+<kbd>V</kbd> 貼上，貼上的物件會往右下偏移一格。</p>
                 <p>• <b>移動畫面</b>：按住滑鼠<b>右鍵</b>拖曳（也可以按住滾輪拖曳，或按住空白鍵再用左鍵拖曳）。</p>
                 <p>• <b>縮放畫面</b>：用右上角的 <b>＋</b>、<b>－</b> 按鈕；「重置視角」回到原位。</p>
                 <p>• <b>觸控螢幕</b>：單指拖曳物件，兩指縮放、移動畫面。</p>
@@ -771,6 +772,7 @@
         }
 
         function addLight() {
+            state.lastPick = 'light';
             const cur = state.light;
             const used = state.lights.map(l => l.color);
             const color = (LIGHT_COLORS.find(k => !used.includes(k.c)) || LIGHT_COLORS[state.lights.length % LIGHT_COLORS.length]).c;
@@ -3001,6 +3003,57 @@
             };
         }
 
+        // 鍵盤：Delete 刪除、Ctrl+C 複製、Ctrl+V 貼上（選取的元件，或剛點過的光源）
+        let clipboard = null, pasteCount = 0;
+        const cloneElement = m => {
+            const c = {};
+            Object.keys(m).forEach(k => { if (k !== 'id' && !k.startsWith('_')) c[k] = m[k]; });
+            return JSON.parse(JSON.stringify(c));
+        };
+        window.addEventListener('keydown', e => {
+            const tag = e.target.tagName;
+            if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+            const mod = e.ctrlKey || e.metaKey;
+            const selM = state.selectedMirrorIndex >= 0 ? state.mirrors[state.selectedMirrorIndex] : null;
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selM) { e.preventDefault(); deleteSelectedMirror(); }
+                else if (state.lastPick === 'light' && state.lights.length > 1) { e.preventDefault(); deleteLight(); }
+                return;
+            }
+            if (mod && e.key.toLowerCase() === 'c') {
+                if (selM) clipboard = { kind: 'mirror', data: cloneElement(selM) };
+                else if (state.lastPick === 'light') clipboard = { kind: 'light', data: JSON.parse(JSON.stringify(state.light)) };
+                else return;
+                pasteCount = 0;
+                e.preventDefault();
+                return;
+            }
+            if (mod && e.key.toLowerCase() === 'v' && clipboard) {
+                e.preventDefault();
+                pasteCount++;
+                const d = 40 * pasteCount;   // 每貼一次往右下移一格，不會疊在原物件上
+                if (clipboard.kind === 'mirror') {
+                    const m = { ...JSON.parse(JSON.stringify(clipboard.data)), id: Date.now() + Math.random() };
+                    m.x += d; m.y += d;
+                    state.mirrors.push(m);
+                    state.selectedMirrorIndex = state.mirrors.length - 1;
+                    state.lastPick = null;
+                    updateInspectorUI();
+                    draw();
+                } else {
+                    const L = JSON.parse(JSON.stringify(clipboard.data));
+                    L.x += d; L.y += d;
+                    state.lights.push(L);
+                    state.activeLight = state.lights.length - 1;
+                    state.lastPick = 'light';
+                    if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); }
+                    document.getElementById('chkShowLight').checked = true;
+                    refreshLightPanel();
+                    draw();
+                }
+            }
+        });
+
         // Keyboard Space Tracking for Pan
         window.addEventListener('keydown', e => {
             if (e.code === 'Space' && !state.spacePressed && e.target.tagName !== 'INPUT') {
@@ -3084,12 +3137,18 @@
             }
 
             // 1–2. 光源：先找旋轉環，再找本體；點到哪個光源就選取它，左邊面板改顯示它的設定
+            state.lastPick = null;   // 鍵盤刪除／複製的對象：點到光源時是 'light'，否則看選取的元件
+            const pickLight = i => {
+                state.lastPick = 'light';
+                if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); }
+                if (i !== state.activeLight) selectLight(i); else draw();
+            };
             const lightOn = document.getElementById('chkShowLight').checked;
             if (lightOn) {
                 for (let i = state.lights.length - 1; i >= 0; i--) {
                     const L = state.lights[i], lightRad = degToRad(L.angle);
                     if (Math.hypot(pos.x - (L.x + Math.cos(lightRad) * 28), pos.y - (L.y + Math.sin(lightRad) * 28)) < hr) {
-                        if (i !== state.activeLight) selectLight(i);
+                        pickLight(i);
                         state.draggedObject = 'light-rot';
                         return;
                     }
@@ -3097,7 +3156,7 @@
                 for (let i = state.lights.length - 1; i >= 0; i--) {
                     const L = state.lights[i];
                     if (Math.hypot(pos.x - L.x, pos.y - L.y) < Math.max(22 / state.zoom, hr)) {
-                        if (i !== state.activeLight) selectLight(i);
+                        pickLight(i);
                         state.draggedObject = 'light-body';
                         state.dragOffset = { x: pos.x - L.x, y: pos.y - L.y };
                         return;
@@ -3300,7 +3359,7 @@
                     const on = l === L;
                     b.className = 'px-2 py-1 rounded-md text-xs border flex items-center gap-1.5 transition ' + (on ? 'border-amber-400 bg-slate-800 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500');
                     b.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${l.color}"></span>光源 ${i + 1}`;
-                    b.onclick = () => selectLight(i);
+                    b.onclick = () => { state.lastPick = 'light'; if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); } selectLight(i); };
                     chips.appendChild(b);
                 });
                 const add = document.createElement('button');
