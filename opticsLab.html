@@ -119,76 +119,24 @@
         <!-- Left Control Sidebar -->
         <aside class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-10 overflow-y-auto">
             
-            <!-- Light Source Panel -->
-            <div class="p-4 border-b border-slate-800">
-                <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-sun"></i> 1. 光源設定 (Light Source)
-                </h2>
-                
-                <!-- 光源清單：點一下切換要調整的光源 -->
-                <div id="lightChips" class="flex flex-wrap gap-1.5 mb-3"></div>
-
-                <!-- Light Type Tabs -->
-                <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 mb-3">
-                    <button onclick="setLightType('single')" id="btnLightSingle" class="py-1.5 text-xs rounded-md font-medium text-white bg-slate-800 shadow transition flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-bolt text-cyan-400"></i> 單一雷射
-                    </button>
-                    <button onclick="setLightType('parallel')" id="btnLightParallel" class="py-1.5 text-xs rounded-md font-medium text-slate-400 hover:text-white transition flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-bars text-emerald-400"></i> 平行光束
-                    </button>
-                    <button onclick="setLightType('point')" id="btnLightPoint" class="py-1.5 text-xs rounded-md font-medium text-slate-400 hover:text-white transition flex flex-col items-center gap-1">
-                        <i class="fa-solid fa-lightbulb text-amber-400"></i> 點光源
-                    </button>
-                </div>
-
-                <!-- Light Source Controls -->
-                <div class="space-y-3 bg-slate-950/50 p-3 rounded-lg border border-slate-800/80">
-                    <div>
-                        <div class="text-xs text-slate-300 mb-1.5">光的顏色</div>
-                        <div id="lightColors" class="flex flex-wrap gap-2"></div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
-                            <span>發射角度 (Angle)</span>
-                            <span class="text-cyan-400 font-mono" id="lightAngleVal">35°</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="range" id="lightAngleSlider" min="0" max="360" value="35" step="0.5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
-                            <input type="number" id="lightAngleInput" value="35" min="0" max="360" step="0.5" class="w-16 bg-slate-900 border border-slate-700 rounded text-center text-xs text-cyan-300 focus:outline-none focus:border-cyan-500 py-1" oninput="updateLightFromControls()">
-                        </div>
-                    </div>
-
-                    <!-- Light Position X/Y -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-[11px] text-slate-400 block mb-1">位置 X (px)</label>
-                            <input type="number" id="lightPosX" value="180" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" oninput="updateLightFromControls()">
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-slate-400 block mb-1">位置 Y (px)</label>
-                            <input type="number" id="lightPosY" value="180" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" oninput="updateLightFromControls()">
-                        </div>
-                    </div>
-
-                    <!-- Density Slider -->
-                    <div id="lightDensityContainer" class="pt-1 border-t border-slate-800/60 hidden">
-                        <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
-                            <span id="lightDensityLabel">光線數量</span>
-                            <span class="text-cyan-400 font-mono" id="lightDensityVal">5</span>
-                        </div>
-                        <input type="range" id="lightDensitySlider" min="2" max="15" value="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
-                    </div>
-                    <button id="btnDeleteLight" onclick="deleteLight()" class="hidden w-full py-1.5 text-xs rounded-md border border-rose-900/70 text-rose-300 hover:bg-rose-950/50 transition">
-                        <i class="fa-solid fa-trash-can"></i> 刪除這個光源
-                    </button>
-                </div>
-            </div>
-
             <!-- Optical Elements Panel -->
             <div class="p-4 border-b border-slate-800">
                 <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-vector-square"></i> 2. 新增光學元件 (Optical Elements)
+                    <i class="fa-solid fa-vector-square"></i> 1. 新增光源與元件 (Elements)
                 </h2>
+
+                <p class="text-[11px] text-slate-500 mb-1.5">光源</p>
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button onclick="addLight('single')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <i class="fa-solid fa-bolt text-lg text-cyan-400"></i> 雷射
+                    </button>
+                    <button onclick="addLight('parallel')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <i class="fa-solid fa-bars text-lg text-emerald-400"></i> 平行光
+                    </button>
+                    <button onclick="addLight('point')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-col items-center gap-1 text-slate-200 hover:border-cyan-500">
+                        <i class="fa-solid fa-lightbulb text-lg text-amber-400"></i> 點光源
+                    </button>
+                </div>
 
                 <p class="text-[11px] text-slate-500 mb-1.5">反射：鏡子</p>
                 <div class="grid grid-cols-3 gap-2 mb-3">
@@ -257,6 +205,68 @@
                     <button onclick="addMirror('eyeModel')" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs text-center transition flex flex-row justify-center items-center gap-1 text-slate-200 hover:border-cyan-500">
                         <svg viewBox="0 0 24 24" class="w-5 h-5 text-rose-300" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="13" cy="12" rx="9" ry="8"/><path d="M4 9a6 6 0 0 0 0 6" stroke="#7dd3fc"/><ellipse cx="6.5" cy="12" rx="1.6" ry="3.4" fill="currentColor" fill-opacity=".25"/><path d="M21 9.5a8 8 0 0 1 0 5" stroke="#f87171" stroke-width="2.2"/></svg> 眼球模型（剖面）
                     </button>
+                </div>
+
+                <!-- 選取光源時的屬性面板 -->
+                <div id="lightInspector" class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 hidden mb-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold text-slate-200 flex items-center gap-1" id="lightInspectorTitle">
+                            <i class="fa-solid fa-sun text-cyan-400"></i> 光源
+                        </span>
+                        <button onclick="deleteLight()" class="text-xs text-rose-400 hover:text-rose-300 hover:underline">
+                            <i class="fa-solid fa-trash"></i> 刪除光源
+                        </button>
+                    </div>
+                <!-- Light Type Tabs -->
+                <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 mb-3">
+                    <button onclick="setLightType('single')" id="btnLightSingle" class="py-1.5 text-xs rounded-md font-medium text-white bg-slate-800 shadow transition flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-bolt text-cyan-400"></i> 單一雷射
+                    </button>
+                    <button onclick="setLightType('parallel')" id="btnLightParallel" class="py-1.5 text-xs rounded-md font-medium text-slate-400 hover:text-white transition flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-bars text-emerald-400"></i> 平行光束
+                    </button>
+                    <button onclick="setLightType('point')" id="btnLightPoint" class="py-1.5 text-xs rounded-md font-medium text-slate-400 hover:text-white transition flex flex-col items-center gap-1">
+                        <i class="fa-solid fa-lightbulb text-amber-400"></i> 點光源
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <div class="text-xs text-slate-300 mb-1.5">光的顏色</div>
+                        <div id="lightColors" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
+                            <span>發射角度 (Angle)</span>
+                            <span class="text-cyan-400 font-mono" id="lightAngleVal">35°</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="lightAngleSlider" min="0" max="360" value="35" step="0.5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
+                            <input type="number" id="lightAngleInput" value="35" min="0" max="360" step="0.5" class="w-16 bg-slate-900 border border-slate-700 rounded text-center text-xs text-cyan-300 focus:outline-none focus:border-cyan-500 py-1" oninput="updateLightFromControls()">
+                        </div>
+                    </div>
+
+                    <!-- Light Position X/Y -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">位置 X (px)</label>
+                            <input type="number" id="lightPosX" value="180" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" oninput="updateLightFromControls()">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">位置 Y (px)</label>
+                            <input type="number" id="lightPosY" value="180" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500" oninput="updateLightFromControls()">
+                        </div>
+                    </div>
+
+                    <!-- Density Slider -->
+                    <div id="lightDensityContainer" class="pt-1 border-t border-slate-800/60 hidden">
+                        <div class="flex justify-between items-center text-xs text-slate-300 mb-1">
+                            <span id="lightDensityLabel">光線數量</span>
+                            <span class="text-cyan-400 font-mono" id="lightDensityVal">5</span>
+                        </div>
+                        <input type="range" id="lightDensitySlider" min="2" max="15" value="5" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateLightFromControls()">
+                    </div>
+                    </div>
                 </div>
 
                 <!-- Selected Element Inspector -->
@@ -382,13 +392,13 @@
             <!-- Visual Assist & Toggles -->
             <div class="p-4 border-b border-slate-800">
                 <h2 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-eye"></i> 3. 標籤與視覺輔助 (Visual Helpers)
+                    <i class="fa-solid fa-eye"></i> 2. 標籤與視覺輔助 (Visual Helpers)
                 </h2>
 
                 <div class="space-y-2 text-xs">
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
                         <span class="flex items-center gap-2 text-slate-300">
-                            <i class="fa-solid fa-bolt text-cyan-400"></i> 光源與光線 (Light)
+                            <i class="fa-solid fa-bolt text-cyan-400"></i> 顯示光線 (Rays)
                         </span>
                         <input type="checkbox" id="chkShowLight" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
@@ -493,6 +503,7 @@
                     <i class="fa-solid fa-circle-info text-cyan-400"></i> 操作技巧
                 </summary>
                 <div class="space-y-1 mt-2">
+                <p>• <b>加入光源</b>：光源和其他元件一樣，從「新增光源與元件」點一下加入；點選光源後，在同一區調整類型、顏色、角度與密度。</p>
                 <p>• <b>移動物件</b>：直接在畫面上拖曳光源、元件或量角器。</p>
                 <p>• <b>旋轉光源</b>：拖曳光源發射口前端的<b>藍色控制環</b>。</p>
                 <p>• <b>調整元件</b>：拖曳兩端手把可同時改變角度與長度；厚度、焦距、折射率在左側面板調整。</p>
@@ -576,8 +587,8 @@
             spacePressed: false,
 
             // 可以有好幾個光源；左邊面板顯示「目前選取」的那一個（state.light）
-            lights: [{ type: 'single', x: 180, y: 180, angle: 35, density: 5, color: '#00f0ff' }],   // type：'single'、'parallel'、'point'
-            activeLight: 0,
+            lights: [],          // 光源和其他元件一樣，從元件區加入；type：'single'、'parallel'、'point'
+            activeLight: -1,     // 最後選取的光源（左邊面板與角度標示跟著它）
             mirrors: [],
             protractor: {
                 x: 450,
@@ -769,55 +780,64 @@
         }
         // state.light 永遠指向目前選取的光源；直接指定 state.light = {...} 則把舞台改成只有這一個光源
         Object.defineProperty(state, 'light', {
-            get() { return state.lights[state.activeLight] || state.lights[0]; },
+            get() { return state.lights[state.activeLight] || null; },
             set(v) { state.lights = [{ density: 5, color: LIGHT_COLORS[0].c, ...v }]; state.activeLight = 0; }
         });
         const lightNo = L => state.lights.indexOf(L) + 1;
 
+        // 光源被選取：點了光源、而且沒有選取其他元件
+        const isLightSelected = () => state.selectedMirrorIndex < 0 && state.lastPick === 'light' && !!state.light;
+
         function selectLight(i) {
             state.activeLight = Math.max(0, Math.min(state.lights.length - 1, i));
+            state.lastPick = 'light';
             refreshLightPanel();
             draw();
         }
 
-        function addLight() {
-            state.lastPick = 'light';
-            const cur = state.light;
+        // 從元件區加入光源：放在目前畫面的中央偏左，選取它
+        function addLight(type = 'single') {
+            const c = screenToWorld(canvas.width / 2, canvas.height / 2);
             const used = state.lights.map(l => l.color);
             const color = (LIGHT_COLORS.find(k => !used.includes(k.c)) || LIGHT_COLORS[state.lights.length % LIGHT_COLORS.length]).c;
-            state.lights.push({ type: 'single', x: cur.x, y: cur.y + 100, angle: cur.angle, density: 5, color });
+            const k = state.lights.length;
+            state.lights.push({ type, x: Math.round(c.x - 200 + 20 * k), y: Math.round(c.y + 30 * k), angle: 0, density: 5, color });
             state.activeLight = state.lights.length - 1;
+            state.lastPick = 'light';
+            if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); }
             document.getElementById('chkShowLight').checked = true;
             refreshLightPanel();
             draw();
         }
 
         function deleteLight() {
-            if (state.lights.length < 2) return;
+            if (!state.light) return;
             state.lights.splice(state.activeLight, 1);
-            state.activeLight = Math.max(0, state.activeLight - 1);
+            state.activeLight = state.lights.length ? Math.min(state.activeLight, state.lights.length - 1) : -1;
+            state.lastPick = null;
             refreshLightPanel();
             draw();
         }
 
         function setLightColor(c) {
+            if (!state.light) return;
             state.light.color = c;
             refreshLightPanel();
             draw();
         }
 
         function clearCanvasObjects() {
-            state.lights = [state.light];   // 清空舞台時只留下目前選取的光源
-            state.activeLight = 0;
-            refreshLightPanel();
+            state.lights = [];
+            state.activeLight = -1;
+            state.lastPick = null;
             state.mirrors = [];
             state.selectedMirrorIndex = -1;
             updateInspectorUI();
+            refreshLightPanel();
             draw();
         }
 
         function resetAll() {
-            state.light = { type: 'single', x: 180, y: 180, angle: 35, density: 5 };
             state.protractor = { x: 450, y: 300, angle: 0, radius: 130, type: 'full' };
             state.drawings = [];
             state.currentDrawing = null;
@@ -834,7 +854,8 @@
             document.getElementById('chkShowLight').checked = true;
             document.getElementById('partialSlider').value = 40;
             updatePartialLevel();
-            loadPreset('flatLaw');
+            document.getElementById('presetSelect').value = '';
+            clearCanvasObjects();   // 重置：回到空白的實驗桌
         }
 
         function intersectRaySegment(ray, p1, p2) {
@@ -1423,6 +1444,19 @@
             }
 
             ctx.restore();
+
+            // 空白實驗桌的提示
+            if (!state.lights.length && !state.mirrors.length) {
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
+                ctx.font = '600 17px "Noto Sans TC", sans-serif';
+                ctx.fillText('從左邊加入光源和元件', canvas.width / 2, canvas.height / 2 - 12);
+                ctx.font = '14px "Noto Sans TC", sans-serif';
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+                ctx.fillText('或從上方「快速載入實驗預設」選一個開始', canvas.width / 2, canvas.height / 2 + 16);
+                ctx.restore();
+            }
         }
 
         function drawAnnotations() {
@@ -2994,13 +3028,13 @@
         }
 
         function drawLightSource(L) {
-            const many = state.lights.length > 1, active = L === state.light;
+            const many = state.lights.length > 1, active = L === state.light && isLightSelected();
             ctx.save();
             ctx.translate(L.x, L.y);
             const rad = degToRad(L.angle);
             ctx.rotate(rad);
 
-            if (many && active) {   // 目前選取、面板正在調整的光源
+            if (active) {   // 目前選取、面板正在調整的光源
                 ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([4, 3]);
@@ -3174,12 +3208,12 @@
             const selM = state.selectedMirrorIndex >= 0 ? state.mirrors[state.selectedMirrorIndex] : null;
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (selM) { e.preventDefault(); deleteSelectedMirror(); }
-                else if (state.lastPick === 'light' && state.lights.length > 1) { e.preventDefault(); deleteLight(); }
+                else if (isLightSelected()) { e.preventDefault(); deleteLight(); }
                 return;
             }
             if (mod && e.key.toLowerCase() === 'c') {
                 if (selM) clipboard = { kind: 'mirror', data: cloneElement(selM) };
-                else if (state.lastPick === 'light') clipboard = { kind: 'light', data: JSON.parse(JSON.stringify(state.light)) };
+                else if (isLightSelected()) clipboard = { kind: 'light', data: JSON.parse(JSON.stringify(state.light)) };
                 else return;
                 pasteCount = 0;
                 e.preventDefault();
@@ -3295,10 +3329,11 @@
 
             // 1–2. 光源：先找旋轉環，再找本體；點到哪個光源就選取它，左邊面板改顯示它的設定
             state.lastPick = null;   // 鍵盤刪除／複製的對象：點到光源時是 'light'，否則看選取的元件
+            refreshLightPanel();     // 點到別處時，光源面板收起來
             const pickLight = i => {
                 state.lastPick = 'light';
                 if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); }
-                if (i !== state.activeLight) selectLight(i); else draw();
+                if (i !== state.activeLight) selectLight(i); else { refreshLightPanel(); draw(); }
             };
             const lightOn = document.getElementById('chkShowLight').checked;
             if (lightOn) {
@@ -3500,6 +3535,7 @@
         window.addEventListener('pointercancel', endPointer);
 
         function setLightType(type) {
+            if (!state.light) return;
             state.light.type = type;
             refreshLightPanel();
             draw();
@@ -3507,24 +3543,12 @@
 
         // 左邊光源面板：光源清單、類型、顏色、刪除，以及角度、位置、密度
         function refreshLightPanel() {
+            const panel = document.getElementById('lightInspector');
+            const show = isLightSelected();
+            panel.classList.toggle('hidden', !show);
+            if (!show) return;
             const L = state.light, type = L.type;
-            const chips = document.getElementById('lightChips');
-            if (chips) {
-                chips.innerHTML = '';
-                state.lights.forEach((l, i) => {
-                    const b = document.createElement('button');
-                    const on = l === L;
-                    b.className = 'px-2 py-1 rounded-md text-xs border flex items-center gap-1.5 transition ' + (on ? 'border-amber-400 bg-slate-800 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500');
-                    b.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${l.color}"></span>光源 ${i + 1}`;
-                    b.onclick = () => { state.lastPick = 'light'; if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); } selectLight(i); };
-                    chips.appendChild(b);
-                });
-                const add = document.createElement('button');
-                add.className = 'px-2 py-1 rounded-md text-xs border border-dashed border-cyan-700 text-cyan-300 hover:bg-cyan-950/50 hover:border-cyan-400 transition';
-                add.innerHTML = '<i class="fa-solid fa-plus"></i> 新增光源';
-                add.onclick = addLight;
-                chips.appendChild(add);
-            }
+            document.getElementById('lightInspectorTitle').innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${L.color}"></span> 光源 ${lightNo(L)}`;
             const sw = document.getElementById('lightColors');
             if (sw) {
                 sw.innerHTML = '';
@@ -3539,8 +3563,6 @@
                     sw.appendChild(b);
                 });
             }
-            const del = document.getElementById('btnDeleteLight');
-            if (del) del.classList.toggle('hidden', state.lights.length < 2);
 
             ['Single', 'Parallel', 'Point'].forEach(t => {
                 const btn = document.getElementById(`btnLight${t}`);
@@ -3564,6 +3586,7 @@
         }
 
         function updateLightFromControls() {
+            if (!state.light) return;
             const angleVal = parseFloat(document.getElementById('lightAngleSlider').value);
             document.getElementById('lightAngleInput').value = angleVal;
             document.getElementById('lightAngleVal').innerText = `${angleVal}°`;
@@ -3578,6 +3601,7 @@
         }
 
         function syncControlsFromState() {
+            if (!state.light) return;
             document.getElementById('lightPosX').value = state.light.x;
             document.getElementById('lightPosY').value = state.light.y;
             document.getElementById('lightAngleSlider').value = state.light.angle;
@@ -3588,6 +3612,7 @@
         }
 
         function updateInspectorUI() {
+            if (state.selectedMirrorIndex >= 0 && document.getElementById('lightInspector')) document.getElementById('lightInspector').classList.add('hidden');
             const container = document.getElementById('selectedMirrorInspector');
             if (state.selectedMirrorIndex < 0 || state.selectedMirrorIndex >= state.mirrors.length) {
                 container.classList.add('hidden');
@@ -3779,7 +3804,6 @@
             setChk('chkPrincipal', false);
             // 成像預設：關掉雷射、打開網格與焦點；鏡心放在網格交點上，方便用格子量物距與像距
             const imaging = (opticType, opt, obj, scr) => {
-                setChk('chkShowLight', false);
                 setChk('chkShowGrid', true);
                 setChk('chkShowFocal', true);
                 addMirror(opticType, opt);
@@ -3931,13 +3955,13 @@
                 const st = setups[presetKey];
                 setChk('chkPrincipal', false);
                 if (presetKey === 'emParallel') light('parallel', 140, 320, 0, 3);
-                else setChk('chkShowLight', false);
                 addMirror('eyeModel', { x: EYE.x, y: EYE.y, angle: 180, cond: st.cond });
                 if (st.obj) addMirror('object', { x: EYE.x - st.obj[0], y: EYE.y, angle: 270, length: st.obj[1], style: st.obj[2] });
                 if (st.lens) addMirror(st.lens[0], { x: EYE.x - 50, y: EYE.y, angle: 90, length: 170, focalLength: st.lens[1] });   // 眼鏡在水晶體前 50px
                 protractorAt(900, 620);
             }
-            state.activeLight = 0;
+            state.activeLight = state.lights.length ? 0 : -1;
+            state.lastPick = null;
             state.selectedMirrorIndex = -1;
             syncAngleToggle();
             syncProtractorUI();
@@ -3950,7 +3974,7 @@
             syncAngleToggle();
             syncProtractorUI();
             resizeCanvas();
-            loadPreset('flatLaw');
+            clearCanvasObjects();   // 一開始是空白的實驗桌
         };
     </script>
 </body>
