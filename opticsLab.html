@@ -1174,6 +1174,7 @@
 
         function traceLight(L, opts, events) {
             const baseRays = makeOriginRays(!!opts.dense, L);
+            const srcLight = L;   // 迴圈裡另有一個區域變數 L（向量長度），這裡另外記住光源
             // 多條光線時只標示其中一條的角度：選偏離中央的那條，避免剛好沿著主軸、入射角為 0°；只標示目前選取的光源
             const trackedBase = opts.dense || L !== state.light ? -1 : (baseRays.length > 1 ? Math.floor((baseRays.length - 1) / 4) : 0);
             const multiRays = baseRays.length > 1;
@@ -1216,10 +1217,10 @@
                         for (const m of eyes) { const h = hitEye(cur, m); if (h && (!best || h.t < best.t)) best = h; }
                         for (const E of eyeModels) {   // 眼球模型：水晶體折射，虹膜與眼球後壁擋光（光落在視網膜上）
                             const h = hitIdeal(cur, E.lens);
-                            if (h && (!best || h.t < best.t)) best = { ...h, kind: 'ideal', cloudy: E.cloudy };
+                            if (h && (!best || h.t < best.t)) best = { ...h, kind: 'ideal', cloudy: E.cloudy, em: E.m.id };
                             for (const [a, b, isRetina] of E.segs) {
                                 const h2 = intersectRaySegment(cur, a, b);
-                                if (h2 && (!best || h2.t < best.t)) best = { t: h2.t, x: h2.hitX, y: h2.hitY, absorbed: true, kind: 'mirror', retina: isRetina ? E.m.id : null };
+                                if (h2 && (!best || h2.t < best.t)) best = { t: h2.t, x: h2.hitX, y: h2.hitY, absorbed: true, kind: 'mirror', retina: isRetina && E.inside(cur) ? E.m.id : null };
                             }
                         }
                         if (!best) {
@@ -1238,6 +1239,8 @@
                             continue;
                         }
                         if (best.kind === 'ideal') {
+                            // 記下射進眼球模型水晶體的光（自動調節用）
+                            if (best.em && opts.emHits && br.main) opts.emHits.push({ em: best.em, x: best.x, y: best.y, dx: dIn.x, dy: dIn.y, light: srcLight, lam: ray0.lam, white });
                             if (best.cloudy) {
                                 // 白內障：混濁的水晶體讓光變弱，並把一部分光散射到各個方向
                                 stack.push({ x: best.x, y: best.y, dx: best.dx, dy: best.dy, I: br.I * 0.45, main: br.main });
@@ -1305,7 +1308,11 @@
             drawAnnotations();
 
             // 3. 眼球模型先決定水晶體要調節多少（光線追跡會用到）；玻璃、透鏡、眼球本體畫在光線下面
-            state.mirrors.forEach(m => { if (m.type === 'eyeModel') updateEyeModel(m); });
+            // 自動調節但眼前沒有物體時，改看「射進瞳孔的光從哪裡來」：先追一次密集光線，記下射進水晶體的光
+            const ems = state.mirrors.filter(m => m.type === 'eyeModel');
+            let emHits = null;
+            if (ems.some(m => m.autoAcc !== false && !emTarget(m))) { emHits = []; traceRays({ dense: true, emHits }); }
+            ems.forEach(m => updateEyeModel(m, emHits));
             state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelBody(m, idx === state.selectedMirrorIndex); });
             state.mirrors.forEach((m, idx) => {
                 if (GLASS_TYPES.includes(m.type) || IDEAL_TYPES.includes(m.type)) drawOptic(m, idx === state.selectedMirrorIndex);
@@ -1344,7 +1351,23 @@
             // 6. 成像：特殊光線、像、屏幕、物體；再畫眼睛與進入眼睛的光
             drawImaging();
             drawEyes(paths, densePaths);
-            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, shown, idx === state.selectedMirrorIndex); });
+            // 眼球模型：畫面上的光線太稀、沒有光穿過瞳孔落到視網膜時，從密集光線裡挑幾條畫出來，才看得到水晶體怎麼聚焦
+            const emExtra = [];
+            state.mirrors.forEach(m => {
+                if (m.type !== 'eyeModel') return;
+                state.lights.forEach(L => {
+                    if (isBeamMode(L)) return;
+                    if (shown.filter(p => p.light === L && p.retina === m.id && p.main).length >= 2) return;
+                    const inEye = densePaths.filter(p => p.light === L && p.retina === m.id && p.main);
+                    const bases = [...new Set(inEye.map(p => p.base))].sort((a, b) => a - b);
+                    if (!bases.length) return;
+                    const k = Math.min(5, bases.length);
+                    const pick = new Set(Array.from({ length: k }, (_, i) => bases[Math.round(k === 1 ? (bases.length - 1) / 2 : i * (bases.length - 1) / (k - 1))]));
+                    emExtra.push(...inEye.filter(p => pick.has(p.base)));
+                });
+            });
+            emExtra.forEach(drawEyeRay);
+            state.mirrors.forEach((m, idx) => { if (m.type === 'eyeModel') drawEyeModelOverlay(m, shown.concat(emExtra), idx === state.selectedMirrorIndex); });
             refreshEyeModelInfo();
 
             // 7. 其他元件的手把
@@ -2380,7 +2403,32 @@
         }
 
         // 計算水晶體的調節狀態與視網膜上的像
-        function updateEyeModel(m) {
+        // 由射進瞳孔的光線求出光的「聚散度」：光源在水晶體前方 p 處時，光線斜率 s 與入射位置 t 的關係是 s = t/p − 常數，
+        // 所以 s 對 t 的迴歸斜率 b = 1/p（平行光 b = 0；被透鏡會聚的光 b < 0）。有好幾個光源時，看射進來最多光的那一個
+        function emLightVergence(m, hits) {
+            if (!hits) return null;
+            const F = emFrame(m), groups = new Map();
+            hits.forEach(h => {
+                if (h.em !== m.id || (h.white && h.lam !== 580)) return;
+                const dz = h.dx * F.inn.x + h.dy * F.inn.y;
+                if (dz <= 0.05) return;
+                const q = F.L(h);
+                if (!groups.has(h.light)) groups.set(h.light, []);
+                groups.get(h.light).push({ t: q.t, s: (h.dx * F.p.x + h.dy * F.p.y) / dz });
+            });
+            let best = null;
+            groups.forEach((g, L) => { if (!best || g.length > best.g.length) best = { g, L }; });
+            if (!best || best.g.length < 3) return null;
+            const g = best.g, n = g.length;
+            const mt = g.reduce((a, q) => a + q.t, 0) / n, ms = g.reduce((a, q) => a + q.s, 0) / n;
+            let sxx = 0, sxy = 0;
+            g.forEach(q => { sxx += (q.t - mt) ** 2; sxy += (q.t - mt) * (q.s - ms); });
+            if (sxx < 4) return null;   // 射進來的光太集中，判斷不出遠近
+            const b = sxy / sxx;
+            return { b, light: best.L, rays: n };
+        }
+
+        function updateEyeModel(m, hits) {
             const c = emCond(m), F = emFrame(m);
             const Pmin = 1 / c.f0, Pmax = 1 / c.f0 + c.A;
             const res = { cond: c, Pmin, Pmax };
@@ -2403,7 +2451,19 @@
                 if (blur >= 3) where = (q > 0 && q < c.dr) ? 'front' : 'behind';
                 Object.assign(res, { obj, corr, chainTip, chainBase, oTip, oBase, iTip, iBase, blur, where, pE, Pneed });
             } else {
-                P = m.autoAcc === false ? Pmin + c.A * (m.acc || 0) : Pmin;   // 沒有東西可看時，水晶體放鬆
+                // 沒有物體：看射進瞳孔的光（例如點光源）從多遠的地方來，自動調節到讓它聚焦在視網膜上
+                const v = emLightVergence(m, hits);
+                if (v) {
+                    const Pneed = 1 / c.dr + v.b;
+                    P = m.autoAcc === false ? Pmin + c.A * (m.acc || 0) : Math.min(Pmax, Math.max(Pmin, Pneed));
+                    const inv = P - v.b, q = Math.abs(inv) < 1e-9 ? 1e9 : 1 / inv;   // 光聚焦的位置（由水晶體量起）
+                    const blur = Math.abs(q) > 1e8 ? 2 * EM_PUPIL : 2 * EM_PUPIL * Math.abs(c.dr - q) / Math.abs(q);
+                    let where = 'on';
+                    if (blur >= 3) where = (q > 0 && q < c.dr) ? 'front' : 'behind';
+                    res.lightSrc = { ...v, Pneed, q, where };
+                } else {
+                    P = m.autoAcc === false ? Pmin + c.A * (m.acc || 0) : Pmin;   // 沒有東西可看時，水晶體放鬆
+                }
             }
             res.P = P;
             res.accFrac = (P - Pmin) / c.A;
@@ -2433,7 +2493,9 @@
                 if (p1.z < 0 && p2.z < 0) continue;   // 前方（角膜那一側）透光
                 segs.push([F.W(p1.z, p1.t), F.W(p2.z, p2.t), (p1.z + p2.z) / 2 > S.zc * 0.4]);
             }
-            return { lens, segs, cloudy: !!emCond(m).cloudy };
+            // 光線起點是否在眼球裡面：從外面打到眼球後壁的光只是被擋住，不算落在視網膜上
+            const inside = q => { const o = F.L(q); return ((o.z - S.zc) / S.a) ** 2 + (o.t / S.b) ** 2 < 1; };
+            return { lens, segs, cloudy: !!emCond(m).cloudy, inside };
         }
 
         // 光線與眼球後壁（橢圓）的交點，ζ 方向往後
@@ -2599,6 +2661,12 @@
                 else if (res.where === 'on') msgs.push(['清晰：像落在視網膜上', '#4ade80']);
                 else if (res.where === 'front') msgs.push(['模糊：像落在視網膜前方', '#fbbf24']);
                 else msgs.push(['模糊：像落在視網膜後方', '#fbbf24']);
+            } else if (res.lightSrc) {
+                const ls = res.lightSrc;
+                if (c.cloudy) msgs.push(['光變暗、變模糊：混濁的水晶體把光散射掉', '#e2e8f0']);
+                else if (ls.where === 'on') msgs.push(['光聚焦在視網膜上', '#4ade80']);
+                else if (ls.where === 'front') msgs.push(['光聚焦在視網膜前方（模糊）', '#fbbf24']);
+                else msgs.push(['光聚焦在視網膜後方（模糊）', '#fbbf24']);
             } else if (!paths.some(p => p.retina === m.id)) {
                 msgs.push(['眼前沒有物體（放一個箭頭或蠟燭在眼睛前方）', '#94a3b8']);
             }
@@ -2647,6 +2715,10 @@
                 html += `<br>物距 ${fmtLen(-r.chainBase[0].z)}`;
                 if (r.corr.length) html += `，經過 ${r.corr.length} 片矯正鏡片`;
                 html += `<br>像距 ${Math.abs(r.iBase.z) > 1e8 ? '無限遠' : fmtLen(r.iBase.z)}（視網膜在 ${fmtLen(c.dr)}）`;
+            } else if (r.lightSrc) {
+                const b = r.lightSrc.b;
+                html += `<br>看的是光源${state.lights.length > 1 ? ' ' + lightNo(r.lightSrc.light) : ''}：${Math.abs(b) < 1e-4 ? '平行光（像從很遠的地方來）' : b > 0 ? `發散光，光源距離約 ${fmtLen(1 / b)}` : '會聚光（被透鏡聚起來的光）'}`;
+                html += `<br>光聚焦在 ${Math.abs(r.lightSrc.q) > 1e8 ? '無限遠' : fmtLen(r.lightSrc.q)}（視網膜在 ${fmtLen(c.dr)}）`;
             }
             box.innerHTML = html;
             document.getElementById('emAccSlider').value = Math.round((m.autoAcc === false ? (m.acc || 0) : r.accFrac) * 100);
