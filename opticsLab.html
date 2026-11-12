@@ -444,7 +444,7 @@
                         <span class="flex items-center gap-2 text-slate-300">
                             <i class="fa-solid fa-border-all text-emerald-400"></i> 座標網格 (Grid)
                         </span>
-                        <input type="checkbox" id="chkShowGrid" onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                        <input type="checkbox" id="chkShowGrid" checked onchange="draw()" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
 
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
@@ -1039,7 +1039,7 @@
             document.getElementById('chkShowNormals').checked = false;
             document.getElementById('chkShowAngles').checked = true;
             document.getElementById('chkShowFocal').checked = false;
-            document.getElementById('chkShowGrid').checked = false;
+            document.getElementById('chkShowGrid').checked = true;
             document.getElementById('chkShowExtensions').checked = false;
             document.getElementById('chkShowLight').checked = true;
             document.getElementById('partialSlider').value = 40;
