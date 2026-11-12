@@ -335,6 +335,24 @@
                             <input type="range" id="mirrorRadiusSlider" min="30" max="600" value="160" step="1" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="updateSelectedMirrorFromControls('radiusSlider')">
                         </div>
 
+                        <!-- 面鏡：一條滑桿從凸面鏡經過平面鏡變成凹面鏡（滑桿是彎曲程度 1/f，焦距吸附到整數格） -->
+                        <div id="mirrorCurveControl" class="hidden">
+                            <div class="flex justify-between text-slate-400 mb-1">
+                                <span>面鏡彎曲程度</span>
+                                <span class="text-cyan-400 font-mono" id="mirrorCurveVal">平面鏡</span>
+                            </div>
+                            <input type="range" id="mirrorCurveSlider" min="-1000" max="1000" value="0" step="1" class="w-full accent-cyan-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" oninput="setMirrorCurve(this.value)">
+                            <div class="flex justify-between text-[11px] text-slate-500 mt-0.5">
+                                <span>← 凸面鏡</span><span>平面鏡</span><span>凹面鏡 →</span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-2">
+                                <span class="text-slate-400">焦距</span>
+                                <input type="number" id="mirrorFocalGrid" min="1" max="50" step="1" class="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-cyan-300 font-mono text-xs" onchange="setMirrorFocalGrid(this.value)">
+                                <span class="text-slate-400">格</span>
+                                <span id="mirrorCurveHint" class="text-[11px] text-slate-500"></span>
+                            </div>
+                        </div>
+
                         <div id="focalLengthControl" class="hidden">
                             <div class="flex justify-between text-slate-400 mb-1">
                                 <span id="mirrorFocalLabel">焦距 (Focal)</span>
@@ -903,6 +921,38 @@
             object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }, eye: { length: 44, angle: 180 }, eyeModel: { length: 200, angle: 180 }
         };
 
+        // ───────── 面鏡的彎曲程度：焦距 f = 40 格數，滑桿值 v = 40000 / f（凹面鏡為正、凸面鏡為負、0 是平面鏡） ─────────
+        const CURVE_FLAT_ZONE = 18;          // 滑桿中央這一小段都算平面鏡（焦距超過約 55 格）
+        const MIRROR_F_MAX_GRID = 50;
+        const mirrorMinGrid = m => Math.max(1, Math.ceil(m.length / (4 * 0.95) / GRID_PX));   // 鏡子越長，能彎的程度越有限（寬度不能超過 2R）
+        const curveValue = m => m.type === 'flat' ? 0 : (m.type === 'concave' ? 1 : -1) * 40000 / m.focalLength;
+
+        function setMirrorCurve(v) {
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || !MIRROR_TYPES.includes(m.type)) return;
+            v = parseFloat(v);
+            if (Math.abs(v) < CURVE_FLAT_ZONE) m.type = 'flat';
+            else {
+                let k = Math.round(40000 / Math.abs(v) / GRID_PX);
+                k = Math.max(mirrorMinGrid(m), Math.min(MIRROR_F_MAX_GRID, k));
+                m.type = v > 0 ? 'concave' : 'convex';
+                m.focalLength = k * GRID_PX;
+            }
+            updateInspectorUI();
+            draw();
+        }
+
+        function setMirrorFocalGrid(val) {
+            const m = state.mirrors[state.selectedMirrorIndex];
+            if (!m || !MIRROR_TYPES.includes(m.type)) return;
+            const k = Math.round(parseFloat(val));
+            if (!(k > 0)) { updateInspectorUI(); return; }
+            if (m.type === 'flat') m.type = 'concave';   // 平面鏡輸入焦距：變成凹面鏡（要凸面鏡就把滑桿往左拉）
+            m.focalLength = Math.max(mirrorMinGrid(m), Math.min(MIRROR_F_MAX_GRID, k)) * GRID_PX;
+            updateInspectorUI();
+            draw();
+        }
+
         function addMirror(type, customProps = {}) {
             const def = ELEMENT_DEFAULTS[type] || ELEMENT_DEFAULTS.flat;
             const mirror = {
@@ -912,7 +962,7 @@
                 y: customProps.y || canvas.height / 2 || 300,
                 length: customProps.length || def.length,
                 angle: customProps.angle !== undefined ? customProps.angle : def.angle,
-                focalLength: customProps.focalLength || 150,
+                focalLength: customProps.focalLength || (MIRROR_TYPES.includes(type) ? 160 : 150),   // 面鏡預設 4 格
                 thickness: customProps.thickness || def.thickness || 120,
                 n: customProps.n || (customProps.mat ? MATERIALS[customProps.mat].n : 1.5),
                 V: customProps.V || (customProps.mat ? MATERIALS[customProps.mat].V : DEFAULT_ABBE),
@@ -3926,7 +3976,17 @@
             $('mirrorThickSlider').value = m.thickness;
             $('mirrorThickVal').innerText = `${m.thickness}px`;
 
-            const hasFocal = isCurvedMirror(m) || LENS_TYPES.includes(m.type);
+            const isMirror = MIRROR_TYPES.includes(m.type);
+            $('mirrorCurveControl').classList.toggle('hidden', !isMirror);
+            if (isMirror) {
+                $('mirrorCurveSlider').value = curveValue(m);
+                const k = m.focalLength / GRID_PX;
+                $('mirrorCurveVal').innerText = m.type === 'flat' ? '平面鏡（焦距無限大）' : `${TYPE_NAMES[m.type]}・f = ${+k.toFixed(2)} 格`;
+                $('mirrorFocalGrid').value = m.type === 'flat' ? '' : +k.toFixed(2);
+                $('mirrorFocalGrid').placeholder = '∞';
+                $('mirrorCurveHint').innerText = m.type !== 'flat' && Math.round(k) <= mirrorMinGrid(m) ? `這麼長的鏡子最多彎到 ${mirrorMinGrid(m)} 格` : '';
+            }
+            const hasFocal = LENS_TYPES.includes(m.type);
             $('focalLengthControl').classList.toggle('hidden', !hasFocal);
             $('mirrorFocalLabel').innerText = isRealLens(m) ? '焦距（薄透鏡近似）' : '焦距 (Focal)';
             // 真實透鏡的焦距會隨折射率變得很長或很短，所以滑桿範圍放寬
@@ -4020,6 +4080,7 @@
             } else if (isCurvedMirror(m) || LENS_TYPES.includes(m.type)) {
                 m.focalLength = parseInt($('mirrorFocalSlider').value) || 150;
             }
+            if (isCurvedMirror(m) && m.focalLength < mirrorMinGrid(m) * GRID_PX) m.focalLength = mirrorMinGrid(m) * GRID_PX;
             const changed = (source === 'lenSlider' || source === 'lenInput') ? 'length'
                 : (source === 'focalSlider' || source === 'radiusSlider') ? 'radius' : 'other';
             state.lensLimitHit = enforceLensLimits(m, changed) ? changed : null;
