@@ -131,7 +131,7 @@
     <div class="flex-1 flex overflow-hidden relative">
         
         <!-- Left Control Sidebar -->
-        <aside class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-10 overflow-y-auto">
+        <aside id="leftPanel" class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-10 overflow-y-auto">
             
             <!-- Optical Elements Panel -->
             <div class="p-4 border-b border-slate-800">
@@ -497,7 +497,7 @@
                         <span class="flex items-center gap-2 text-slate-300">
                             <i class="fa-solid fa-magnet text-cyan-400"></i> 對齊網格 (Snap to Grid)
                         </span>
-                        <input type="checkbox" id="chkSnapToGrid" checked onchange="state.snapToGrid = this.checked; draw();" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
+                        <input type="checkbox" id="chkSnapToGrid" checked onchange="state.snapToGrid = this.checked; updateInspectorUI(); draw();" class="w-4 h-4 accent-cyan-500 rounded cursor-pointer">
                     </label>
 
                     <label class="flex items-center justify-between p-2 bg-slate-950/40 rounded border border-slate-800 cursor-pointer hover:bg-slate-800/40">
@@ -624,6 +624,15 @@
 
             <!-- Top Floating Button & Zoom Controls -->
             <div class="absolute top-4 right-4 flex items-center gap-2 z-10">
+                <!-- 下載圖片：出題、做學習單用 -->
+                <div class="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 backdrop-blur shadow-xl text-xs gap-1">
+                    <button onclick="exportPNG(false)" class="px-2 h-7 flex items-center gap-1.5 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white transition" title="把畫面（元件、光路、標註）存成 PNG 圖檔，深色背景">
+                        <i class="fa-solid fa-download text-cyan-400"></i> 下載 PNG
+                    </button>
+                    <button onclick="exportPNG(true)" class="px-2 h-7 flex items-center gap-1.5 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white transition" title="白底版本，適合印成學習單或貼進考卷">
+                        <i class="fa-solid fa-print text-slate-300"></i> 白底
+                    </button>
+                </div>
                 <!-- Zoom & Pan Controls -->
                 <div class="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 backdrop-blur shadow-xl text-xs space-x-1">
                     <button onclick="zoomOut()" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition" title="縮小 (Zoom Out)">
@@ -736,6 +745,16 @@
         function updateZoomUI() {
             const el = document.getElementById('zoomPercentText');
             if (el) el.innerText = `${Math.round(state.zoom * 100)}%`;
+        }
+
+        // 光源吸附：點光源對齊格子點（一格 40px）；就算沒開「對齊網格」，靠近格子點 8px 以內也會吸過去
+        function lightSnap(x, y, L) {
+            if (L && L.type === 'point') {
+                const gx = Math.round(x / 40) * 40, gy = Math.round(y / 40) * 40;
+                if (state.snapToGrid || Math.hypot(gx - x, gy - y) < 8 / state.zoom) return { x: gx, y: gy };
+                return { x, y };
+            }
+            return getSnapPos(x, y);
         }
 
         function getSnapPos(x, y) {
@@ -925,6 +944,63 @@
             ta.addEventListener('blur', () => commitTextInput());
         });
 
+        // 下載 PNG：以兩倍解析度重畫一次（不畫手把、選取框、提示字），深色版補上背景；白底版把明暗反過來、保留顏色
+        function exportPNG(whiteBg) {
+            commitTextInput();
+            const saved = { sel: state.selectedMirrorIndex, pick: state.lastPick, zoom: state.zoom, pan: { ...state.pan }, w: canvas.width, h: canvas.height, eraser: state.eraserPos };
+            const S = 2;
+            state.exporting = true;
+            state.selectedMirrorIndex = -1; state.lastPick = null; state.eraserPos = null;
+            canvas.width = saved.w * S; canvas.height = saved.h * S;
+            state.zoom = saved.zoom * S; state.pan = { x: saved.pan.x * S, y: saved.pan.y * S };
+            let out;
+            try {
+                draw();
+                out = document.createElement('canvas');
+                out.width = canvas.width; out.height = canvas.height;
+                const o = out.getContext('2d');
+                o.fillStyle = whiteBg ? '#000000' : '#020617'; o.fillRect(0, 0, out.width, out.height);   // 白底版先用純黑當紙，反轉後就是純白
+                o.drawImage(canvas, 0, 0);
+                if (whiteBg) invertLightness(o, out.width, out.height);
+            } finally {
+                state.exporting = false;
+                canvas.width = saved.w; canvas.height = saved.h;
+                state.zoom = saved.zoom; state.pan = saved.pan;
+                state.selectedMirrorIndex = saved.sel; state.lastPick = saved.pick; state.eraserPos = saved.eraser;
+                draw();
+            }
+            const d = new Date(), z = n => String(n).padStart(2, '0');
+            const name = `光學實驗台_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${whiteBg ? '_白底' : ''}.png`;
+            out.toBlob(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            }, 'image/png');
+        }
+
+        // 白底版：把深色背景當成白紙，畫面上的東西當成「墨水」
+        //   墨水量：灰白色看亮度（白字→黑字），彩色的光線亮度到一半就算塗滿；顏色保留色相、改成適合印在白紙上的深色
+        function invertLightness(c, w, h) {
+            const img = c.getImageData(0, 0, w, h), d = img.data;
+            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+            for (let i = 0; i < d.length; i += 4) {
+                const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255;
+                const mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = (mx + mn) / 2, C = mx - mn;
+                const S = C < 1e-6 ? 0 : C / (1 - Math.abs(2 * L - 1));
+                let H = 0;
+                if (C > 1e-6) { H = mx === r ? ((g - b) / C) % 6 : mx === g ? (b - r) / C + 2 : (r - g) / C + 4; H = (H < 0 ? H + 6 : H) / 6; }
+                const ink = Math.min(1, L / (1 - 0.5 * S));
+                const tL = 0.33 * S, q = tL < 0.5 ? tL * (1 + S) : tL + S - tL * S, pp = 2 * tL - q;
+                const tr = S ? hue2rgb(pp, q, H + 1 / 3) : tL, tg = S ? hue2rgb(pp, q, H) : tL, tb = S ? hue2rgb(pp, q, H - 1 / 3) : tL;
+                d[i] = Math.round((1 - ink + tr * ink) * 255);
+                d[i + 1] = Math.round((1 - ink + tg * ink) * 255);
+                d[i + 2] = Math.round((1 - ink + tb * ink) * 255);
+            }
+            c.putImageData(img, 0, 0);
+        }
+
         function resizeCanvas() {
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width;
@@ -948,6 +1024,11 @@
             idealConvex: { length: 260, angle: 90 }, idealConcave: { length: 260, angle: 90 },
             object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }, barrier: { length: 260, angle: 90 }, eye: { length: 44, angle: 180 }, eyeModel: { length: 200, angle: 180 }
         };
+
+        // 點左邊面板的任何按鈕（加入光源、元件、預設實驗…），標註工具就自動回到「選取」
+        document.getElementById('leftPanel').addEventListener('click', e => {
+            if (e.target.closest('button, select, input') && state.activeTool && state.activeTool !== 'select') setTool('select');
+        }, true);
 
         // ───────── 面鏡的彎曲程度：焦距 f = 40 格數，滑桿值 v = 40000 / f（凹面鏡為正、凸面鏡為負、0 是平面鏡） ─────────
         const CURVE_FLAT_ZONE = 18;          // 滑桿中央這一小段都算平面鏡（焦距超過約 55 格）
@@ -990,7 +1071,7 @@
                 y: customProps.y || canvas.height / 2 || 300,
                 length: customProps.length || def.length,
                 angle: customProps.angle !== undefined ? customProps.angle : def.angle,
-                focalLength: customProps.focalLength || (MIRROR_TYPES.includes(type) ? 160 : 150),   // 面鏡預設 4 格
+                focalLength: customProps.focalLength || (MIRROR_TYPES.includes(type) ? 160 : LENS_TYPES.includes(type) ? 200 : 150),   // 面鏡預設 4 格、透鏡預設 5 格
                 thickness: customProps.thickness || def.thickness || 120,
                 n: customProps.n || (customProps.mat ? MATERIALS[customProps.mat].n : 1.5),
                 V: customProps.V || (customProps.mat ? MATERIALS[customProps.mat].V : DEFAULT_ABBE),
@@ -1073,7 +1154,7 @@
             const used = state.lights.map(l => l.color);
             const color = (LIGHT_COLORS.find(k => !used.includes(k.c)) || LIGHT_COLORS[state.lights.length % LIGHT_COLORS.length]).c;
             const k = state.lights.length;
-            state.lights.push({ type, x: Math.round(c.x - 200 + 20 * k), y: Math.round(c.y + 30 * k), angle: 0, density: 5, color });
+            state.lights.push({ type, x: Math.round((c.x - 200) / 40) * 40 + 40 * k, y: Math.round(c.y / 40) * 40 + 40 * k, angle: 0, density: 5, color });   // 放在格子點上
             state.activeLight = state.lights.length - 1;
             state.lastPick = 'light';
             if (state.selectedMirrorIndex !== -1) { state.selectedMirrorIndex = -1; updateInspectorUI(); }
@@ -1765,7 +1846,7 @@
             ctx.restore();
 
             // 空白實驗桌的提示
-            if (!state.lights.length && !state.mirrors.length) {
+            if (!state.lights.length && !state.mirrors.length && !state.exporting) {
                 ctx.save();
                 ctx.textAlign = 'center';
                 ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
@@ -1954,7 +2035,7 @@
         function drawGrid() {
             ctx.save();
             ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 1 / state.zoom;
+            ctx.lineWidth = (state.exporting ? 2 : 1) / state.zoom;   // 下載的圖是兩倍大，格線加粗才印得出來
             const step = 40;
 
             const startX = Math.floor((-state.pan.x / state.zoom) / step) * step - step;
@@ -2156,6 +2237,7 @@
         }
 
         function drawElementHandles(m, isSelected) {
+            if (state.exporting) return;
             const [e1, e2] = mirrorEnds(m);
             if (m.type !== 'object') drawHandle(e1.x, e1.y, isSelected);   // 物體只有頂端一個手把；底端用來整個拖曳
             drawHandle(e2.x, e2.y, isSelected);
@@ -2815,6 +2897,8 @@
         }
 
         const objRaysLabel = n => n >= OBJ_RAYS_MAX ? '光束' : n === 0 ? '不畫' : n;
+        const snapFocal = f => state.snapToGrid ? Math.max(GRID_PX, Math.round(f / GRID_PX) * GRID_PX) : f;
+
         function setBarrier(key, v) {
             const m = state.mirrors[state.selectedMirrorIndex];
             if (!m || m.type !== 'barrier') return;
@@ -3354,6 +3438,7 @@
         }
 
         function drawHandle(x, y, isSelected) {
+            if (state.exporting) return;   // 下載的圖片不畫手把
             ctx.fillStyle = isSelected ? '#38bdf8' : '#64748b';
             ctx.strokeStyle = '#0f172a';
             ctx.lineWidth = 1.5;
@@ -3469,32 +3554,47 @@
             const rad = degToRad(L.angle);
             ctx.rotate(rad);
 
-            if (active) {   // 目前選取、面板正在調整的光源
+            if (active && !state.exporting) {   // 目前選取、面板正在調整的光源
                 ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([4, 3]);
                 ctx.beginPath(); ctx.roundRect(-27, -17, 44, 34, 8); ctx.stroke();
                 ctx.setLineDash([]);
             }
-            ctx.fillStyle = '#1e293b';
-            ctx.strokeStyle = many ? L.color : '#38bdf8';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.roundRect(-22, -12, 34, 24, 5);
-            ctx.fill(); ctx.stroke();
+            if (L.type === 'point') {
+                // 點光源：畫成一顆燈泡，圓心就是發光點，方便對準格子點
+                ctx.save();
+                ctx.shadowColor = L.color; ctx.shadowBlur = 14;
+                ctx.fillStyle = L.color;
+                ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+                ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
+            } else {
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = many ? L.color : '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-22, -12, 34, 24, 5);
+                ctx.fill(); ctx.stroke();
 
-            ctx.fillStyle = L.color;
-            ctx.beginPath();
-            ctx.arc(12, 0, 8, -Math.PI / 2, Math.PI / 2);
-            ctx.fill();
+                ctx.fillStyle = L.color;
+                ctx.beginPath();
+                ctx.arc(12, 0, 8, -Math.PI / 2, Math.PI / 2);
+                ctx.fill();
+            }
 
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([2, 2]);
-            ctx.beginPath();
-            ctx.arc(28, 0, 7, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.fillStyle = L.color; ctx.beginPath(); ctx.arc(28, 0, 3, 0, Math.PI * 2); ctx.fill();
+            if (!state.exporting) {   // 旋轉環（下載的圖片不畫）
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([2, 2]);
+                ctx.beginPath();
+                ctx.arc(28, 0, 7, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = L.color; ctx.beginPath(); ctx.arc(28, 0, 3, 0, Math.PI * 2); ctx.fill();
+            }
 
             ctx.restore();
             if (many) {   // 光源編號，字保持朝上
@@ -3502,7 +3602,8 @@
                 ctx.font = 'bold 12px sans-serif';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#f8fafc';
-                ctx.fillText(String(lightNo(L)), L.x - 5 * Math.cos(rad), L.y - 5 * Math.sin(rad));
+                const off = L.type === 'point' ? -16 : 5;   // 點光源的編號寫在燈泡後方
+                ctx.fillText(String(lightNo(L)), L.x - off * Math.cos(rad), L.y - off * Math.sin(rad));
                 ctx.restore();
             }
         }
@@ -3924,7 +4025,7 @@
             if (!state.draggedObject) return;
 
             if (state.draggedObject === 'light-body') {
-                const snapPos = getSnapPos(pos.x - state.dragOffset.x, pos.y - state.dragOffset.y);
+                const snapPos = lightSnap(pos.x - state.dragOffset.x, pos.y - state.dragOffset.y, state.light);
                 state.light.x = snapPos.x;
                 state.light.y = snapPos.y;
                 syncControlsFromState();
@@ -4131,7 +4232,8 @@
             $('mirrorFocalLabel').innerText = isRealLens(m) ? '焦距（薄透鏡近似）' : '焦距 (Focal)';
             // 真實透鏡的焦距會隨折射率變得很長或很短，所以滑桿範圍放寬
             const fs = $('mirrorFocalSlider');
-            if (isRealLens(m)) { fs.min = 20; fs.max = 1000; fs.step = 1; }
+            if (state.snapToGrid) { fs.min = 40; fs.max = isRealLens(m) ? 1000 : 800; fs.step = GRID_PX; }   // 對齊網格：焦距一次跳一格
+            else if (isRealLens(m)) { fs.min = 20; fs.max = 1000; fs.step = 1; }
             else if (IDEAL_TYPES.includes(m.type)) { fs.min = 40; fs.max = 800; fs.step = 5; }   // 理想透鏡也拿來當眼鏡，焦距可以比較長
             else { fs.min = 60; fs.max = 400; fs.step = 5; }
             fs.value = m.focalLength;
@@ -4222,10 +4324,10 @@
             }
             if (isRealLens(m)) {
                 // 真實透鏡：改焦距 → 用目前的折射率換算新的曲率；改曲率 → 直接設定
-                if (source === 'focalSlider') m.radius = 2 * (m.n - 1) * (parseFloat($('mirrorFocalSlider').value) || 150);
+                if (source === 'focalSlider') m.radius = 2 * (m.n - 1) * snapFocal(parseFloat($('mirrorFocalSlider').value) || 150);
                 if (source === 'radiusSlider') m.radius = parseFloat($('mirrorRadiusSlider').value) || 160;
             } else if (isCurvedMirror(m) || LENS_TYPES.includes(m.type)) {
-                m.focalLength = parseInt($('mirrorFocalSlider').value) || 150;
+                m.focalLength = snapFocal(parseInt($('mirrorFocalSlider').value) || 150);
             }
             if (isCurvedMirror(m) && m.focalLength < mirrorMinGrid(m) * GRID_PX) m.focalLength = mirrorMinGrid(m) * GRID_PX;
             const changed = (source === 'lenSlider' || source === 'lenInput') ? 'length'
