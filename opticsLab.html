@@ -626,11 +626,8 @@
             <div class="absolute top-4 right-4 flex items-center gap-2 z-10">
                 <!-- 下載圖片：出題、做學習單用 -->
                 <div class="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 backdrop-blur shadow-xl text-xs gap-1">
-                    <button onclick="exportPNG(false)" class="px-2 h-7 flex items-center gap-1.5 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white transition" title="把畫面（元件、光路、標註）存成 PNG 圖檔，深色背景">
+                    <button onclick="exportPNG(true)" class="px-2 h-7 flex items-center gap-1.5 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white transition" title="把畫面（元件、光路、標註）存成白底 PNG，適合印成學習單或貼進考卷">
                         <i class="fa-solid fa-download text-cyan-400"></i> 下載 PNG
-                    </button>
-                    <button onclick="exportPNG(true)" class="px-2 h-7 flex items-center gap-1.5 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white transition" title="白底版本，適合印成學習單或貼進考卷">
-                        <i class="fa-solid fa-print text-slate-300"></i> 白底
                     </button>
                 </div>
                 <!-- Zoom & Pan Controls -->
@@ -970,7 +967,7 @@
                 draw();
             }
             const d = new Date(), z = n => String(n).padStart(2, '0');
-            const name = `光學實驗台_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${whiteBg ? '_白底' : ''}.png`;
+            const name = `光學實驗台_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.png`;
             out.toBlob(blob => {
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
