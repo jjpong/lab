@@ -558,6 +558,7 @@
                 </summary>
                 <div class="space-y-1 mt-2">
                 <p>• <b>上課標註</b>：畫面左上角的工具列有畫筆、直線、虛線、箭頭、描點、文字和橡皮擦，可選顏色與粗細。描點會自動標 A、B、C，並吸附到光線轉折點、元件中心或像；文字工具點一下直接打字，點已有的文字可修改；橡皮擦點或拖過哪個標註就刪掉哪個。<kbd>Ctrl</kbd>+<kbd>Z</kbd> 復原，<kbd>Esc</kbd> 回到選取。</p>
+                <p>• <b>收起工作列</b>：點畫面左邊中間的小箭頭，可以把左邊工作列收起來，讓實驗桌變寬；再點一次展開。</p>
                 <p>• <b>加入光源</b>：光源和其他元件一樣，從「新增光源與元件」點一下加入；點選光源後，在同一區調整類型、顏色、角度與密度。</p>
                 <p>• <b>移動物件</b>：直接在畫面上拖曳光源、元件或量角器。</p>
                 <p>• <b>旋轉光源</b>：拖曳光源發射口前端的<b>藍色控制環</b>。</p>
@@ -579,6 +580,11 @@
 
         <!-- Center Canvas Area -->
         <main class="flex-1 relative bg-slate-950 flex items-center justify-center overflow-hidden">
+            <!-- 收合／展開左邊的工作列 -->
+            <button id="panelToggle" onclick="togglePanel()" title="收起工作列" aria-label="收起工作列"
+                class="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-5 h-14 flex items-center justify-center rounded-r-lg bg-slate-800/90 hover:bg-cyan-700 border border-l-0 border-slate-700 text-slate-300 hover:text-white shadow-lg transition">
+                <i id="panelToggleIcon" class="fa-solid fa-chevron-left text-[11px]"></i>
+            </button>
             
             <!-- Canvas -->
             <canvas id="opticsCanvas" class="w-full h-full block cursor-crosshair"></canvas>
@@ -1021,6 +1027,20 @@
             idealConvex: { length: 260, angle: 90 }, idealConcave: { length: 260, angle: 90 },
             object: { length: 120, angle: 270 }, screen: { length: 220, angle: 90 }, barrier: { length: 260, angle: 90 }, eye: { length: 44, angle: 180 }, eyeModel: { length: 200, angle: 180 }
         };
+
+        // 收合／展開左邊的工作列：畫布跟著變寬，記住上次的選擇
+        function togglePanel(force) {
+            const panel = document.getElementById('leftPanel');
+            const hide = typeof force === 'boolean' ? force : !panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', hide);
+            document.getElementById('panelToggleIcon').className = `fa-solid ${hide ? 'fa-chevron-right' : 'fa-chevron-left'} text-[11px]`;
+            const btn = document.getElementById('panelToggle');
+            btn.title = hide ? '展開工作列' : '收起工作列';
+            btn.setAttribute('aria-label', btn.title);
+            try { localStorage.setItem('opticsLab.panelHidden', hide ? '1' : '0'); } catch (e) {}
+            commitTextInput();
+            requestAnimationFrame(resizeCanvas);
+        }
 
         // 點左邊面板的任何按鈕（加入光源、元件、預設實驗…），標註工具就自動回到「選取」
         document.getElementById('leftPanel').addEventListener('click', e => {
@@ -4567,6 +4587,7 @@
             syncProtractorUI();
             resizeCanvas();
             clearCanvasObjects();   // 一開始是空白的實驗桌
+            try { if (localStorage.getItem('opticsLab.panelHidden') === '1') togglePanel(true); } catch (e) {}   // 上次收起工作列
         };
     </script>
 </body>
